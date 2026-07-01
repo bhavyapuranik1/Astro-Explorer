@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Astronomy Project</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="lib/celestial.css">
+
+  <link
+  rel="stylesheet"
+  href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+/>
+
+<script
+  defer
+  src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js">
+</script>
+
+<script
+  defer
+  src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js">
+</script>
+
+</head>
+
+
+<body>
+
+<!-- 🔝 NAVBAR -->
+<div id="navbar">
+  <div id="tabs">
+    <button onclick="showTab('sky', this)">🌌 Sky</button>
+    <button onclick="showTab('asteroids', this)">☄️ Asteroids</button>
+    <button onclick="showTab('nasa', this)">📸 NASA</button>
+  </div>
+</div>
+
+<!-- 🌌 SKY TAB (NEW) -->
+<div id="sky" class="tab-content">
+
+  <!-- 🔍 SEARCH BAR -->
+  <div style="text-align:center; margin:10px;">
+    <input type="text" id="searchBox" placeholder="Search object (M31, Orion...)">
+    <button onclick="searchObject()">Search</button>
+  </div>
+
+  <div id="time-controls">
+
+    <input
+      type="datetime-local"
+      id="sky-datetime"
+    >
+
+    <button onclick="applySkyTime()">
+      Apply Time
+    </button>
+
+  </div>
+
+  <div id="skyContainer"></div>
+
+  <div id="object-info-panel">
+<h2 id="info-name">
+  No Object Selected
+</h2>
+
+<p id="info-type"></p>
+
+<p id="info-ra"></p>
+
+<p id="info-dec"></p>
+
+<p id="info-alt"></p>
+
+<p id="info-az"></p>
+
+<p id="info-mag"></p>
+
+<p id="info-morph"></p>
+
+<p id="info-constellation"></p>
+
+<p id="info-size"></p>
+
+<p id="info-temp"></p>
+
+<p id="info-rise"></p>
+
+<p id="info-set"></p>
+
+<p id="info-ai"></p>
+
+  </div>
+
+</div> <!-- 🔥 SKY TAB CLOSED PROPERLY -->
+
+<!-- ☄️ ASTEROIDS -->
+<div id="asteroids" class="tab-content" style="display:none;">
+  <h2>☄️ Near Earth Objects</h2>
+
+  <div class="controls-bar">
+
+    <div class="left-controls">
+      <button id="hazard-filter">
+        ⚠️ Show Hazardous Only
+      </button>
+
+      <button id="newest-filter">
+        🌍 Recently Approaching Asteroids
+      </button>
+    </div>
+
+    <input
+      type="text"
+      id="search-input"
+      placeholder="🔍 Search asteroid by name..."
+    >
+
+  </div>
+
+  <div id="asteroid-container"></div>
+</div>
+
+<!-- NASA -->
+<div id="nasa" class="tab-content" style="display:none;">
+
+  <h2>🚀 NASA Picture of the Day</h2>
+
+  <div class="nasa-controls">
+
+    <button id="prev-btn">⬅️</button>
+
+    <input type="date" id="date-picker">
+
+    <button id="next-btn">➡️</button>
+
+    <button id="load-btn">Load</button>
+
+    <button id="download-btn">
+      ⬇️ Download
+    </button>
+
+  </div>
+
+  <div class="nasa-container">
+
+    <div class="nasa-left">
+
+      <img id="apod-img">
+
+      <div id="video-container"></div>
+
+      <div class="image-box">
+        <p id="apod-title"></p>
+      </div>
+
+    </div>
+
+    <div class="nasa-content">
+      <p id="apod-desc"></p>
+    </div>
+
+  </div>
+</div>
+
+<!-- 🔥 ASTEROID MODAL -->
+<div id="asteroid-modal">
+
+  <span id="close-modal">✖</span>
+
+  <div id="modal-body"></div>
+
+</div>
+
+<div id="ai-panel">
+
+  <div id="ai-header">
+
+<h2>🌌 Astro AI</h2>
+
+<div id="profile-container">
+
+<img id="profile-pic">
+
+<div id="profile-menu">
+
+<div id="profile-name"></div>
+
+<div id="profile-email"></div>
+
+<hr>
+
+<button id="google-login">
+Sign in with Google
+</button>
+
+<button
+id="logout-menu-btn"
+style="display:none">
+Logout
+</button>
+
+</div>
+
+</div>
+
+<button id="close-ai">
+✖
+</button>
+
+</div>
+
+  <div id="ai-messages"></div>
+
+  <div id="attachment-preview"></div>
+
+  <div id="ai-input-area">
+  
+
+  <button id="attach-btn">
+  +
+</button>
+
+
+<div id="attach-menu" class="attach-menu">
+
+    <button id="image-option">
+        🖼 Image
+    </button>
+
+    <button id="file-option">
+        📄 File
+    </button>
+
+    <button id="observation-option">
+        🔭 Observation Log
+    </button>
+
+    <button id="research-option">
+🧠 Research Mode 
+</button>
+
+</div>
+
+<input
+  type="file"
+  id="file-input"
+  hidden
+>
+
+
+
+<textarea
+  id="ai-input"
+  placeholder="Ask about space..."
+  rows="1"
+></textarea>
+
+<button id="voice-btn">
+  🎤
+</button>
+
+<button id="ai-send">
+  Send
+</button>
+
+  <input
+  type="file"
+  id="astro-image"
+  accept=".txt,.js,.html,.css,.json,.md,.py,.java,.cpp,.c,.pdf,image/*"
+  multiple
+  hidden
+>
+
+</div>
+
+</div>
+
+<!-- 🔥 OUTSIDE PANEL -->
+<button id="open-ai">
+  🌌 Open AI
+</button>
+
+<script src="https://cdn.jsdelivr.net/npm/astronomy-engine/astronomy.browser.min.js"></script>
+
+<script src="lib/d3.v3.min.js"></script>
+
+<script src="lib/celestial.min.js"></script>
+
+<script src="script.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script type="module">
+
+import {
+
+  initializeApp
+
+} from
+
+"https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+
+
+import {
+
+  getAuth,
+
+  GoogleAuthProvider,
+
+  signInWithPopup,
+
+  signOut,
+
+  onAuthStateChanged
+
+} from
+
+"https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+
+import {
+
+  getFirestore,
+
+  doc,
+
+  setDoc,
+
+  getDoc,
+
+  collection,
+
+  addDoc,
+
+  getDocs
+
+} from
+
+"https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+
+const firebaseConfig = {
+
+  apiKey:
+    "AIzaSyAl2xGfbtQGHc6vlERCKZQFlMCA7dpR0qo",
+
+  authDomain:
+    "astronomy-project-f127f.firebaseapp.com",
+
+  projectId:
+    "astronomy-project-f127f",
+
+  storageBucket:
+    "astronomy-project-f127f.firebasestorage.app",
+
+  messagingSenderId:
+    "1011783382443",
+
+  appId:
+    "1:1011783382443:web:27d72789abfe1c924e8eee",
+
+  measurementId:
+    "G-DT6H2TC2VP"
+};
+
+
+const app =
+  initializeApp(
+    firebaseConfig
+  );
+
+  
+
+const auth =
+  getAuth(app);
+
+const provider =
+  new GoogleAuthProvider();
+
+const db =
+  getFirestore(app);
+
+  let currentUser =
+  null;
+
+
+window.auth =
+  auth;
+
+window.provider =
+  provider;
+
+window.db =
+  db;
+
+window.signInWithPopup =
+  signInWithPopup;
+
+window.signOut =
+  signOut;
+
+window.onAuthStateChanged =
+  onAuthStateChanged;
+
+window.setDoc =
+  setDoc;
+
+window.getDoc =
+  getDoc;
+
+window.doc =
+  doc;
+
+window.collection =
+  collection;
+
+window.addDoc =
+  addDoc;
+
+window.getDocs =
+  getDocs;
+
+  window.currentUser = null;
+
+  
+
+window.saveChatMessage =
+async function(sender, text) {
+
+  if (!window.currentUser)
+    return;
+
+  try {
+
+    const chatRef = doc(
+      db,
+      "users",
+      window.currentUser.uid
+    );
+
+    const snap =
+      await getDoc(chatRef);
+
+    let oldChats = [];
+
+    if (snap.exists()) {
+
+      oldChats =
+        snap.data().chatHistory || [];
+    }
+
+    oldChats.push({
+
+      sender,
+      text,
+
+      time:
+        new Date().toISOString()
+    });
+
+    await setDoc(chatRef, {
+
+      chatHistory: oldChats
+
+    }, { merge: true });
+
+  }
+
+  catch(err) {
+
+    console.log(err);
+  }
+};
+
+
+window.loadChatHistory =
+async function() {
+
+  if (!window.currentUser)
+    return;
+
+  try {
+
+    const chatRef = doc(
+      db,
+      "users",
+      window.currentUser.uid
+    );
+
+    const snap =
+      await getDoc(chatRef);
+
+    if (!snap.exists())
+      return;
+
+    const chats =
+      snap.data().chatHistory || [];
+
+    chats.forEach(chat => {
+
+      addAIMessage(
+        chat.text,
+        chat.sender
+      );
+    });
+
+  }
+
+  catch(err) {
+
+    console.log(err);
+  }
+};
+
+  
+
+  
+
+</script>
+<div id="toast"></div>
+</body>
+</html>

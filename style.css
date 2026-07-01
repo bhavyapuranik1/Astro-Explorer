@@ -1,0 +1,1255 @@
+body {
+  margin: 0;
+  background: black;
+  overflow-y: auto;
+  color: white;
+  font-family: Arial;
+}
+
+/* NAVBAR */
+#navbar {
+  position: fixed;
+  top: 0;
+  width: 100%;
+  height: 50px;
+  z-index: 9999;
+  background: black;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* TABS */
+#tabs {
+  display: flex;
+  gap: 10px;
+}
+
+#tabs button {
+  padding: 6px 14px;
+  border: none;
+  border-radius: 20px;
+  background: #222;
+  color: white;
+  cursor: pointer;
+}
+
+#tabs button.active {
+  background: cyan;
+  color: black;
+}
+
+/* CONTENT */
+.tab-content {
+
+  position: relative;
+
+  top: 50px;
+
+  width: 100%;
+
+  height: calc(100vh - 50px);
+
+  overflow: hidden;
+}
+
+#skyContainer {
+
+  width: 100%;
+
+  height: 100%;
+
+  position: relative;
+
+  overflow: hidden;
+}
+
+#nasa {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  text-align: center;
+  padding-top: 20px;
+}
+
+#sky {
+  display: block; /* default tab visible */
+  height: calc(100vh - 50px);
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: black;
+}
+
+/* NASA LAYOUT */
+.nasa-container {
+  padding: 20px 40px;
+}
+
+/* Image */
+#apod-img {
+  width: 100%;
+  border-radius: 15px;
+  box-shadow: 0 0 15px cyan;
+}
+
+/* RIGHT SIDE */
+.nasa-content {
+  text-align: left;
+}
+
+#apod-title {
+  font-size: 16px;
+  margin: 0;
+}
+
+/* DESCRIPTION */
+#apod-desc {
+  font-size: 20px;
+  line-height: 1.8;
+  text-align: justify;
+}
+
+/* MOBILE RESPONSIVE */
+@media (max-width: 768px) {
+  .nasa-container {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  #apod-img {
+    width: 90%;
+  }
+
+  .nasa-content {
+    width: 100%;
+    text-align: center;
+  }
+}
+
+/* CAPTION BOX (🔥 main part) */
+.image-box {
+  margin-top: 10px;
+  padding: 10px;
+  background: #111;
+  border: 1px solid #333;
+  border-radius: 10px;
+  font-size: 14px;
+}
+
+/* LEFT SIDE */
+.nasa-left {
+  float: left;
+  width: 40%;
+  margin-right: 20px;
+}
+
+#nasa::after {
+  content: "";
+  display: block;
+  clear: both;
+}
+
+.nasa-controls {
+  margin: 15px 0;
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.nasa-controls input,
+.nasa-controls button {
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: none;
+  font-size: 14px;
+}
+
+.nasa-controls button {
+  background: cyan;
+  color: black;
+  cursor: pointer;
+}
+
+.fade {
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+.show {
+  opacity: 1;
+}
+
+#asteroid-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 15px;
+  margin-top: 20px;
+}
+
+.asteroid-card {
+  background: #111;
+  border-radius: 15px;
+  padding: 15px;
+  border: 1px solid #00f7ff33;
+  box-shadow: 0 0 10px #00f7ff22;
+  transition: transform 0.2s;
+}
+
+.asteroid-card:hover {
+  transform: scale(1.05);
+}
+
+.asteroid-name {
+  font-weight: bold;
+  color: #00f7ff;
+}
+
+.asteroid-speed {
+  color: #ccc;
+}
+
+.hazard {
+  color: red;
+  font-weight: bold;
+}
+
+.asteroid-card.hazard-card {
+  border: 2px solid red;
+  box-shadow: 0 0 15px red;
+}
+
+.closest-card {
+  border: 2px solid cyan;
+  box-shadow: 0 0 20px cyan;
+  transform: scale(1.05);
+}
+
+.modal {
+  display: none;
+  position: fixed;
+  z-index: 999;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.7);
+}
+
+.modal-content {
+  background: #111;
+  color: white;
+  margin: 10% auto;
+  padding: 20px;
+  border-radius: 12px;
+  width: 320px;
+  box-shadow: 0 0 20px cyan;
+  position: relative;
+  animation: fadeIn 0.3s ease;
+}
+
+#close-modal {
+  position: absolute;
+  top: 10px;
+  right: 15px;
+  cursor: pointer;
+  font-size: 22px;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.9); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+#search-input {
+  margin-top: 10px;
+  padding: 8px 12px;
+  width: 250px;
+  border-radius: 20px;
+  border: none;
+  outline: none;
+}
+
+h2 {
+  text-align: center;
+  margin-bottom: 15px;
+}
+
+.controls-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 10px 20px;
+}
+
+.left-controls {
+  display: flex;
+  gap: 10px;
+}
+
+.asteroid-card {
+    position: relative;
+}
+
+.asteroid-badge {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    padding: 4px 8px;
+    font-size: 12px;
+    border-radius: 6px;
+    font-weight: bold;
+    color: white;
+}
+
+/* Hazardous */
+.asteroid-badge.hazard {
+    background: red;
+}
+
+/* New */
+.asteroid-badge.new {
+    background: green;
+}
+
+.danger-high {
+  border: 2px solid red;
+}
+
+.danger-medium {
+  border: 2px solid orange;
+}
+
+.danger-low {
+  border: 2px solid green;
+}
+
+.asteroid-card:nth-child(1) {
+  border: 2px solid gold;
+}
+
+.most-dangerous {
+  border: 2px solid gold;
+  box-shadow: 0 0 20px gold;
+  transform: scale(1.05);
+}
+
+
+
+.marker {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border: 2px solid red;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 999;
+  pointer-events: none;
+  box-shadow: 0 0 15px red;
+
+  transform: translate(-50%, -50%); /* 🎯 center fix */
+}
+
+#time-controls {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin: 10px;
+}
+
+#sky-datetime,
+#time-controls button {
+
+  padding: 8px 12px;
+
+  border: none;
+  border-radius: 8px;
+
+  background: #111;
+  color: white;
+
+}
+
+
+#object-info-panel {
+
+  position: absolute;
+
+  top: 10px;
+
+  left: 10px;
+
+  width: 320px;
+
+  max-height: calc(100vh - 140px);
+
+  overflow-y: auto;
+
+  padding: 18px;
+
+  background: rgba(0,0,0,0.82);
+
+  backdrop-filter: blur(12px);
+
+  color: white;
+
+  border-radius: 18px;
+
+  z-index: 99999;
+
+  box-sizing: border-box;
+
+  line-height: 1.6;
+
+  box-shadow:
+    0 0 25px rgba(0,255,255,0.25);
+
+  border:
+    1px solid rgba(0,255,255,0.25);
+}
+
+#object-info-panel h2 {
+
+  margin-top: 0;
+
+  color: cyan;
+
+  font-size: 22px;
+
+}
+
+#info-description {
+
+  margin-top: 12px;
+
+  line-height: 1.5;
+
+  color: #ccc;
+
+}
+
+#ai-panel{
+
+position:fixed;
+
+top:35px;
+
+right:20px;
+
+width:620px;
+
+height:calc(100vh - 50px);
+
+background:#000;
+
+border:2px solid cyan;
+
+border-radius:24px;
+
+box-shadow:0 0 25px rgba(0,255,255,.25);
+
+overflow:hidden;
+
+display:flex;
+
+width: 35%;
+
+flex-direction:column;
+
+z-index:99999;
+
+box-sizing:border-box;
+
+}
+#ai-panel h2 {
+
+  color: cyan;
+
+  text-align: center;
+
+  margin: 0;
+
+  padding: 8px 12px;
+
+  font-size: 20px;
+
+  border-bottom:
+    1px solid cyan;
+
+  background:
+    rgba(0,255,255,0.08);
+}
+
+#ai-messages{
+
+flex:1;
+
+overflow-y:auto;
+
+padding:18px;
+
+box-sizing:border-box;
+
+}
+#ai-send {
+
+  width: 70px;
+
+  height: 38px;
+
+  border: none;
+
+  border-radius: 10px;
+
+  background: cyan;
+
+  color: black;
+
+  font-size: 14px;
+
+  font-weight: bold;
+
+  cursor: pointer;
+
+  flex-shrink: 0;
+}
+
+#ai-header {
+
+  display: flex;
+
+  justify-content: space-between;
+
+  align-items: center;
+
+  padding: 10px 15px;
+
+  border-bottom:
+    1px solid cyan;
+}
+
+#close-ai {
+
+  background: transparent;
+
+  border: none;
+
+  color: cyan;
+
+  font-size: 20px;
+
+  cursor: pointer;
+}
+
+#open-ai {
+
+  position: fixed;
+
+  right: 20px;
+  bottom: 20px;
+
+  z-index: 99999;
+
+  background: cyan;
+
+  color: black;
+
+  border: none;
+
+  padding: 12px 18px;
+
+  border-radius: 12px;
+
+  font-weight: bold;
+
+  cursor: pointer;
+
+  display: none;
+}
+
+#ai-input{
+
+resize:none;
+overflow-y:auto;
+
+min-height:52px;
+max-height:180px;
+
+width:100%;
+
+padding:14px;
+
+border-radius:16px;
+
+box-sizing:border-box;
+
+font-family:inherit;
+font-size:16px;
+line-height:1.5;
+
+white-space:pre-wrap;
+word-break:break-word;
+
+}
+#ai-input-area{
+
+display:flex;
+
+flex-shrink:0;
+
+align-items:flex-end;
+
+gap:10px;
+
+padding:15px;
+
+box-sizing: border-box;
+
+border-top:1px solid rgba(0,255,255,0.15);
+
+background: #000;
+
+}
+#object-info-panel::-webkit-scrollbar {
+
+  width: 8px;
+}
+
+#object-info-panel::-webkit-scrollbar-thumb {
+
+  background: cyan;
+
+  border-radius: 10px;
+}
+
+#object-info-panel p {
+
+  margin: 10px 0;
+
+  font-size: 16px;
+}
+
+.typing-text::after {
+
+  content: "▌";
+
+  animation:
+    blink 0.8s infinite;
+
+  margin-left: 2px;
+}
+
+@keyframes blink {
+
+  0% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0;
+  }
+
+  100% {
+    opacity: 1;
+  }
+}
+
+pre {
+
+  background: rgba(
+    255,
+    255,
+    255,
+    0.05
+  );
+
+  padding: 16px;
+
+  border-radius: 16px;
+
+  overflow-x: auto;
+
+  margin-top: 12px;
+
+  margin-bottom: 12px;
+
+  position: relative;
+
+  white-space: pre-wrap;
+
+  word-break: break-word;
+
+  border: none;
+
+  box-shadow: none;
+}
+
+code {
+
+  font-family:
+    Consolas,
+    monospace;
+
+  color: #ffffff;
+
+  font-size: 14px;
+}
+
+/* 📄 Code block copy button */
+
+.code-copy-btn{
+
+position:absolute;
+
+top:10px;
+
+right:10px;
+
+border:none;
+
+border-radius:10px;
+
+padding:6px 12px;
+
+cursor:pointer;
+
+background:#222;
+
+color:white;
+
+font-size:12px;
+
+}
+
+/* 💬 AI message copy button */
+
+.message-copy-btn{
+
+position:static;
+
+border:none;
+
+background:transparent;
+
+cursor:pointer;
+
+font-size:14px;
+
+color:#9ca3af;
+
+padding:4px;
+
+transition:.2s;
+
+}
+
+.message-copy-btn:hover{
+
+color:white;
+
+background:#1f2937;
+
+border-radius:50%;
+
+}
+
+#auth-area {
+
+  display: flex;
+
+  gap: 15px;
+
+  justify-content: center;
+
+  align-items: center;
+
+  padding: 10px;
+}
+#login-btn,
+#logout-btn {
+
+  border: none;
+
+  padding: 8px 14px;
+
+  border-radius: 10px;
+
+  cursor: pointer;
+
+  background: cyan;
+
+  color: black;
+
+  font-weight: bold;
+}
+
+#user-info {
+
+  color: white;
+
+  font-size: 14px;
+}
+
+#chat-sidebar {
+
+  position: absolute;
+
+  top: 60px;
+
+  left: 0;
+
+  width: 180px;
+
+  height: calc(100% - 60px);
+
+  background: #020617;
+
+  border-right: 1px solid cyan;
+
+  overflow-y: auto;
+
+  padding: 10px;
+
+  z-index: 2;
+}
+
+#conversation-list {
+
+  margin-top: 10px;
+}
+
+.conversation-item {
+
+  padding: 10px;
+
+  margin-bottom: 8px;
+
+  background: #111827;
+
+  color: white;
+
+  border-radius: 10px;
+
+  cursor: pointer;
+
+  border: 1px solid #374151;
+}
+
+.conversation-item:hover {
+
+  background: #1e293b;
+}
+#attach-btn,
+#voice-btn,
+#ai-send {
+
+  border: none;
+
+  border-radius: 14px;
+
+  padding: 12px 18px;
+
+  background: cyan;
+
+  color: black;
+
+  font-size: 18px;
+
+  cursor: pointer;
+
+  font-weight: bold;
+}
+
+#ai-input {
+
+  flex: 1;
+
+  padding: 14px;
+
+  border-radius: 16px;
+
+  border: 1px solid #374151;
+
+  background: #111827;
+
+  color: white;
+
+  font-size: 16px;
+}
+
+.attach-menu{
+
+position:absolute;
+
+bottom:65px;
+
+left:10px;
+
+display:none;
+
+flex-direction:column;
+
+background:#1f2937;
+
+border-radius:15px;
+
+padding:8px;
+
+box-shadow:0 0 20px rgba(0,0,0,.4);
+
+z-index:9999;
+
+}
+
+.attach-menu button{
+
+background:none;
+
+border:none;
+
+color:white;
+
+padding:12px;
+
+cursor:pointer;
+
+text-align:left;
+
+font-size:15px;
+
+border-radius:10px;
+
+}
+
+.attach-menu button:hover{
+
+background:#374151;
+
+}
+
+.attach-menu.show{
+
+display:flex;
+
+}
+
+#attachment-preview{
+
+display:flex;
+
+flex-wrap:wrap;
+
+gap:10px;
+
+padding:0 15px 10px;
+
+max-height:110px;
+
+overflow-y:auto;
+
+flex-shrink:0;
+
+}
+
+.attachment-chip{
+
+display:flex;
+
+align-items:center;
+
+gap:8px;
+
+background:#111827;
+
+color:white;
+
+padding:8px 12px;
+
+border-radius:12px;
+
+font-size:14px;
+
+}
+
+.remove-attachment{
+
+cursor:pointer;
+
+font-weight:bold;
+
+color:#ff6b6b;
+
+margin-left:5px;
+
+}
+
+
+.attachment-chip{
+
+display:flex;
+
+align-items:center;
+
+gap:8px;
+
+background:#111827;
+
+color:white;
+
+padding:8px 12px;
+
+border-radius:12px;
+
+font-size:14px;
+
+}
+
+.remove-attachment{
+
+cursor:pointer;
+
+font-weight:bold;
+
+color:#ff6b6b;
+
+margin-left:5px;
+
+}
+
+#toast{
+position:fixed;
+bottom:25px;
+left:50%;
+transform:translateX(-50%);
+
+background:#202123;
+color:white;
+
+padding:12px 20px;
+
+border-radius:12px;
+
+font-size:14px;
+
+opacity:0;
+
+pointer-events:none;
+
+transition:.3s;
+
+z-index:999999;
+
+box-shadow:0 0 15px rgba(0,0,0,.35);
+}
+
+#toast.show{
+opacity:1;
+bottom:40px;
+}
+
+.message-actions{
+
+display:flex;
+
+justify-content:flex-end;
+
+gap:6px;
+
+margin-top:8px;
+
+opacity:.75;
+
+}
+
+.message-actions button{
+
+width:28px;
+
+height:28px;
+
+border:none;
+
+border-radius:50%;
+
+background:transparent;
+
+cursor:pointer;
+
+font-size:14px;
+
+transition:.2s;
+
+color:#9ca3af;
+
+padding:0;
+
+}
+
+.message-actions button:hover{
+
+background:#1f2937;
+
+color:white;
+
+transform:scale(1.08);
+
+}
+
+.select-btn,
+.edit-btn{
+
+border:none;
+
+background:transparent;
+
+cursor:pointer;
+
+font-size:14px;
+
+color:#9ca3af;
+
+padding:4px;
+
+transition:.2s;
+
+}
+
+.select-btn:hover,
+.edit-btn:hover{
+
+color:white;
+
+background:#1f2937;
+
+border-radius:50%;
+
+}
+
+.ai-message,
+.user-message {
+    user-select: text;
+    -webkit-user-select: text;
+}
+
+.attachment-image{
+
+position:relative;
+
+}
+
+.attachment-image img{
+
+width:80px;
+
+height:80px;
+
+object-fit:cover;
+
+border-radius:12px;
+
+border:2px solid cyan;
+
+}
+
+.attachment-file{
+
+background:#1f2937;
+
+padding:10px 14px;
+
+border-radius:12px;
+
+color:white;
+
+position:relative;
+
+}
+
+.remove-attachment{
+
+position:absolute;
+
+top:-8px;
+
+right:-8px;
+
+background:red;
+
+color:white;
+
+width:20px;
+
+height:20px;
+
+border-radius:50%;
+
+display:flex;
+
+align-items:center;
+
+justify-content:center;
+
+cursor:pointer;
+
+font-size:12px;
+
+}
+
+#profile-container{
+
+margin-left:auto;
+
+position:relative;
+
+}
+
+#profile-pic{
+
+width:42px;
+
+height:42px;
+
+border-radius:50%;
+
+cursor:pointer;
+
+display:none;
+
+border:2px solid cyan;
+
+}
+
+#profile-menu{
+
+position:absolute;
+
+top:50px;
+
+right:0;
+
+background:#111827;
+
+border:1px solid cyan;
+
+border-radius:12px;
+
+padding:12px;
+
+width:220px;
+
+display:none;
+
+z-index:999999;
+
+}
+
+#profile-menu.show{
+
+display:block;
+
+}
