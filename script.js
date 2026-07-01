@@ -3637,19 +3637,12 @@ Avoid unnecessary repetition.
 
 Keep the response engaging, educational, scientifically accurate, and well structured.
 `;
-      fetch("/api/chat",
-
-        {
+      const response = await fetch("/api/chat", {
           method: "POST",
 
           headers: {
-
-            "Authorization":
-              `Bearer ${OPENROUTER_API_KEY}`,
-
-            "Content-Type":
-              "application/json"
-          },
+  "Content-Type": "application/json"
+},
 
           body: JSON.stringify({
 model:
