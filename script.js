@@ -463,24 +463,43 @@ function showTab(tabId, el) {
 
   if (el) el.classList.add("active");
 
+  // 🤖 Astro AI only on Sky tab
+  const aiPanel = document.getElementById("ai-panel");
+  const openAIBtn = document.getElementById("open-ai");
+
+  if (tabId === "sky") {
+
+    if (aiPanel.style.display === "none") {
+      openAIBtn.style.display = "block";
+    } else {
+      aiPanel.style.display = "flex";
+      openAIBtn.style.display = "none";
+    }
+
+  } else {
+
+    aiPanel.style.display = "none";
+    openAIBtn.style.display = "none";
+
+  }
+
   // 🔹 NASA + Asteroids
   if (tabId === "nasa" || tabId === "asteroids") {
     loadNASA();
   }
 
-  // 🌌 SKY TAB (FINAL FIX)
- if (tabId === "sky") {
-  if (!window.skyLoaded) {
-    initSky();
-    window.skyLoaded = true;
+  // 🌌 SKY TAB
+  if (tabId === "sky") {
+    if (!window.skyLoaded) {
+      initSky();
+      window.skyLoaded = true;
+    }
+
+    requestAnimationFrame(() => {
+      Celestial.resize();
+    });
   }
-
-  requestAnimationFrame(() => {
-    Celestial.resize();
-  });
 }
-}
-
 function createAsteroidCard(asteroid, isNewest = false) {
     const isHazardous = asteroid.is_potentially_hazardous_asteroid;
     const approachData = asteroid.close_approach_data[0];
