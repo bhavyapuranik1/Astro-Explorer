@@ -165,9 +165,13 @@
 <!-- 🔥 ASTEROID MODAL -->
 <div id="asteroid-modal">
 
-  <span id="close-modal">✖</span>
+    <div id="modal-content">
 
-  <div id="modal-body"></div>
+        <span id="close-modal">✖</span>
+
+        <div id="modal-body"></div>
+
+    </div>
 
 </div>
 
@@ -176,6 +180,8 @@
   <div id="ai-header">
 
 <h2>🌌 Astro AI</h2>
+
+<div id="header-actions">
 
 <div id="profile-container">
 
@@ -203,13 +209,19 @@ Logout
 
 </div>
 
+<button id="open-settings" title="Settings">
+⚙
+</button>
+
 <button id="close-ai">
 ✖
 </button>
 
 </div>
 
-  <div id="ai-messages"></div>
+</div>
+
+<div id="ai-messages"></div>
 
   <div id="attachment-preview"></div>
 
@@ -286,236 +298,474 @@ Logout
 
 <script src="lib/celestial.min.js"></script>
 
-<script src="script.js"></script>
-
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-<script type="module">
-
-import {
-
-  initializeApp
-
-} from
-
-"https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-
-
-import {
-
-  getAuth,
-
-  GoogleAuthProvider,
-
-  signInWithPopup,
-
-  signOut,
-
-  onAuthStateChanged
-
-} from
-
-"https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-
-
-import {
-
-  getFirestore,
-
-  doc,
-
-  setDoc,
-
-  getDoc,
-
-  collection,
-
-  addDoc,
-
-  getDocs
-
-} from
-
-"https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-
-
-const firebaseConfig = {
-
-  apiKey:
-    "AIzaSyAl2xGfbtQGHc6vlERCKZQFlMCA7dpR0qo",
-
-  authDomain:
-    "astronomy-project-f127f.firebaseapp.com",
-
-  projectId:
-    "astronomy-project-f127f",
-
-  storageBucket:
-    "astronomy-project-f127f.firebasestorage.app",
-
-  messagingSenderId:
-    "1011783382443",
-
-  appId:
-    "1:1011783382443:web:27d72789abfe1c924e8eee",
-
-  measurementId:
-    "G-DT6H2TC2VP"
-};
-
-
-const app =
-  initializeApp(
-    firebaseConfig
-  );
-
-  
-
-const auth =
-  getAuth(app);
-
-const provider =
-  new GoogleAuthProvider();
-
-const db =
-  getFirestore(app);
-
-  let currentUser =
-  null;
-
-
-window.auth =
-  auth;
-
-window.provider =
-  provider;
-
-window.db =
-  db;
-
-window.signInWithPopup =
-  signInWithPopup;
-
-window.signOut =
-  signOut;
-
-window.onAuthStateChanged =
-  onAuthStateChanged;
-
-window.setDoc =
-  setDoc;
-
-window.getDoc =
-  getDoc;
-
-window.doc =
-  doc;
-
-window.collection =
-  collection;
-
-window.addDoc =
-  addDoc;
-
-window.getDocs =
-  getDocs;
-
-  window.currentUser = null;
-
-  
-
-window.saveChatMessage =
-async function(sender, text) {
-
-  if (!window.currentUser)
-    return;
-
-  try {
-
-    const chatRef = doc(
-      db,
-      "users",
-      window.currentUser.uid
-    );
-
-    const snap =
-      await getDoc(chatRef);
-
-    let oldChats = [];
-
-    if (snap.exists()) {
-
-      oldChats =
-        snap.data().chatHistory || [];
-    }
-
-    oldChats.push({
-
-      sender,
-      text,
-
-      time:
-        new Date().toISOString()
-    });
-
-    await setDoc(chatRef, {
-
-      chatHistory: oldChats
-
-    }, { merge: true });
-
-  }
-
-  catch(err) {
-
-    console.log(err);
-  }
-};
-
-
-window.loadChatHistory =
-async function() {
-
-  if (!window.currentUser)
-    return;
-
-  try {
-
-    const chatRef = doc(
-      db,
-      "users",
-      window.currentUser.uid
-    );
-
-    const snap =
-      await getDoc(chatRef);
-
-    if (!snap.exists())
-      return;
-
-    const chats =
-      snap.data().chatHistory || [];
-
-    chats.forEach(chat => {
-
-      addAIMessage(
-        chat.text,
-        chat.sender
-      );
-    });
-
-  }
-
-  catch(err) {
-
-    console.log(err);
-  }
-};
-
-  
-
-  
-
-</script>
 <div id="toast"></div>
+
+<div id="api-key-modal" style="display:none;">
+  <div class="api-box">
+    <h2>🔑 OpenRouter API Key</h2>
+
+    <p>
+      Local development detected.<br>
+      Enter your own OpenRouter API Key.
+    </p>
+
+    <input
+      type="password"
+      id="user-api-key"
+      placeholder="sk-or-v1-..."
+      autocomplete="new-password"
+spellcheck="false"
+autocorrect="off"
+autocapitalize="off"
+    >
+
+    <button id="save-api-key">
+      Save Key
+    </button>
+
+    <button id="remove-api-key">
+  Remove Key
+</button>
+
+  </div>
+</div>
+
+<!-- ================= SETTINGS ================= -->
+
+<div id="settings-overlay">
+
+  <div id="settings-window">
+
+    <!-- HEADER -->
+
+    <div id="settings-header">
+
+      <div id="settings-title">
+        ⚙ Astro Explorer Settings
+      </div>
+
+      <button id="close-settings">
+        ✖
+      </button>
+
+    </div>
+
+    <!-- BODY -->
+
+    <div id="settings-body">
+
+      <!-- LEFT SIDEBAR -->
+
+      <div id="settings-sidebar">
+
+        <button class="settings-tab active"
+        data-page="general">
+          ⚙ General
+        </button>
+
+        <button class="settings-tab"
+        data-page="appearance">
+          🎨 Appearance
+        </button>
+
+        <button class="settings-tab"
+        data-page="ai">
+          🤖 AI
+        </button>
+
+        <button class="settings-tab"
+        data-page="sky">
+          🌌 Sky
+        </button>
+
+        <button class="settings-tab"
+        data-page="observation">
+          🔭 Observation
+        </button>
+
+        <button class="settings-tab"
+        data-page="account">
+          👤 Account
+        </button>
+
+        <button class="settings-tab"
+        data-page="about">
+          ℹ About
+        </button>
+
+      </div>
+
+      <!-- RIGHT CONTENT -->
+
+      <div id="settings-content">
+
+        <!-- GENERAL -->
+
+        <div class="settings-page active"
+        id="general-page">
+
+          <h2>⚙ General</h2>
+
+<div class="setting-card">
+
+<h3>Application</h3>
+
+<p><b>Version:</b> <span id="app-version">2.6.0 Beta</span></p>
+
+<p><b>Build:</b> <span id="build-type">Development</span></p>
+
+<p><b>Environment:</b> <span id="environment-status"></span></p>
+
+</div>
+
+<div class="setting-card">
+
+<h3>Services</h3>
+
+<p><b>Firebase:</b> <span id="firebase-status"></span></p>
+
+<p><b>AI:</b> <span id="ai-status-general"></span></p>
+
+<p><b>Database:</b> <span id="database-status"></span></p>
+
+</div>
+
+<div class="setting-card">
+
+<h3>Statistics</h3>
+
+<p><b>Conversations:</b> <span id="conversation-count">0</span></p>
+
+<p><b>Memories:</b> <span id="memory-count">0</span></p>
+
+</div>
+
+<div class="setting-card">
+
+<h3>Quick Actions</h3>
+
+<button id="clear-cache-btn">
+🧹 Clear Cache
+</button>
+
+<button id="reset-settings-btn">
+🔄 Reset Settings
+</button>
+
+</div>
+
+          <p>
+
+            This is the central place to customize
+            Astro Explorer.
+
+          </p>
+
+          <p>
+
+            Select a category from the left sidebar
+            to begin.
+
+          </p>
+
+        </div>
+
+        <!-- APPEARANCE -->
+
+        <div class="settings-page"
+        id="appearance-page">
+
+      
+
+          <h2>🎨 Appearance</h2>
+
+<div class="setting-card">
+
+<h3>Font Size</h3>
+
+<select id="font-size-select">
+
+<option value="14">Small</option>
+
+<option value="16" selected>Medium</option>
+
+<option value="18">Large</option>
+
+<option value="20">Extra Large</option>
+
+</select>
+
+</div>
+
+
+<div class="setting-card">
+
+<h3>Accent Color</h3>
+
+<select id="accent-color-select">
+
+<option value="#00f5ff">Cyan (Default)</option>
+
+<option value="#8b5cf6">Purple</option>
+
+<option value="#22c55e">Green</option>
+
+<option value="#f97316">Orange</option>
+
+<option value="#ef4444">Red</option>
+
+</select>
+
+</div>
+
+</div>
+
+        
+        
+
+        <!-- AI -->
+
+        <div class="settings-page" id="ai-page">
+
+<h2>🤖 Astro AI Settings</h2>
+
+<div class="settings-card">
+
+<h3>🔑 API</h3>
+
+<p>
+Status:
+<span id="api-status">
+🟢 Connected
+</span>
+</p>
+
+<label>API Key</label>
+
+<input
+type="password"
+id="settings-api-key"
+placeholder="**********************"
+readonly>
+
+<button id="change-api-key">
+Change API Key
+</button>
+
+<button id="remove-api-key-settings">
+Remove API Key
+</button>
+
+</div>
+
+<div class="settings-card">
+
+<h3>🤖 AI Model</h3>
+
+<p>
+
+Current Model
+
+</p>
+
+<select id="ai-model">
+
+<option>
+GPT-5
+</option>
+
+<option disabled>
+Claude (Coming Soon)
+</option>
+
+<option disabled>
+Gemini (Coming Soon)
+</option>
+
+<option disabled>
+DeepSeek (Coming Soon)
+</option>
+
+</select>
+
+</div>
+
+<div class="settings-card">
+
+<h3>📝 Response Length</h3>
+
+<select id="response-length">
+
+<option value="short">Short</option>
+
+<option value="medium" selected>Medium</option>
+
+<option value="long">Detailed</option>
+
+</select>
+
+</div>
+
+<div class="settings-card">
+
+<h3>💬 Chat</h3>
+
+<label>
+
+<input
+type="checkbox"
+checked>
+
+Save Chat History
+
+</label>
+
+<br><br>
+
+<label>
+
+<input
+type="checkbox"
+checked>
+
+Cloud Sync
+
+</label>
+
+<br><br>
+
+<button id="view-chat-history">
+View Chat History
+</button>
+
+<button id="new-chat-settings">
+New Chat
+</button>
+
+<button id="clear-current-chat">
+Clear Current Chat
+</button>
+
+<button id="clear-all-chat">
+Clear All Chats
+</button>
+
+</div>
+
+</div>
+
+        <!-- SKY -->
+
+        <div class="settings-page"
+        id="sky-page">
+
+          <h2>
+            Sky
+          </h2>
+
+        </div>
+
+        <!-- OBSERVATION -->
+
+        <div class="settings-page"
+        id="observation-page">
+
+          <h2>
+            Observation
+          </h2>
+
+        </div>
+
+        <!-- ACCOUNT -->
+
+        <div class="settings-page"
+        id="account-page">
+
+          <h2>
+            Account
+          </h2>
+
+        </div>
+
+        <!-- ABOUT -->
+
+        <div class="settings-page"
+        id="about-page">
+
+          <h2>
+            About Astro Explorer
+          </h2>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+</div>
+
+<!-- ================= CHAT HISTORY ================= -->
+
+<div id="history-overlay">
+
+<div id="history-window">
+
+<div id="history-header">
+
+<h2>📜 Chat History</h2>
+
+<button id="close-history">
+✖
+</button>
+
+</div>
+
+<div id="history-search">
+
+<input
+type="text"
+id="history-search-box"
+placeholder="Search conversations..."
+autocomplete="off"
+spellcheck="false">
+
+</div>
+
+<div id="history-import">
+
+<button id="import-chat">
+
+📥 Import Chat
+
+</button>
+
+<input
+type="file"
+id="import-chat-file"
+accept=".json"
+style="display:none;">
+
+</div>
+
+<div id="history-list">
+
+<!-- Conversations appear here -->
+
+</div>
+
+</div>
+
+</div>
+
+<!-- ================= CHAT HISTORY END ================= -->
+
+<!-- ================= SETTINGS END ================= -->
+
+<script type="module" src="firebase.js"></script>
+ 
+ <script defer src="script.js"></script>
 </body>
 </html>

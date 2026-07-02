@@ -1,4 +1,10 @@
 
+const LOCAL_API_KEY =
+localStorage.getItem("OPENROUTER_API_KEY") || "";
+const isLocal =
+  location.hostname === "localhost" ||
+  location.hostname === "127.0.0.1" ||
+  location.protocol === "file:";
 var currentHDImage = "";
 let showHazardOnly = false;
 let showNewestOnly = false;
@@ -31,6 +37,18 @@ let uploadedImageBase64 = "";
 let uploadedFileContent = "";
 let uploadedFileName = "";
 let lastQuestion = "";
+let conversations = [];
+let currentConversationId = null;
+let nasaMemoryCache = {};
+let nasaCache =
+
+JSON.parse(
+
+localStorage.getItem("NASA_CACHE")
+
+|| "{}"
+
+);
 
 let observer =
   new Astronomy.Observer(
@@ -181,6 +199,43 @@ let astroMemory = JSON.parse(
 
 };
 
+async function refreshNASA(date){
+
+try{
+
+const url=
+
+`https://api.nasa.gov/planetary/apod?api_key=7jYgA8NDOyNHfLpSbuEP2uncSWByYecDXKkYa6bJ&date=${date}`;
+
+const res=
+
+await fetchWithRetry(url);
+
+const data=
+
+await res.json();
+
+nasaMemoryCache[date]=data;
+
+nasaCache[date]=data;
+
+localStorage.setItem(
+
+"NASA_CACHE",
+
+JSON.stringify(nasaCache)
+
+);
+
+}
+catch(e){
+
+console.log(e);
+
+}
+
+}
+
 function saveMemory(
   memoryText,
   category = "general",
@@ -217,6 +272,7 @@ function saveMemory(
     )
   );
   saveCloudMemory();
+  updateGeneralSettings();
 }
 
 
@@ -240,6 +296,7 @@ function saveTheory(text) {
 
     JSON.stringify(astroMemory)
   );
+  updateGeneralSettings();
 }
 
 
@@ -263,6 +320,7 @@ function saveObservation(text) {
 
     JSON.stringify(astroMemory)
   );
+  updateGeneralSettings();
 }
 
 
@@ -286,6 +344,7 @@ function saveTelescopeSession(text) {
 
     JSON.stringify(astroMemory)
   );
+  updateGeneralSettings();
 }
 
 function loadAllMemories() {
@@ -560,7 +619,7 @@ function fetchWithTimeout(url, timeout = 8000) {
   ]);
 }
 
-const nasaCache = {};
+
 
 // PREFETCH HELPERS
 function formatDate(date) {
@@ -604,6 +663,49 @@ function prefetchAPOD(date) {
     .catch(() => {});
 }
 
+async function fetchWithRetry(url, options = {}, retries = 3) {
+
+  for (let i = 0; i < retries; i++) {
+
+    try {
+
+      const response = await fetch(url, options);
+
+      if (response.ok) {
+        return response;
+      }
+
+    } catch (err) {
+      console.log("Retry:", i + 1);
+    }
+
+    await new Promise(resolve => setTimeout(resolve, 1000));
+  }
+
+  throw new Error("NASA API unavailable");
+}
+function cleanNASAOldCache(){
+
+const keys = Object.keys(nasaCache);
+
+if(keys.length <= 30) return;
+
+keys.sort();
+
+while(keys.length > 30){
+
+delete nasaCache[keys.shift()];
+
+}
+
+localStorage.setItem(
+"NASA_CACHE",
+JSON.stringify(nasaCache)
+);
+
+}
+
+
 function loadNASA() {
   const img = document.getElementById("apod-img");
   const title = document.getElementById("apod-title");
@@ -618,6 +720,33 @@ function loadNASA() {
     alert("Future date is not allowed 🚫");
     return;
   }
+
+  if(selectedDate && nasaMemoryCache[selectedDate]){
+
+renderNASA(
+nasaMemoryCache[selectedDate]
+);
+
+setTimeout(()=>{
+
+refreshNASA(selectedDate);
+
+},100);
+
+const { prev, next } = getAdjacentDates(selectedDate);
+
+Promise.all([
+
+prefetchAPOD(prev),
+
+!isFuture(next)
+? prefetchAPOD(next)
+: Promise.resolve()
+
+]);
+return;
+
+}
 
   if (selectedDate && nasaCache[selectedDate]) {
     const cached = nasaCache[selectedDate];
@@ -638,7 +767,7 @@ function loadNASA() {
 
     let url = `https://api.nasa.gov/planetary/apod?api_key=7jYgA8NDOyNHfLpSbuEP2uncSWByYecDXKkYa6bJ&date=${selectedDate}`;
 
-    fetchWithTimeout(url)
+    fetchWithRetry(url)
       .then(res => {
         if (!res.ok) throw new Error("API Error");
         return res.json();
@@ -650,7 +779,23 @@ function loadNASA() {
         }
 
         nasaCache[selectedDate] = data;
+
+        nasaMemoryCache[selectedDate] = data;
+
+        localStorage.setItem(
+
+"NASA_CACHE",
+
+JSON.stringify(nasaCache)
+
+);
+
+cleanNASAOldCache();
+        const preload = new Image();
+
+preload.src = data.hdurl || data.url;
         renderNASA(data);
+        showToast("📦 Loaded from cache");
 
         const { prev, next } = getAdjacentDates(selectedDate);
         prefetchAPOD(prev);
@@ -726,7 +871,7 @@ function loadNASA() {
   
 
   // ☄️ ASTEROIDS (FIXED 🔥)
-  fetch("https://api.nasa.gov/neo/rest/v1/feed?api_key=7jYgA8NDOyNHfLpSbuEP2uncSWByYecDXKkYa6bJ")
+  fetchWithRetry("https://api.nasa.gov/neo/rest/v1/feed?api_key=7jYgA8NDOyNHfLpSbuEP2uncSWByYecDXKkYa6bJ")
   .then(res => res.json())
   .then(data => {
 
@@ -837,6 +982,9 @@ else if (index === 2) {
       // 🟩 MODAL
       card.addEventListener("click", () => {
 
+         const modal = document.getElementById("asteroid-modal");
+    const modalBody = document.getElementById("modal-body");
+
         const approachData = obj.close_approach_data[0];
         if (!approachData) return;
 
@@ -853,7 +1001,7 @@ else if (index === 2) {
           <p>⚠️ Hazard: ${isHazard ? "Yes" : "No"}</p>
         `;
 
-        modal.style.display = "block";
+        modal.classList.add("show");
 
       }); // 🔵 event end
 
@@ -2661,7 +2809,68 @@ ${userMessage}
 
 document.addEventListener("DOMContentLoaded", () => {
 
+  const auth = window.auth;
+const provider = window.provider;
+const db = window.db;
+
+const doc = window.doc;
+const setDoc = window.setDoc;
+const getDoc = window.getDoc;
+const addDoc = window.addDoc;
+const getDocs = window.getDocs;
+const deleteDoc = window.deleteDoc;
+
+const signInWithPopup = window.signInWithPopup;
+const signOut = window.signOut;
+
+  if (
+  isLocal &&
+  !localStorage.getItem("OPENROUTER_API_KEY")
+) {
+  showAPIKeyModal();
+}
+
+document
+.getElementById("save-api-key")
+.onclick=()=>{
+
+const key=
+document
+.getElementById("user-api-key")
+.value
+.trim();
+
+localStorage.setItem(
+"OPENROUTER_API_KEY",
+key
+);
+
+hideAPIKeyModal();
+
+alert("API Key saved.");
+
+};
+
+document
+.getElementById("remove-api-key")
+.onclick=()=>{
+
+  localStorage.removeItem("OPENROUTER_API_KEY");
+
+  document
+  .getElementById("user-api-key")
+  .value="";
+
+  alert("API Key removed.");
+
+};
+
+
+
   detectLocation();
+  applyAppearanceSettings();
+  applyAccentColor();
+  applyAISettings();
   const dateInput = document.getElementById("date-picker");
   const loadBtn = document.getElementById("load-btn");
   const prevBtn = document.getElementById("prev-btn");
@@ -2671,15 +2880,22 @@ document.addEventListener("DOMContentLoaded", () => {
   const filterBtn = document.getElementById("hazard-filter");
   const newestBtn = document.getElementById("newest-filter");
   const modal = document.getElementById("asteroid-modal");
-  const modalBody = document.getElementById("modal-body");
-  const searchInput = document.getElementById("search-input");
-  const closeModalBtn = document.getElementById("close-modal");
+const modalBody = document.getElementById("modal-body");
+const modalContent = document.getElementById("modal-content");
+const searchInput = document.getElementById("search-input");
+const closeModalBtn = document.getElementById("close-modal");
 
-  if (closeModalBtn && modal) {
+if (closeModalBtn && modal) {
     closeModalBtn.onclick = () => {
-      modal.style.display = "none";
+        modal.classList.remove("show");
     };
-  }
+}
+
+modal.addEventListener("click", (e) => {
+    if (e.target === modal) {
+        modal.classList.remove("show");
+    }
+});
 
   if (searchInput) {
     searchInput.addEventListener("input", (e) => {
@@ -2687,12 +2903,6 @@ document.addEventListener("DOMContentLoaded", () => {
       loadNASA();
     });
   }
-
-  window.onclick = (e) => {
-    if (e.target === modal) {
-      modal.style.display = "none";
-    }
-  };
 
   if (newestBtn) {
     newestBtn.innerText = "🌍 Recently Approaching Asteroids";
@@ -2795,286 +3005,6 @@ if (!window.skyLoaded) {
 });
 }
 
-function addAIMessage(text, sender) {
-
-  const msg =
-    document.createElement("div");
-
-    msg.style.maxWidth = "85%";
-
-msg.style.padding = "12px";
-
-msg.style.borderRadius = "16px";
-
-msg.style.margin = "10px";
-
-msg.style.lineHeight = "1.6";
-
-msg.style.wordWrap = "break-word";
-
-msg.style.whiteSpace = "normal";
-
-msg.style.boxShadow =
-  "0 0 10px rgba(0,0,0,0.3)";
-
-  msg.style.marginBottom = "10px";
-
-  if (sender === "You") {
-
-  msg.style.background =
-    "#2563eb";
-
-  msg.style.color =
-    "white";
-
-  msg.style.marginLeft =
-    "auto";
-
-  msg.style.marginWidth =
-    "30%";
-
-}
-
-else {
-
-  msg.style.background =
-    "#111827";
-
-  msg.style.color =
-    "#e5e7eb";
-
-  msg.style.border =
-    "1px solid #374151";
-
-  msg.style.marginRight =
-    "auto";
-}
-
- msg.innerHTML = `
-<b>${sender}:</b>
-`;
-
-const content = document.createElement("div");
-
-if (text.trim().startsWith("<img")) {
-
-    content.innerHTML = text;
-
-} else {
-
-    content.innerHTML = marked.parse(text);
-
-}
-
-msg.appendChild(content);
-
-// 🔥 Sirf AI replies ke liye actions
-if (sender !== "You") {
-
-    const actions = document.createElement("div");
-
-    actions.className = "message-actions";
-
-    actions.innerHTML = `
-<button class="message-copy-btn">📋</button>
-<button class="speak-btn">🔊</button>
-<button class="like-btn">👍</button>
-<button class="dislike-btn">👎</button>
-<button class="regen-btn">🔄</button>
-`;
-
-    const copyBtn = actions.querySelector(".message-copy-btn");
-    const speakBtn = actions.querySelector(".speak-btn");
-    const likeBtn = actions.querySelector(".like-btn");
-    const dislikeBtn = actions.querySelector(".dislike-btn");
-    const regenBtn = actions.querySelector(".regen-btn");
-
-    copyBtn.onclick = async () => {
-
-        await navigator.clipboard.writeText(text);
-
-        copyBtn.textContent = "✅";
-
-        setTimeout(() => {
-
-            copyBtn.textContent = "📋";
-
-        }, 1000);
-
-    };
-
-    let speaking = false;
-
-speakBtn.onclick = () => {
-
-    if (!speaking) {
-
-        window.speechSynthesis.cancel();
-
-        const speech = new SpeechSynthesisUtterance(text);
-
-        speech.lang = "en-US";
-        speech.rate = 1;
-
-        speech.onend = () => {
-
-            speaking = false;
-            speakBtn.textContent = "🔊";
-
-        };
-
-        window.speechSynthesis.speak(speech);
-
-        speaking = true;
-        speakBtn.textContent = "⏹";
-
-    } else {
-
-        window.speechSynthesis.cancel();
-
-        speaking = false;
-
-        speakBtn.textContent = "🔊";
-
-    }
-
-};
-
-    
-
-    likeBtn.onclick = () => {
-
-    // Agar pehle se liked hai
-    if (likeBtn.classList.contains("active")) {
-
-        likeBtn.classList.remove("active");
-
-        likeBtn.style.color = "";
-
-        dislikeBtn.style.display = "inline-block";
-
-        return;
-    }
-
-    // Like ON
-    likeBtn.classList.add("active");
-
-    likeBtn.style.color = "#22d3ee";
-
-    dislikeBtn.style.display = "none";
-
-    showToast("👍 Thanks for your feedback");
-
-};
-
-   dislikeBtn.onclick = () => {
-
-    // Agar pehle se disliked hai
-    if (dislikeBtn.classList.contains("active")) {
-
-        dislikeBtn.classList.remove("active");
-
-        dislikeBtn.style.color = "";
-
-        likeBtn.style.display = "inline-block";
-
-        return;
-    }
-
-    // Dislike ON
-    dislikeBtn.classList.add("active");
-
-    dislikeBtn.style.color = "#ef4444";
-
-    likeBtn.style.display = "none";
-
-    showToast("👎 Thanks for your feedback");
-
-};
-
-    regenBtn.onclick = () => {
-
-    if (!lastQuestion) return;
-
-    document.getElementById("ai-input").value = lastQuestion;
-
-    document.getElementById("ai-send").click();
-
-};
-
-    // 🔥 Message ke niche buttons
-    msg.appendChild(actions);
-
-}
-
-// 🔥 You message actions
-if(sender === "You"){
-
-const actions=document.createElement("div");
-
-actions.className="message-actions";
-
-actions.innerHTML=`
-<button class="select-btn">🔤</button>
-<button class="edit-btn">✏️</button>
-<button class="message-copy-btn">📋</button>
-`;
-
-const selectBtn=actions.querySelector(".select-btn");
-const editBtn=actions.querySelector(".edit-btn");
-const copyBtn=actions.querySelector(".message-copy-btn");
-
-copyBtn.onclick=async()=>{
-
-await navigator.clipboard.writeText(text);
-
-copyBtn.textContent="✅";
-
-setTimeout(()=>{
-
-copyBtn.textContent="📋";
-
-},1000);
-
-};
-
-selectBtn.onclick = () => {
-
-    content.contentEditable = "true";
-
-    content.focus();
-
-    showToast("Select any text you want");
-
-};
-
-content.addEventListener("blur", () => {
-
-    content.contentEditable = "false";
-
-});
-
-editBtn.onclick=()=>{
-
-const input=document.getElementById("ai-input");
-
-input.value=text;
-
-input.focus();
-
-input.setSelectionRange(text.length,text.length);
-
-};
-
-msg.appendChild(actions);
-
-}
-
-// 🔥 Sirf ek baar append karna hai
-document
-    .getElementById("ai-messages")
-    .appendChild(msg);
-}
 addAIMessage(
   "Hello 🌌 I am Astro AI. Ask me anything about space.",
   "Astro AI"
@@ -3616,15 +3546,21 @@ and research-level discussion.
 
 Provide a scientifically accurate and well-structured response.
 
-Adapt the response length to the complexity of the user's question.
+The response length MUST follow the user's selected Response Length setting.
 
-For simple questions:
-- Answer briefly and directly.
+If the setting is SHORT:
+- Keep the reply under 120 words.
+- Use no headings.
+- Use no bullet points unless absolutely necessary.
 
-For complex questions:
-- Provide a detailed explanation with clear headings.
-- Explain concepts step by step.
-- Include scientific reasoning and examples where appropriate.
+If the setting is MEDIUM:
+- Keep the reply around 250-500 words.
+- Use headings only when useful.
+
+If the setting is DETAILED:
+- Provide a comprehensive explanation.
+- Use Markdown headings.
+- Use bullet points, tables, examples, and scientific reasoning where appropriate.
 
 If the user asks for comparisons:
 - Use comparison tables or structured bullet points.
@@ -3656,61 +3592,117 @@ Avoid unnecessary repetition.
 
 Keep the response engaging, educational, scientifically accurate, and well structured.
 `;
-      const response = await fetch("/api/chat", {
-          method: "POST",
 
-          headers: {
-  "Content-Type": "application/json"
-},
+const responseLength =
+localStorage.getItem("responseLength")
+|| "medium";
 
-          body: JSON.stringify({
-model:
-"openai/gpt-4o-mini",
+let responseInstruction = "";
 
-            messages: [
+switch(responseLength){
 
-{
-role: "user",
+case "short":
 
-content: [
+responseInstruction = `
+IMPORTANT:
+Reply in a maximum of 5 short sentences.
+Do NOT use headings.
+Do NOT use bullet points.
+Keep the answer under 120 words.
+`;
 
-{
-type: "text",
+break;
 
-text: finalPrompt
-},
+case "medium":
 
-// 📄 Files as separate text block
-{
-type: "text",
+responseInstruction = `
+Provide a balanced explanation.
+Keep the answer around 250-500 words.
+Use headings only if needed.
+`;
 
-text: attachmentPrompt
-},
+break;
 
-// 🖼️ All uploaded images
-...uploadedAttachments
-.filter(file => file.type === "image")
-.map(file => ({
+case "long":
 
-type: "image_url",
+responseInstruction = `
+Provide a comprehensive explanation.
+Use Markdown headings.
+Use tables where appropriate.
+Explain concepts step by step.
+Include scientific reasoning and examples.
+`;
 
-image_url: {
-url: file.data
+break;
+
 }
 
-}))
+const enhancedPrompt =
+finalPrompt +
+"\n\n" +
+responseInstruction;
+      const endpoint = isLocal
+    ? "https://openrouter.ai/api/v1/chat/completions"
+    : "/api/chat";
 
-]
+const headers = isLocal
+?{
+    "Authorization":
+    "Bearer " +
+    localStorage.getItem("OPENROUTER_API_KEY"),
+
+    "Content-Type":"application/json",
+
+    "HTTP-Referer":location.origin,
+
+    "X-Title":"Astro AI"
 }
+:{
+    "Content-Type":"application/json"
+};
 
-],
-            temperature: 0.8,
+const response = await fetch(endpoint,{
 
-            max_tokens: 3000
+    method:"POST",
 
-          })
-        }
-      );
+    headers,
+
+    body:JSON.stringify({
+
+        model:"openai/gpt-4o-mini",
+
+        messages:[
+
+            {
+                role:"user",
+                content:[
+                    {
+                        type:"text",
+                        text:enhancedPrompt
+                    },
+                    {
+                        type:"text",
+                        text:attachmentPrompt
+                    },
+                    ...uploadedAttachments
+                    .filter(f=>f.type==="image")
+                    .map(f=>({
+                        type:"image_url",
+                        image_url:{
+                            url:f.data
+                        }
+                    }))
+                ]
+            }
+
+        ],
+
+        temperature:0.8,
+        max_tokens:3000
+
+    })
+
+});
 
       console.log("Status:", response.status);
 console.log("OK:", response.ok);
@@ -3769,12 +3761,17 @@ if (
     new Date().toISOString()
 });
       removeThinkingLoader(loader);
-      
 
-      await typeAIMessage(reply);
+await typeAIMessage(reply);
 
-      attachments = [];
+saveMessage("Astro AI", reply);
 
+generateConversationTitle(
+question,
+reply
+);
+
+attachments = [];
 renderAttachments();
       const cleanReply =
 
@@ -3795,33 +3792,6 @@ renderAttachments();
       );
     }
 });
-
-
-
-async function createNewConversation(title = "New Chat") {
-
-  const newConversation = {
-
-    id: Date.now(),
-
-    title,
-
-    messages: []
-  };
-
-  conversations.unshift(
-    newConversation
-  );
-
-  currentConversationId =
-    newConversation.id;
-
-  renderConversationList();
-
-  renderCurrentConversation();
-
-  await saveConversations();
-}
 
 
 const attachBtn =
@@ -3920,7 +3890,1001 @@ attachMenu.classList.remove("show");
 
 };
 
+
+
+
+
+
+
+
+
+
+
+}); // 🔥 DOMContentLoaded END
+
+function addAIMessage(text, sender) {
+
+  const msg =
+    document.createElement("div");
+
+    msg.className = "message";
+
+    msg.style.maxWidth = "85%";
+
+msg.style.padding = "12px";
+
+msg.style.borderRadius = "16px";
+
+msg.style.margin = "10px";
+
+msg.style.lineHeight = "1.6";
+
+msg.style.wordWrap = "break-word";
+
+msg.style.whiteSpace = "normal";
+
+msg.style.boxShadow =
+  "0 0 10px rgba(0,0,0,0.3)";
+
+  msg.style.marginBottom = "10px";
+
+  if (sender === "You") {
+
+  msg.style.background =
+    "#2563eb";
+
+  msg.style.color =
+    "white";
+
+  msg.style.marginLeft =
+    "auto";
+
+  msg.style.marginWidth =
+    "30%";
+
+}
+
+else {
+
+  msg.style.background =
+    "#111827";
+
+  msg.style.color =
+    "#e5e7eb";
+
+  msg.style.border =
+    "1px solid #374151";
+
+  msg.style.marginRight =
+    "auto";
+}
+
+ msg.innerHTML = `
+<b>${sender}:</b>
+`;
+
+const content = document.createElement("div");
+
+if (text.trim().startsWith("<img")) {
+
+    content.innerHTML = text;
+
+} else {
+
+    content.innerHTML = marked.parse(text);
+
+}
+
+msg.appendChild(content);
+
+// 🔥 Sirf AI replies ke liye actions
+if (sender !== "You") {
+
+    const actions = document.createElement("div");
+
+    actions.className = "message-actions";
+
+    actions.innerHTML = `
+<button class="message-copy-btn">📋</button>
+<button class="speak-btn">🔊</button>
+<button class="like-btn">👍</button>
+<button class="dislike-btn">👎</button>
+<button class="regen-btn">🔄</button>
+`;
+
+    const copyBtn = actions.querySelector(".message-copy-btn");
+    const speakBtn = actions.querySelector(".speak-btn");
+    const likeBtn = actions.querySelector(".like-btn");
+    const dislikeBtn = actions.querySelector(".dislike-btn");
+    const regenBtn = actions.querySelector(".regen-btn");
+
+    copyBtn.onclick = async () => {
+
+        await navigator.clipboard.writeText(text);
+
+        copyBtn.textContent = "✅";
+
+        setTimeout(() => {
+
+            copyBtn.textContent = "📋";
+
+        }, 1000);
+
+    };
+
+    let speaking = false;
+
+speakBtn.onclick = () => {
+
+    if (!speaking) {
+
+        window.speechSynthesis.cancel();
+
+        const speech = new SpeechSynthesisUtterance(text);
+
+        speech.lang = "en-US";
+        speech.rate = 1;
+
+        speech.onend = () => {
+
+            speaking = false;
+            speakBtn.textContent = "🔊";
+
+        };
+
+        window.speechSynthesis.speak(speech);
+
+        speaking = true;
+        speakBtn.textContent = "⏹";
+
+    } else {
+
+        window.speechSynthesis.cancel();
+
+        speaking = false;
+
+        speakBtn.textContent = "🔊";
+
+    }
+
+};
+
+    
+
+    likeBtn.onclick = () => {
+
+    // Agar pehle se liked hai
+    if (likeBtn.classList.contains("active")) {
+
+        likeBtn.classList.remove("active");
+
+        likeBtn.style.color = "";
+
+        dislikeBtn.style.display = "inline-block";
+
+        return;
+    }
+
+    // Like ON
+    likeBtn.classList.add("active");
+
+    likeBtn.style.color = "#22d3ee";
+
+    dislikeBtn.style.display = "none";
+
+    showToast("👍 Thanks for your feedback");
+
+};
+
+   dislikeBtn.onclick = () => {
+
+    // Agar pehle se disliked hai
+    if (dislikeBtn.classList.contains("active")) {
+
+        dislikeBtn.classList.remove("active");
+
+        dislikeBtn.style.color = "";
+
+        likeBtn.style.display = "inline-block";
+
+        return;
+    }
+
+    // Dislike ON
+    dislikeBtn.classList.add("active");
+
+    dislikeBtn.style.color = "#ef4444";
+
+    likeBtn.style.display = "none";
+
+    showToast("👎 Thanks for your feedback");
+
+};
+
+    regenBtn.onclick = () => {
+
+    if (!lastQuestion) return;
+
+    document.getElementById("ai-input").value = lastQuestion;
+
+    document.getElementById("ai-send").click();
+
+};
+
+    // 🔥 Message ke niche buttons
+    msg.appendChild(actions);
+
+}
+
+// 🔥 You message actions
+if(sender === "You"){
+
+const actions=document.createElement("div");
+
+actions.className="message-actions";
+
+actions.innerHTML=`
+<button class="select-btn">🔤</button>
+<button class="edit-btn">✏️</button>
+<button class="message-copy-btn">📋</button>
+`;
+
+const selectBtn=actions.querySelector(".select-btn");
+const editBtn=actions.querySelector(".edit-btn");
+const copyBtn=actions.querySelector(".message-copy-btn");
+
+copyBtn.onclick=async()=>{
+
+await navigator.clipboard.writeText(text);
+
+copyBtn.textContent="✅";
+
+setTimeout(()=>{
+
+copyBtn.textContent="📋";
+
+},1000);
+
+};
+
+selectBtn.onclick = () => {
+
+    content.contentEditable = "true";
+
+    content.focus();
+
+    showToast("Select any text you want");
+
+};
+
+content.addEventListener("blur", () => {
+
+    content.contentEditable = "false";
+
+});
+
+editBtn.onclick=()=>{
+
+const input=document.getElementById("ai-input");
+
+input.value=text;
+
+input.focus();
+
+input.setSelectionRange(text.length,text.length);
+
+};
+
+msg.appendChild(actions);
+
+}
+
+// 🔥 Sirf ek baar append karna hai
+document
+    .getElementById("ai-messages")
+    .appendChild(msg);
+}
+
+function formatHistoryDate(time){
+
+const d=new Date(time);
+
+const now=new Date();
+
+const today=new Date(
+now.getFullYear(),
+now.getMonth(),
+now.getDate()
+);
+
+const yesterday=new Date(today);
+
+yesterday.setDate(
+yesterday.getDate()-1
+);
+
+const target=new Date(
+d.getFullYear(),
+d.getMonth(),
+d.getDate()
+);
+
+if(target.getTime()===today.getTime()){
+
+return "Today • " +
+
+d.toLocaleTimeString([],{
+
+hour:"2-digit",
+
+minute:"2-digit"
+
+});
+
+}
+
+if(target.getTime()===yesterday.getTime()){
+
+return "Yesterday • " +
+
+d.toLocaleTimeString([],{
+
+hour:"2-digit",
+
+minute:"2-digit"
+
+});
+
+}
+
+return d.toLocaleDateString([],{
+
+day:"numeric",
+
+month:"short",
+
+year:"numeric"
+
+});
+
+}
+
+
+function showToast(message){
+
+const toast =
+document.getElementById("toast");
+
+toast.innerText = message;
+
+toast.classList.add("show");
+
+clearTimeout(toast.timer);
+
+toast.timer = setTimeout(()=>{
+
+toast.classList.remove("show");
+
+},2000);
+
+}
+
+function clearChatUI(){
+
+const container =
+document.getElementById("ai-messages");
+
+if(container){
+
+container.innerHTML = "";
+
+}
+}
+
+
+
+
+
+
+
+const SpeechRecognition =
+  window.SpeechRecognition ||
+  window.webkitSpeechRecognition;
+
+let recognition = null;
+
+
+// 🎤 SPEECH RECOGNITION SETUP
+if (SpeechRecognition) {
+
+  recognition =
+    new SpeechRecognition();
+
+  recognition.lang = "en-US";
+
+  recognition.continuous = false;
+
+  recognition.interimResults = false;
+
+
+  // 🎤 VOICE BUTTON
+  document
+    .getElementById("voice-btn")
+    .addEventListener("click", () => {
+
+      if (!recognition) {
+
+        alert(
+          "Speech recognition not supported 😭"
+        );
+
+        return;
+      }
+
+      recognition.stop();
+
+      recognition.start();
+
+      addAIMessage(
+
+        "Listening... 🎤😮🔥",
+
+        "Astro AI"
+      );
+    });
+
+
+  // 🎤 VOICE RESULT
+  recognition.onresult = (event) => {
+
+    const transcript =
+
+      event.results[0][0].transcript;
+
+    document
+      .getElementById("ai-input")
+      .value = transcript;
+  };
+
+} // 🔥 END SpeechRecognition setup
+
+
+
+// 🔊 AI VOICE NARRATION
+function speakResponse(text) {
+
+  window.speechSynthesis.cancel();
+
+  const speech =
+    new SpeechSynthesisUtterance(
+      text
+    );
+
+  speech.lang = "en-US";
+
+  speech.rate = 1;
+
+  speech.pitch = 1;
+
+  speech.volume = 1;
+
+  speech.onstart = () => {
+
+    console.log(
+      "Speaking..."
+    );
+  };
+
+  speech.onerror = (e) => {
+
+    console.log(
+      "Speech error:",
+      e
+    );
+  };
+
+  window.speechSynthesis.speak(
+    speech
+  );
+}
+
+
+
+// 🖼️ IMAGE UPLOAD PREVIEW
+
+
+document
+  .getElementById("astro-image")
+  .addEventListener("change", e => {
+
+    const files = Array.from(e.target.files);
+
+if (files.length === 0)
+    return;
+    
+    files.forEach(file=>{
+
+const reader=
+new FileReader();
+
+    // 🖼️ IMAGE FILE
+    if (
+      file.type.startsWith(
+        "image/"
+      )
+    ) {
+
+      reader.onload = () => {
+
+    
+
+    attachments.push({
+
+type:"image",
+
+name:file.name,
+
+data:reader.result
+
+});
+
+renderAttachments();
+
+        
+      };
+
+      reader.readAsDataURL(
+        file
+      );
+    }
+
+    // 📄 TEXT / CODE FILE
+    else {
+
+      reader.onload = () => {
+
+   
+
+    attachments.push({
+
+type:"file",
+
+name:file.name,
+
+data:reader.result
+
+});
+
+renderAttachments();
+
+        
+      };
+
+      reader.readAsText(file);
+    }
+
+    });
+    
+
+    e.target.value = "";
+});
+function searchMemories(query) {
+
+  if (!astroMemory.memories)
+    return [];
+
+  query =
+    query.toLowerCase();
+
+  return astroMemory.memories.filter(m =>
+
+    m.text
+      .toLowerCase()
+      .includes(query)
+  );
+}
+
+function addCopyButtons() {
+
+  document
+    .querySelectorAll("pre")
+    .forEach(pre => {
+
+      // already added
+      if (
+        pre.querySelector(
+          ".copy-btn"
+        )
+      ) return;
+
+      const btn =
+        document.createElement(
+          "button"
+        );
+
+      btn.innerText =
+        "Copy";
+
+      btn.className =
+        "code-copy-btn";
+
+      btn.onclick = () => {
+
+        navigator.clipboard.writeText(
+
+          pre.innerText
+        );
+
+        btn.innerText =
+          "Copied 😮🔥";
+
+        setTimeout(() => {
+
+          btn.innerText =
+            "Copy";
+
+        }, 2000);
+      };
+
+      pre.appendChild(btn);
+    });
+}
+document
+  .getElementById("google-login")
+  .addEventListener("click", async () => {
+
+  try {
+
+    const result =
+
+      await signInWithPopup(
+
+        auth,
+        provider
+      );
+
+    const user =
+      result.user;
+
+      const profilePic =
+document.getElementById("profile-pic");
+
+profilePic.src =
+user.photoURL;
+
+profilePic.src =
+user.photoURL ||
+"https://ui-avatars.com/api/?name=User&background=333&color=fff";
+
+profilePic.style.display = "block";
+
+document.getElementById("profile-name").innerText =
+user.displayName;
+
+document.getElementById("profile-email").innerText =
+user.email;
+
+document.getElementById("google-login").style.display =
+"none";
+
+document.getElementById("logout-menu-btn").style.display =
+"block";
+
+
+
+    addAIMessage(
+
+`
+Logged in 😈🔥
+
+Welcome:
+${user.displayName}
+`,
+
+      "Astro AI"
+    );
+
+  }
+
+  catch(err) {
+
+    console.log(err);
+  }
+});
+
+
+const oldLogoutBtn = document.getElementById("logout-btn");
+
+if (oldLogoutBtn) {
+  oldLogoutBtn.addEventListener("click", async () => {
+    await signOut(auth);
+
+    addAIMessage(
+      "Logged out 😭🔥",
+      "Astro AI"
+    );
+  });
+}
+document
+.getElementById("profile-pic")
+.addEventListener("click",()=>{
+
+document
+.getElementById("profile-menu")
+.classList.toggle("show");
+
+});
+
+document
+.getElementById("logout-menu-btn")
+.addEventListener("click",async()=>{
+
+await signOut(auth);
+
+});
+
+console.log("Window Auth:", typeof window.onAuthStateChanged);
+console.log("Window auth:", typeof window.auth);
+
+window.onAuthStateChanged(window.auth, async user => {
+
+  if (user) {
+
+ const profilePic =
+document.getElementById("profile-pic");
+
+profilePic.src =
+user.photoURL ||
+"https://ui-avatars.com/api/?name=User&background=333&color=fff";
+
+profilePic.style.display =
+"block";
+
+document.getElementById("profile-name").innerText =
+user.displayName;
+
+document.getElementById("profile-email").innerText =
+user.email;
+
+// New profile menu buttons
+document.getElementById("google-login").style.display =
+"none";
+
+document.getElementById("logout-menu-btn").style.display =
+"block";
+
+  // ✅ Pehle current user set karo
+  window.currentUser = user;
+
+  // ✅ Sirf ek baar conversations load karo
+  await loadConversations();
+
+  if (!currentConversationId) {
+
+    await createNewConversation(
+      "New Astronomy Chat"
+    );
+
+  }
+
+
+
+ /*addAIMessage(
+
+`
+Welcome back 😈🔥
+
+${user.displayName}
+`,
+
+    "Astro AI"
+  );*/
+
+  await loadCloudMemory();
+
+}
+
+else {
+
+document.getElementById("profile-pic").style.display =
+"block";
+
+document.getElementById("profile-pic").src =
+"https://ui-avatars.com/api/?name=User&background=333&color=fff";
+
+document.getElementById("profile-menu")
+.classList.remove("show");
+
+document.getElementById("google-login").style.display =
+"block";
+
+document.getElementById("logout-menu-btn").style.display =
+"none";
+
+document.getElementById("profile-name").innerText =
+"";
+
+document.getElementById("profile-email").innerText =
+"";
+
+window.currentUser = null;
+
+const profilePic = document.getElementById("profile-pic");
+const profileMenu = document.getElementById("profile-menu");
+const profileName = document.getElementById("profile-name");
+const profileEmail = document.getElementById("profile-email");
+
+const googleLogin =
+document.getElementById("google-login");
+
+const logoutBtn =
+document.getElementById("logout-menu-btn");
+
+
+}
+
+document
+  .getElementById(
+    "new-chat-settings"
+  )
+  .addEventListener(
+    "click",
+
+async () => {
+
+  await createNewConversation(
+    "New Astronomy Chat"
+  );
+
+  document
+    .getElementById(
+      "attach-btn"
+    )
+    .onclick = () => {
+
+      document
+        .getElementById(
+          "astro-image"
+        )
+        .click();
+
+    };
+
+});
+});
+
+document.getElementById("profile-pic").style.display =
+"block";
+
+document.getElementById("profile-pic").src =
+"https://ui-avatars.com/api/?name=User&background=333&color=fff";
+
+document.getElementById("profile-menu")
+.classList.remove("show");
+
+document.getElementById("google-login").style.display =
+"block";
+
+document.getElementById("logout-menu-btn").style.display =
+"none";
+
+async function saveCloudMemory() {
+
+  if (!window.currentUser)
+    return;
+
+  await setDoc(
+
+    doc(
+      db,
+      "memories",
+      window.currentUser.uid
+    ),
+
+    {
+
+      memories:
+        astroMemory.memories || []
+
+    }
+
+  );
+
+}
+
+async function loadCloudMemory() {
+
+  if (!window.currentUser)
+    return;
+
+  const docRef =
+
+    doc(
+      db,
+      "memories",
+      window.currentUser.uid
+    );
+
+  const snap =
+
+    await getDoc(
+      docRef
+    );
+
+  if (snap.exists()) {
+
+    astroMemory.memories =
+
+      snap.data().memories;
+
+    localStorage.setItem(
+
+      "astroMemory",
+
+      JSON.stringify(
+        astroMemory
+      )
+
+    );
+
+  }
+  updateGeneralSettings();
+
+}
+
+
+window.loadChatHistory =
+async function() {
+
+  if (!window.currentUser)
+    return;
+
+  try {
+
+    const ref = doc(
+      db,
+      "users",
+      window.currentUser.uid
+    );
+
+    const snap =
+      await getDoc(ref);
+
+    if (!snap.exists())
+      return;
+
+    const chats =
+      snap.data().chatHistory || [];
+
+    chats.forEach(chat => {
+
+      addAIMessage(
+
+        chat.text,
+
+        chat.sender
+
+      );
+
+    });
+
+    console.log(
+      "History loaded 😈🔥"
+    );
+
+  }
+
+  catch(err) {
+
+    console.log(err);
+
+  }
+
+  
+};
+
 function renderCurrentConversation() {
+
 
   const container =
     document.getElementById(
@@ -3951,47 +4915,16 @@ function renderCurrentConversation() {
   });
 }
 
-let conversations = [];
 
-let currentConversationId = null;
 
-function saveMessage(sender, text) {
 
-  const convo =
-    conversations.find(
-
-      c =>
-        c.id ===
-        currentConversationId
-    );
-
-  if (!convo)
-    return;
-
-  if (!convo.messages) {
-  convo.messages = [];
-}
-
-  convo.messages.push({
-
-    sender,
-    text,
-
-    time:
-      Date.now()
-  });
-
-  renderCurrentConversation();
-
-  saveConversations();
-}
-
+console.log("BEFORE renderConversationList");
 function renderConversationList() {
 
+  console.log("INSIDE renderConversationList");
+
   const list =
-    document.getElementById(
-      "conversation-list"
-    );
+document.getElementById("history-list");
 
   list.innerHTML = "";
 
@@ -4035,6 +4968,7 @@ item.style.borderRadius =
     list.appendChild(item);
   });
 }
+
 function showThinkingLoader() {
 
   const loader =
@@ -4380,700 +5314,73 @@ regenBtn.onclick = () => {
 
 
 
-const SpeechRecognition =
-  window.SpeechRecognition ||
-  window.webkitSpeechRecognition;
-
-let recognition = null;
 
 
-// 🎤 SPEECH RECOGNITION SETUP
-if (SpeechRecognition) {
+async function loadConversations({ openFirst = false } = {}) {
+  if (!window.currentUser) return;
 
-  recognition =
-    new SpeechRecognition();
+  try {
+    const ref = collection(db, "users", window.currentUser.uid, "conversations");
+    const snap = await getDocs(ref);
 
-  recognition.lang = "en-US";
+    conversations = [];
+    snap.forEach(docSnap => {
+      conversations.push({
+        id: docSnap.id,
+        ...docSnap.data()
+      });
+    });
+  
 
-  recognition.continuous = false;
-
-  recognition.interimResults = false;
-
-
-  // 🎤 VOICE BUTTON
-  document
-    .getElementById("voice-btn")
-    .addEventListener("click", () => {
-
-      if (!recognition) {
-
-        alert(
-          "Speech recognition not supported 😭"
-        );
-
-        return;
+    conversations.sort((a, b) => {
+      if ((a.pinned || false) !== (b.pinned || false)) {
+        return (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0);
       }
-
-      recognition.stop();
-
-      recognition.start();
-
-      addAIMessage(
-
-        "Listening... 🎤😮🔥",
-
-        "Astro AI"
-      );
+      return (b.updatedAt || 0) - (a.updatedAt || 0);
     });
 
+    renderHistoryList(historySearch?.value?.toLowerCase() || "");
 
-  // 🎤 VOICE RESULT
-  recognition.onresult = (event) => {
-
-    const transcript =
-
-      event.results[0][0].transcript;
-
-    document
-      .getElementById("ai-input")
-      .value = transcript;
-  };
-
-} // 🔥 END SpeechRecognition setup
-
-
-
-// 🔊 AI VOICE NARRATION
-function speakResponse(text) {
-
-  window.speechSynthesis.cancel();
-
-  const speech =
-    new SpeechSynthesisUtterance(
-      text
-    );
-
-  speech.lang = "en-US";
-
-  speech.rate = 1;
-
-  speech.pitch = 1;
-
-  speech.volume = 1;
-
-  speech.onstart = () => {
-
-    console.log(
-      "Speaking..."
-    );
-  };
-
-  speech.onerror = (e) => {
-
-    console.log(
-      "Speech error:",
-      e
-    );
-  };
-
-  window.speechSynthesis.speak(
-    speech
-  );
-}
-
-
-
-// 🖼️ IMAGE UPLOAD PREVIEW
-
-
-document
-  .getElementById("astro-image")
-  .addEventListener("change", e => {
-
-    const files = Array.from(e.target.files);
-
-if (files.length === 0)
-    return;
-    
-    files.forEach(file=>{
-
-const reader=
-new FileReader();
-
-    // 🖼️ IMAGE FILE
-    if (
-      file.type.startsWith(
-        "image/"
-      )
-    ) {
-
-      reader.onload = () => {
-
-    
-
-    attachments.push({
-
-type:"image",
-
-name:file.name,
-
-data:reader.result
-
-});
-
-renderAttachments();
-
-        
-      };
-
-      reader.readAsDataURL(
-        file
-      );
-    }
-
-    // 📄 TEXT / CODE FILE
-    else {
-
-      reader.onload = () => {
-
-   
-
-    attachments.push({
-
-type:"file",
-
-name:file.name,
-
-data:reader.result
-
-});
-
-renderAttachments();
-
-        
-      };
-
-      reader.readAsText(file);
-    }
-
-    });
-    
-
-    e.target.value = "";
-});
-function searchMemories(query) {
-
-  if (!astroMemory.memories)
-    return [];
-
-  query =
-    query.toLowerCase();
-
-  return astroMemory.memories.filter(m =>
-
-    m.text
-      .toLowerCase()
-      .includes(query)
-  );
-}
-
-function addCopyButtons() {
-
-  document
-    .querySelectorAll("pre")
-    .forEach(pre => {
-
-      // already added
-      if (
-        pre.querySelector(
-          ".copy-btn"
-        )
-      ) return;
-
-      const btn =
-        document.createElement(
-          "button"
-        );
-
-      btn.innerText =
-        "Copy";
-
-      btn.className =
-        "code-copy-btn";
-
-      btn.onclick = () => {
-
-        navigator.clipboard.writeText(
-
-          pre.innerText
-        );
-
-        btn.innerText =
-          "Copied 😮🔥";
-
-        setTimeout(() => {
-
-          btn.innerText =
-            "Copy";
-
-        }, 2000);
-      };
-
-      pre.appendChild(btn);
-    });
-}
-document
-  .getElementById("google-login")
-  .addEventListener("click", async () => {
-
-  try {
-
-    const result =
-
-      await signInWithPopup(
-
-        auth,
-        provider
-      );
-
-    const user =
-      result.user;
-
-      const profilePic =
-document.getElementById("profile-pic");
-
-profilePic.src =
-user.photoURL;
-
-profilePic.src =
-user.photoURL ||
-"https://ui-avatars.com/api/?name=User&background=333&color=fff";
-
-profilePic.style.display = "block";
-
-document.getElementById("profile-name").innerText =
-user.displayName;
-
-document.getElementById("profile-email").innerText =
-user.email;
-
-document.getElementById("google-login").style.display =
-"none";
-
-document.getElementById("logout-menu-btn").style.display =
-"block";
-
-
-
-    addAIMessage(
-
-`
-Logged in 😈🔥
-
-Welcome:
-${user.displayName}
-`,
-
-      "Astro AI"
-    );
-
-  }
-
-  catch(err) {
-
-    console.log(err);
-  }
-});
-
-
-const oldLogoutBtn = document.getElementById("logout-btn");
-
-if (oldLogoutBtn) {
-  oldLogoutBtn.addEventListener("click", async () => {
-    await signOut(auth);
-
-    addAIMessage(
-      "Logged out 😭🔥",
-      "Astro AI"
-    );
-  });
-}
-document
-.getElementById("profile-pic")
-.addEventListener("click",()=>{
-
-document
-.getElementById("profile-menu")
-.classList.toggle("show");
-
-});
-
-document
-.getElementById("logout-menu-btn")
-.addEventListener("click",async()=>{
-
-await signOut(auth);
-
-});
-
-onAuthStateChanged(auth, async user => {
-
-  if (user) {
-
- const profilePic =
-document.getElementById("profile-pic");
-
-profilePic.src =
-user.photoURL ||
-"https://ui-avatars.com/api/?name=User&background=333&color=fff";
-
-profilePic.style.display =
-"block";
-
-document.getElementById("profile-name").innerText =
-user.displayName;
-
-document.getElementById("profile-email").innerText =
-user.email;
-
-// New profile menu buttons
-document.getElementById("google-login").style.display =
-"none";
-
-document.getElementById("logout-menu-btn").style.display =
-"block";
-
-  // ✅ Pehle current user set karo
-  window.currentUser = user;
-
-  // ✅ Sirf ek baar conversations load karo
-  await loadConversations();
-
-  if (!currentConversationId) {
-
-    await createNewConversation(
-      "New Astronomy Chat"
-    );
-
-  }
-
-  document
-    .getElementById(
-      "user-info"
-    )
-    .innerText =
-      user.displayName;
-
-  addAIMessage(
-
-`
-Welcome back 😈🔥
-
-${user.displayName}
-`,
-
-    "Astro AI"
-  );
-
-  await loadCloudMemory();
-
-}
-
-else {
-
-document.getElementById("profile-pic").style.display =
-"block";
-
-document.getElementById("profile-pic").src =
-"https://ui-avatars.com/api/?name=User&background=333&color=fff";
-
-document.getElementById("profile-menu")
-.classList.remove("show");
-
-document.getElementById("google-login").style.display =
-"block";
-
-document.getElementById("logout-menu-btn").style.display =
-"none";
-
-document.getElementById("profile-name").innerText =
-"";
-
-document.getElementById("profile-email").innerText =
-"";
-
-window.currentUser = null;
-
-const profilePic = document.getElementById("profile-pic");
-const profileMenu = document.getElementById("profile-menu");
-const profileName = document.getElementById("profile-name");
-const profileEmail = document.getElementById("profile-email");
-
-const googleLogin =
-document.getElementById("google-login");
-
-const logoutBtn =
-document.getElementById("logout-menu-btn");
-
-document
-.getElementById(
-"user-info"
-)
-.innerText = "";
-
-}
-
-document
-  .getElementById(
-    "new-chat-btn"
-  )
-  .addEventListener(
-    "click",
-
-async () => {
-
-  await createNewConversation(
-    "New Astronomy Chat"
-  );
-
-  document
-    .getElementById(
-      "attach-btn"
-    )
-    .onclick = () => {
-
-      document
-        .getElementById(
-          "astro-image"
-        )
-        .click();
-
-    };
-
-});
-});
-
-document.getElementById("profile-pic").style.display =
-"block";
-
-document.getElementById("profile-pic").src =
-"https://ui-avatars.com/api/?name=User&background=333&color=fff";
-
-document.getElementById("profile-menu")
-.classList.remove("show");
-
-document.getElementById("google-login").style.display =
-"block";
-
-document.getElementById("logout-menu-btn").style.display =
-"none";
-
-async function saveCloudMemory() {
-
-  if (!window.currentUser)
-    return;
-
-  await setDoc(
-
-    doc(
-      db,
-      "memories",
-      window.currentUser.uid
-    ),
-
-    {
-
-      memories:
-        astroMemory.memories || []
-
-    }
-
-  );
-
-}
-
-async function loadCloudMemory() {
-
-  if (!window.currentUser)
-    return;
-
-  const docRef =
-
-    doc(
-      db,
-      "memories",
-      window.currentUser.uid
-    );
-
-  const snap =
-
-    await getDoc(
-      docRef
-    );
-
-  if (snap.exists()) {
-
-    astroMemory.memories =
-
-      snap.data().memories;
-
-    localStorage.setItem(
-
-      "astroMemory",
-
-      JSON.stringify(
-        astroMemory
-      )
-
-    );
-
-  }
-
-}
-
-window.loadChatHistory =
-async function() {
-
-  if (!window.currentUser)
-    return;
-
-  try {
-
-    const ref = doc(
-      db,
-      "users",
-      window.currentUser.uid
-    );
-
-    const snap =
-      await getDoc(ref);
-
-    if (!snap.exists())
-      return;
-
-    const chats =
-      snap.data().chatHistory || [];
-
-    chats.forEach(chat => {
-
-      addAIMessage(
-
-        chat.text,
-
-        chat.sender
-
-      );
-
-    });
-
-    console.log(
-      "History loaded 😈🔥"
-    );
-
-  }
-
-  catch(err) {
-
-    console.log(err);
-
-  }
-
-  async function createNewConversation(
-
-    title = "New Chat"
-
-  ) {
-
-    if (!window.currentUser)
-      return;
-
-    const id =
-
-      "conv_" + Date.now();
-
-    currentConversationId =
-      id;
-
-    const ref = doc(
-
-      db,
-
-      "users",
-
-      window.currentUser.uid,
-
-      "conversations",
-
-      id
-
-    );
-
-    await setDoc(ref, {
-
-      title,
-
-      createdAt:
-        Date.now(),
-
-      updatedAt:
-        Date.now(),
-
-      messages: []
-
-    });
-
-    await loadConversations();
-
-    clearChatUI();
-
-  }
-
-
-async function loadConversations() {
-
-  if (!window.currentUser)
-    return;
-
-  try {
-
-    const ref = doc(
-      db,
-      "users",
-      window.currentUser.uid
-    );
-
-    const snap =
-      await getDoc(ref);
-
-    if (!snap.exists())
-      return;
-
-    conversations =
-
-      snap.data()
-      .conversations || [];
-
-    renderConversationList();
-
-    if (
-      conversations.length > 0
-    ) {
-
-      currentConversationId =
-        conversations[0].id;
-
+    if (openFirst && conversations.length > 0) {
+      currentConversationId = conversations[0].id;
       renderCurrentConversation();
     }
-
-  }
-
-  catch(err) {
-
+    updateGeneralSettings();
+  } catch (err) {
     console.log(err);
   }
 }
 
+async function createNewConversation(title = "New Chat") {
+  if (!window.currentUser) return;
 
+  const id = "conv_" + Date.now();
+  const convo = {
+    id,
+    title,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+    messages: [],
+    pinned: false
+  };
+
+  currentConversationId = id;
+
+  await setDoc(
+    doc(db, "users", window.currentUser.uid, "conversations", id),
+    convo
+  );
+
+  conversations.unshift(convo);
+  clearChatUI();
+
+  addAIMessage(
+  "Hello 🌌 I am Astro AI. Ask me anything about space.",
+  "Astro AI"
+);
+  renderHistoryList(historySearch?.value?.toLowerCase() || "");
+  updateGeneralSettings();
+}
 
 async function openConversation(id) {
 
@@ -5179,28 +5486,184 @@ async function saveMessage(
     messages
 
   });
+
+  conversations = conversations.map(c => {
+
+  if (c.id === currentConversationId) {
+
+    return {
+
+      ...c,
+
+      updatedAt: Date.now(),
+
+      messages
+
+    };
+
+  }
+
+  return c;
+
+});
+
+await loadConversations();
+
+renderCurrentConversation();
+renderHistoryList();
 }
+
+async function generateConversationTitle(question, reply){
+
+if(!window.currentUser) return;
+
+if(!currentConversationId) return;
+
+try{
+
+const endpoint = isLocal
+? "https://openrouter.ai/api/v1/chat/completions"
+: "/api/chat";
+
+const headers = isLocal
+?{
+"Authorization":
+"Bearer " +
+localStorage.getItem("OPENROUTER_API_KEY"),
+"Content-Type":"application/json",
+"HTTP-Referer":location.origin,
+"X-Title":"Astro AI"
+}
+:{
+"Content-Type":"application/json"
 };
-}); // 🔥 DOMContentLoaded END
 
-function showToast(message){
+const response = await fetch(endpoint,{
 
-const toast =
-document.getElementById("toast");
+method:"POST",
 
-toast.innerText = message;
+headers,
 
-toast.classList.add("show");
+body:JSON.stringify({
 
-clearTimeout(toast.timer);
+model:"openai/gpt-4o-mini",
 
-toast.timer = setTimeout(()=>{
+messages:[
 
-toast.classList.remove("show");
+{
 
-},2000);
+role:"system",
+
+content:`
+Generate a short conversation title.
+
+Rules:
+
+- Maximum 5 words.
+- English only.
+- No quotation marks.
+- No emoji.
+- No punctuation at the end.
+- Capture the main topic.
+- Return ONLY the title.
+`
+
+},
+
+{
+
+role:"user",
+
+content:`
+
+Question:
+
+${question}
+
+Assistant:
+
+${reply}
+
+`
 
 }
+
+],
+
+temperature:0.2,
+
+max_tokens:20
+
+})
+
+});
+
+const data=await response.json();
+
+if(!data.choices) return;
+
+const title=
+data.choices[0].message.content.trim();
+
+const ref=doc(
+
+db,
+
+"users",
+
+window.currentUser.uid,
+
+"conversations",
+
+currentConversationId
+
+);
+
+const snap=await getDoc(ref);
+
+if(!snap.exists()) return;
+
+const convo=snap.data();
+
+if(convo.title!=="New Astronomy Chat") return;
+
+await setDoc(ref,{
+
+...convo,
+
+title,
+
+updatedAt:Date.now()
+
+});
+
+await loadConversations();
+
+renderHistoryList();
+
+}
+
+catch(err){
+
+console.log(err);
+
+}
+
+}
+
+
+
+
+
+document
+.getElementById("open-ai")
+.addEventListener("click",()=>{
+
+document.getElementById("ai-panel").style.display="flex";
+
+document.getElementById("open-ai").style.display="none";
+
+});
 
 document
 .getElementById("close-ai")
@@ -5212,12 +5675,1120 @@ document.getElementById("open-ai").style.display="block";
 
 });
 
-document
-.getElementById("open-ai")
-.addEventListener("click",()=>{
+function showAPIKeyModal(){
 
-document.getElementById("ai-panel").style.display="flex";
+document.getElementById(
+"api-key-modal"
+).style.display="flex";
 
-document.getElementById("open-ai").style.display="none";
+}
+
+function hideAPIKeyModal(){
+
+document.getElementById(
+"api-key-modal"
+).style.display="none";
+
+}
+
+function updateGeneralSettings(){
+
+const conversationCount =
+document.getElementById("conversation-count");
+
+const memoryCount =
+document.getElementById("memory-count");
+
+const aiStatus =
+document.getElementById("ai-status-general");
+
+if(conversationCount){
+
+conversationCount.textContent =
+conversations.length;
+
+}
+
+if(memoryCount){
+
+const totalMemories =
+(astroMemory.memories?.length || 0) +
+(astroMemory.theories?.length || 0) +
+(astroMemory.observations?.length || 0) +
+(astroMemory.telescopeSessions?.length || 0);
+
+memoryCount.textContent = totalMemories;
+
+}
+
+if(aiStatus){
+
+aiStatus.textContent =
+localStorage.getItem("OPENROUTER_API_KEY")
+? "🟢 Connected"
+: "🔴 Not Connected";
+
+}
+
+}
+/* ==========================================
+   ASTRO EXPLORER SETTINGS
+========================================== */
+
+/* ==========================================
+   ASTRO EXPLORER SETTINGS
+========================================== */
+
+const settingsOverlay = document.getElementById("settings-overlay");
+const openSettingsBtn = document.getElementById("open-settings");
+
+const closeSettingsBtn = document.getElementById("close-settings");
+console.log("Settings:", {
+  overlay: settingsOverlay,
+  open: openSettingsBtn,
+  close: closeSettingsBtn
+});
+const settingsTabs = document.querySelectorAll(".settings-tab");
+const settingsPages = document.querySelectorAll(".settings-page");
+
+console.log("SETTINGS INIT");
+
+if (settingsOverlay && openSettingsBtn && closeSettingsBtn) {
+
+    console.log("ATTACHING SETTINGS EVENTS");
+
+    openSettingsBtn.onclick = () => {
+
+        console.log("SETTINGS CLICKED");
+
+        settingsOverlay.style.display = "flex";
+
+    };
+
+    closeSettingsBtn.onclick = () => {
+
+        settingsOverlay.style.display = "none";
+
+    };
+
+
+
+  settingsOverlay.addEventListener("click", (e) => {
+    if (e.target === settingsOverlay) {
+      settingsOverlay.style.display = "none";
+    }
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (
+      e.key === "Escape" &&
+      settingsOverlay.style.display === "flex"
+    ) {
+      settingsOverlay.style.display = "none";
+    }
+  });
+
+  settingsTabs.forEach(tab => {
+
+    tab.addEventListener("click", () => {
+
+      settingsTabs.forEach(btn =>
+        btn.classList.remove("active")
+      );
+
+      settingsPages.forEach(page =>
+        page.classList.remove("active")
+      );
+
+      tab.classList.add("active");
+
+      const page = document.getElementById(
+        tab.dataset.page + "-page"
+      );
+
+      if (page) {
+        page.classList.add("active");
+      }
+
+    });
+
+  });
+
+}
+document.getElementById("environment-status").textContent =
+isLocal
+? "🟡 Local Development"
+: "🟢 Production";
+
+document.getElementById("firebase-status").textContent =
+window.db
+? "🟢 Connected"
+: "🔴 Offline";
+
+document.getElementById("database-status").textContent =
+window.db
+? "🟢 Online"
+: "🔴 Offline";
+
+document.getElementById("ai-status-general").textContent =
+localStorage.getItem("OPENROUTER_API_KEY")
+? "🟢 Connected"
+: "🔴 Not Connected";
+
+document.getElementById("conversation-count").textContent =
+conversations.length;
+
+document.getElementById("memory-count").textContent =
+astroMemory.memories.length;
+
+document.getElementById("clear-cache-btn").onclick=()=>{
+
+localStorage.clear();
+
+showToast("🧹 Cache Cleared");
+
+location.reload();
+
+};
+
+document.getElementById("reset-settings-btn").onclick=()=>{
+
+if(!confirm("Reset all settings?"))
+return;
+
+localStorage.removeItem("astroSettings");
+
+showToast("⚙ Settings Reset");
+
+};
+
+/* ==========================================
+   ASTRO AI SETTINGS - PHASE 2
+========================================== */
+
+const apiStatus =
+document.getElementById("api-status");
+
+const settingsApiKey =
+document.getElementById("settings-api-key");
+
+const changeApiKeyBtn =
+document.getElementById("change-api-key");
+
+const removeApiKeySettingsBtn =
+document.getElementById("remove-api-key-settings");
+
+const viewHistoryBtn =
+document.getElementById("view-chat-history");
+
+const newChatSettingsBtn =
+document.getElementById("new-chat-settings");
+
+const clearCurrentBtn =
+document.getElementById("clear-current-chat");
+
+const clearAllBtn =
+document.getElementById("clear-all-chat");
+
+
+// Load current API key
+
+const savedKey =
+localStorage.getItem("openrouter_api_key");
+
+if(savedKey){
+
+settingsApiKey.value =
+"••••••••••••••••";
+
+apiStatus.textContent =
+"🟢 Connected";
+
+}else{
+
+apiStatus.textContent =
+"🔴 Not Connected";
+
+}
+
+
+// Change API Key
+
+changeApiKeyBtn?.addEventListener("click",()=>{
+
+showAPIKeyModal();
+
+});
+
+
+// Remove API Key
+
+removeApiKeySettingsBtn?.addEventListener("click",()=>{
+
+if(confirm("Remove saved API Key?")){
+
+localStorage.removeItem("openrouter_api_key");
+
+settingsApiKey.value="";
+
+apiStatus.textContent=
+"🔴 Not Connected";
+
+showToast("API Key Removed");
+
+}
+
+});
+
+
+// View History
+
+viewHistoryBtn?.addEventListener("click",()=>{
+
+showToast("Chat History coming in Phase 2.2");
+
+});
+
+
+// New Chat
+
+newChatSettingsBtn?.addEventListener("click",async()=>{
+
+if(typeof createNewConversation==="function"){
+
+await createNewConversation(
+"New Astronomy Chat"
+);
+
+showToast("New Chat Created");
+
+}
+
+});
+
+
+// Clear Current Chat
+
+clearCurrentBtn?.addEventListener("click", async ()=>{
+
+if(!currentConversationId) return;
+
+if(!confirm("Clear current conversation?")) return;
+
+try{
+
+const ref = doc(
+
+db,
+
+"users",
+
+window.currentUser.uid,
+
+"conversations",
+
+currentConversationId
+
+);
+
+const snap = await getDoc(ref);
+
+if(!snap.exists()) return;
+
+const data = snap.data();
+
+await setDoc(
+
+ref,
+
+{
+
+...data,
+
+messages:[],
+
+updatedAt:Date.now()
+
+}
+
+);
+
+clearChatUI();
+
+addAIMessage(
+
+"Hello 🌌 I am Astro AI. Ask me anything about space.",
+
+"Astro AI"
+
+);
+
+await loadConversations();
+
+renderHistoryList();
+
+showToast("🗑 Current chat cleared");
+
+}
+
+catch(err){
+
+console.log(err);
+
+showToast("Failed to clear chat");
+
+}
+
+});
+
+
+// Clear All Chats
+
+clearAllBtn?.addEventListener("click", async ()=>{
+
+if(!window.currentUser) return;
+
+if(!confirm("Delete ALL conversations? This cannot be undone.")) return;
+
+try{
+
+for(const conv of conversations){
+
+await deleteDoc(
+
+doc(
+
+db,
+
+"users",
+
+window.currentUser.uid,
+
+"conversations",
+
+conv.id
+
+)
+
+);
+
+}
+
+conversations = [];
+
+currentConversationId = null;
+
+clearChatUI();
+
+await createNewConversation(
+"New Astronomy Chat"
+);
+
+showToast("🗑 All chats deleted");
+
+}
+
+catch(err){
+
+console.log(err);
+
+showToast("Failed to delete chats");
+
+}
+
+});
+
+/* ==========================================
+   CHAT HISTORY MANAGER
+========================================== */
+
+const historyOverlay =
+document.getElementById("history-overlay");
+
+const historyList =
+document.getElementById("history-list");
+
+
+
+
+
+const historySearch =
+document.getElementById("history-search-box");
+
+const importBtn =
+document.getElementById("import-chat");
+
+const importInput =
+document.getElementById("import-chat-file");
+
+importBtn.onclick = () => {
+
+    importInput.click();
+
+};
+
+importInput.onchange=async(e)=>{
+
+const file=e.target.files[0];
+
+if(!file)return;
+
+try{
+
+const text=
+await file.text();
+
+const data=
+JSON.parse(text);
+
+if(
+!data.title||
+!Array.isArray(data.messages)
+){
+
+showToast(
+"Invalid Chat File"
+);
+
+return;
+
+}
+
+const id=
+"conv_"+Date.now();
+
+await setDoc(
+
+doc(
+
+db,
+
+"users",
+
+window.currentUser.uid,
+
+"conversations",
+
+id
+
+),
+
+{
+
+title:data.title,
+
+createdAt:
+data.createdAt||
+Date.now(),
+
+updatedAt:
+Date.now(),
+
+messages:
+data.messages,
+
+pinned:false
+
+}
+
+);
+
+await loadConversations();
+
+renderHistoryList();
+
+showToast(
+"📥 Chat Imported"
+);
+
+}
+
+catch(err){
+
+console.log(err);
+
+showToast(
+"Import Failed"
+);
+
+}
+
+};
+
+const closeHistoryBtn =
+document.getElementById("close-history");
+
+viewHistoryBtn?.addEventListener("click", () => {
+
+    historyOverlay.style.display = "flex";
+
+    renderHistoryList();
+
+});
+
+
+// OPEN
+
+viewHistoryBtn?.addEventListener("click",()=>{
+
+historyOverlay.style.display="flex";
+
+renderHistoryList();
+
+});
+
+
+// CLOSE
+
+closeHistoryBtn?.addEventListener("click",()=>{
+
+historyOverlay.style.display="none";
+
+});
+
+
+// CLICK OUTSIDE
+
+historyOverlay?.addEventListener("click",(e)=>{
+
+if(e.target===historyOverlay){
+
+historyOverlay.style.display="none";
+
+}
+
+});
+
+
+// SEARCH
+
+historySearch?.addEventListener("input",()=>{
+
+renderHistoryList(
+historySearch.value.toLowerCase()
+);
+
+});
+
+
+// RENDER
+
+function renderHistoryList(search=""){
+
+historyList.innerHTML="";
+
+if(
+!Array.isArray(conversations) ||
+conversations.length===0
+){
+
+historyList.innerHTML=`
+
+<div class="history-item">
+
+<div class="history-title">
+
+No conversations
+
+</div>
+
+</div>
+
+`;
+
+return;
+
+}
+
+const sortedConversations =
+
+[...conversations].sort((a,b)=>{
+
+if(a.pinned!==b.pinned){
+
+return b.pinned-a.pinned;
+
+}
+
+return (b.updatedAt||0)-(a.updatedAt||0);
+
+});
+
+sortedConversations.forEach(conv=>{
+
+if(
+
+search &&
+!conv.title.toLowerCase().includes(search)
+
+)return;
+
+const item=
+document.createElement("div");
+
+item.className=
+"history-item";
+
+if(conv.id===currentConversationId){
+
+item.classList.add("active-history");
+
+}
+
+if(conv.pinned){
+
+    item.classList.add("pinned");
+
+}
+const lastMessage =
+
+conv.messages &&
+conv.messages.length
+
+? conv.messages[
+conv.messages.length-1
+].text.substring(0,60)
+
+: "No messages yet";
+
+item.innerHTML=`
+
+<div class="history-title">
+
+${conv.title}
+
+</div>
+
+<div class="history-preview">
+
+${lastMessage}
+
+</div>
+
+<div class="history-date">
+
+${formatHistoryDate(
+conv.updatedAt||Date.now()
+)}
+
+</div>
+
+<div class="history-actions">
+
+<button class="open-chat">
+Open
+</button>
+
+<button class="rename-chat">
+Rename
+</button>
+
+<button class="export-chat">
+Export
+</button>
+
+<button class="delete-chat">
+Delete
+</button>
+
+<button class="pin-chat">
+📌
+</button>
+
+</div>
+
+`;
+
+const pinBtn =
+item.querySelector(".pin-chat");
+
+const exportBtn =
+item.querySelector(".export-chat");
+
+exportBtn.onclick = () => {
+
+const exportData = {
+
+title: conv.title,
+
+createdAt: conv.createdAt,
+
+updatedAt: conv.updatedAt,
+
+messages: conv.messages || []
+
+};
+
+const blob = new Blob(
+
+[JSON.stringify(exportData,null,2)],
+
+{
+
+type:"application/json"
+
+}
+
+);
+
+const url =
+URL.createObjectURL(blob);
+
+const a =
+document.createElement("a");
+
+a.href = url;
+
+a.download =
+`${conv.title.replace(/[\\/:*?"<>|]/g,"_")}.json`;
+
+a.click();
+
+URL.revokeObjectURL(url);
+
+showToast("📤 Chat Exported");
+
+};
+
+pinBtn.onclick = async () => {
+
+    conv.pinned = !conv.pinned;
+
+    try {
+
+        await setDoc(
+
+            doc(
+
+                db,
+
+                "users",
+
+                window.currentUser.uid,
+
+                "conversations",
+
+                conv.id
+
+            ),
+
+            {
+
+                ...conv
+
+            }
+
+        );
+
+        await loadConversations();
+
+        renderHistoryList(
+
+            historySearch.value.toLowerCase()
+
+        );
+
+        showToast(
+
+            conv.pinned
+
+            ? "📌 Chat Pinned"
+
+            : "📍 Chat Unpinned"
+
+        );
+
+    }
+
+    catch(err){
+
+        console.log(err);
+
+    }
+
+};
+
+
+// OPEN
+
+item.querySelector(".open-chat").onclick=async()=>{
+
+historyOverlay.style.display="none";
+
+currentConversationId=conv.id;
+
+await openConversation(conv.id);
+
+renderHistoryList(
+historySearch.value.toLowerCase()
+);
+
+};
+
+
+// RENAME
+
+item.querySelector(".rename-chat").onclick = async () => {
+
+const title = prompt(
+"Rename conversation",
+conv.title
+);
+
+if(!title || title.trim()==="") return;
+
+try{
+
+conv.title = title.trim();
+
+await setDoc(
+
+doc(
+
+db,
+
+"users",
+
+window.currentUser.uid,
+
+"conversations",
+
+conv.id
+
+),
+
+{
+
+...conv,
+
+title: title.trim(),
+
+updatedAt: Date.now()
+
+}
+
+);
+
+await loadConversations();
+
+renderHistoryList(
+
+historySearch.value.toLowerCase()
+
+);
+
+showToast("✏️ Conversation Renamed");
+
+}
+
+catch(err){
+
+console.log(err);
+
+showToast("Rename Failed");
+
+}
+
+};
+
+// DELETE
+
+item.querySelector(".delete-chat").onclick = async () => {
+
+if(!confirm("Delete this conversation?"))
+return;
+
+try{
+
+await deleteDoc(
+
+doc(
+
+db,
+
+"users",
+
+window.currentUser.uid,
+
+"conversations",
+
+conv.id
+
+)
+
+);
+
+await loadConversations();
+
+renderHistoryList(
+historySearch.value.toLowerCase()
+);
+
+showToast("Conversation Deleted");
+
+}
+
+catch(err){
+
+console.log(err);
+
+}
+
+};
+
+historyList.appendChild(item);
+
+});
+
+}
+
+function applyAppearanceSettings(){
+
+const size =
+
+localStorage.getItem("fontSize") || "16";
+
+document.documentElement.style.fontSize =
+size + "px";
+
+const select =
+document.getElementById("font-size-select");
+
+if(select){
+
+select.value = size;
+
+}
+
+}
+
+const fontSizeSelect =
+document.getElementById("font-size-select");
+
+fontSizeSelect?.addEventListener("change",()=>{
+
+localStorage.setItem(
+
+"fontSize",
+
+fontSizeSelect.value
+
+);
+
+applyAppearanceSettings();
+
+showToast("🎨 Font size updated");
+
+});
+
+function applyAccentColor(){
+
+const color =
+
+localStorage.getItem("accentColor")
+
+|| "#00f5ff";
+
+document.documentElement.style.setProperty(
+
+"--accent",
+
+color
+
+);
+
+const select =
+
+document.getElementById(
+
+"accent-color-select"
+
+);
+
+if(select){
+
+select.value=color;
+
+}
+
+}
+
+const accentSelect =
+
+document.getElementById(
+
+"accent-color-select"
+
+);
+
+accentSelect?.addEventListener(
+
+"change",
+
+()=>{
+
+localStorage.setItem(
+
+"accentColor",
+
+accentSelect.value
+
+);
+
+applyAccentColor();
+
+showToast(
+
+"🎨 Accent Updated"
+
+);
+
+});
+
+function applyAISettings(){
+
+const responseLength =
+
+localStorage.getItem("responseLength")
+
+|| "medium";
+
+const select =
+
+document.getElementById("response-length");
+
+if(select){
+
+select.value = responseLength;
+
+}
+
+}
+
+const responseLengthSelect =
+
+document.getElementById("response-length");
+
+responseLengthSelect?.addEventListener(
+
+"change",
+
+()=>{
+
+localStorage.setItem(
+
+"responseLength",
+
+responseLengthSelect.value
+
+);
+
+applyAISettings();
+
+showToast(
+
+"🤖 AI Settings Saved"
+
+);
 
 });
