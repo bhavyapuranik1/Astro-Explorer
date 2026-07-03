@@ -40,6 +40,9 @@ let lastQuestion = "";
 let conversations = [];
 let currentConversationId = null;
 let nasaMemoryCache = {};
+let pendingMemory = null;
+let editingMemory = null;
+let pendingStructuredMemory = null;
 let nasaCache =
 
 JSON.parse(
@@ -236,7 +239,178 @@ console.log(e);
 
 }
 
+function extractStructuredMemory(text){
+
+    const t = text.trim();
+
+    const memory = {
+        category: "general",
+        key: "",
+        value: t
+    };
+
+    const rules = [
+
+        // 👤 Name
+        {
+            category:"profile",
+            key:"name",
+            patterns:[
+                /my name is (.+)/i,
+                /i am (.+)/i,
+                /mera naam (.+)/i
+            ]
+        },
+
+        // 🌍 Language
+        {
+            category:"profile",
+            key:"language",
+            patterns:[
+                /i speak (.+)/i,
+                /my language is (.+)/i,
+                /meri language (.+)/i,
+                /main (.+) bolta/i,
+                /main (.+) bolti/i
+            ]
+        },
+
+        // ❤️ Favourite Planet
+        {
+            category:"preference",
+            key:"favourite_planet",
+            patterns:[
+                /favorite planet is (.+)/i,
+                /favourite planet is (.+)/i,
+                /my favourite planet is (.+)/i,
+                /my favorite planet is (.+)/i,
+                /mera favourite planet (.+)/i,
+                /mera favorite planet (.+)/i
+            ]
+        },
+
+        // 🌙 Favourite Satellite
+        {
+            category:"preference",
+            key:"favourite_satellite",
+            patterns:[
+                /favorite satellite is (.+)/i,
+                /favourite satellite is (.+)/i,
+                /my favourite satellite is (.+)/i,
+                /my favorite satellite is (.+)/i,
+                /mera favourite satellite (.+)/i
+            ]
+        },
+
+        // 🌌 Favourite Galaxy
+        {
+            category:"preference",
+            key:"favourite_galaxy",
+            patterns:[
+                /favorite galaxy is (.+)/i,
+                /favourite galaxy is (.+)/i,
+                /my favourite galaxy is (.+)/i,
+                /mera favourite galaxy (.+)/i
+            ]
+        },
+
+        // ⭐ Favourite Star
+        {
+            category:"preference",
+            key:"favourite_star",
+            patterns:[
+                /favorite star is (.+)/i,
+                /favourite star is (.+)/i,
+                /my favourite star is (.+)/i,
+                /mera favourite star (.+)/i
+            ]
+        },
+
+        // ☄️ Favourite Comet
+        {
+            category:"preference",
+            key:"favourite_comet",
+            patterns:[
+                /favorite comet is (.+)/i,
+                /favourite comet is (.+)/i,
+                /my favourite comet is (.+)/i
+            ]
+        },
+
+        // 🛰 Favourite Mission
+        {
+            category:"preference",
+            key:"favourite_mission",
+            patterns:[
+                /favorite mission is (.+)/i,
+                /favourite mission is (.+)/i,
+                /my favourite mission is (.+)/i
+            ]
+        },
+
+        // 🔭 Telescope
+        {
+            category:"equipment",
+            key:"telescope",
+            patterns:[
+                /my telescope is (.+)/i,
+                /i use (.+) telescope/i,
+                /mere paas (.+) telescope/i
+            ]
+        },
+
+        // 📷 Camera
+        {
+            category:"equipment",
+            key:"camera",
+            patterns:[
+                /my camera is (.+)/i,
+                /i use (.+) camera/i
+            ]
+        }
+
+    ];
+
+    for(const rule of rules){
+
+        for(const pattern of rule.patterns){
+
+            const match = t.match(pattern);
+
+            if(match){
+
+                memory.category = rule.category;
+                memory.key = rule.key;
+                memory.value = match[1].trim();
+
+                return memory;
+
+            }
+
+        }
+
+    }
+
+    return memory;
+
+}
+
+function findDuplicateMemory(memory){
+
+    return getAllMemoryItems().find(m=>
+
+        m.key &&
+        memory.key &&
+
+        m.key.toLowerCase()===memory.key.toLowerCase()
+
+    );
+
+}
+
 function saveMemory(
+
+  
   memoryText,
   category = "general",
   importance = 1
@@ -247,21 +421,33 @@ function saveMemory(
     astroMemory.memories = [];
   }
 
-  astroMemory.memories.push({
+  const structured = extractStructuredMemory(memoryText);
 
-    id:
-      Date.now(),
+astroMemory.memories.push({
 
-    text:
-      memoryText,
+    id: Date.now(),
 
-    category,
+    text: memoryText,
+
+    category: structured.category,
+
+    key: structured.key,
+
+    value: structured.value,
 
     importance,
 
-    time:
-      new Date().toISOString()
-  });
+    time: new Date().toISOString(),
+
+    pinned: false,
+
+    favorite: false,
+
+    updatedAt: new Date().toISOString()
+
+});
+
+console.log("Saved Memory:", astroMemory.memories);
 
   localStorage.setItem(
 
@@ -273,10 +459,14 @@ function saveMemory(
   );
   saveCloudMemory();
   updateGeneralSettings();
+  updateMemorySettings();
+renderMemoryList();
 }
 
 
 function saveTheory(text) {
+
+  console.log("🔥 saveTheory()");
 
   if (!astroMemory.theories) {
     astroMemory.theories = [];
@@ -284,11 +474,22 @@ function saveTheory(text) {
 
   astroMemory.theories.push({
 
+    id: Date.now(),
+
     text,
 
-    time: new Date().toISOString()
+    time: new Date().toISOString(),
 
-  });
+    pinned: false,
+
+    favorite: false,
+
+    updatedAt: new Date().toISOString()
+
+});
+
+console.log("Theory Count:", astroMemory.theories.length);
+console.log(astroMemory.theories);
 
   localStorage.setItem(
 
@@ -297,6 +498,8 @@ function saveTheory(text) {
     JSON.stringify(astroMemory)
   );
   updateGeneralSettings();
+  updateMemorySettings();
+renderMemoryList();
 }
 
 
@@ -308,11 +511,19 @@ function saveObservation(text) {
 
   astroMemory.observations.push({
 
+    id: Date.now(),
+
     text,
 
-    time: new Date().toISOString()
+    time: new Date().toISOString(),
 
-  });
+    pinned: false,
+
+    favorite: false,
+
+    updatedAt: new Date().toISOString()
+
+});
 
   localStorage.setItem(
 
@@ -321,6 +532,8 @@ function saveObservation(text) {
     JSON.stringify(astroMemory)
   );
   updateGeneralSettings();
+  updateMemorySettings();
+renderMemoryList();
 }
 
 
@@ -332,11 +545,19 @@ function saveTelescopeSession(text) {
 
   astroMemory.telescopeSessions.push({
 
+    id: Date.now(),
+
     text,
 
-    time: new Date().toISOString()
+    time: new Date().toISOString(),
 
-  });
+    pinned: false,
+
+    favorite: false,
+
+    updatedAt: new Date().toISOString()
+
+});
 
   localStorage.setItem(
 
@@ -345,6 +566,8 @@ function saveTelescopeSession(text) {
     JSON.stringify(astroMemory)
   );
   updateGeneralSettings();
+  updateMemorySettings();
+renderMemoryList();
 }
 
 function loadAllMemories() {
@@ -1065,7 +1288,7 @@ function createMarker() {
     marker.style.borderRadius = "50%";
     marker.style.transform = "translate(-50%, -50%)";
     marker.style.pointerEvents = "none";
-    marker.style.zIndex = "9999";
+    marker.style.zIndex = "25";
 
     container.appendChild(marker);
   }
@@ -1982,7 +2205,7 @@ function createPlanetLabel(name, pt) {
   const label = document.createElement("div");
   label.className = "planet-label";
   label.innerText = name;
-
+label.style.zIndex = "30"; 
   label.style.position = "absolute";
   label.style.color = "yellow";
   label.style.fontSize = "14px";
@@ -2023,7 +2246,7 @@ function createAllPlanetLabels() {
     label.style.position = "absolute";
     label.style.color = "yellow";
     label.style.fontSize = "12px";
-    label.style.zIndex = "9999";
+    label.style.zIndex = "20";
 
     label.style.left = (pt[0] + 10) + "px";
 label.style.top  = (pt[1] - 10) + "px";
@@ -2871,6 +3094,8 @@ document
   applyAppearanceSettings();
   applyAccentColor();
   applyAISettings();
+  updateMemorySettings();
+renderMemoryList();
   const dateInput = document.getElementById("date-picker");
   const loadBtn = document.getElementById("load-btn");
   const prevBtn = document.getElementById("prev-btn");
@@ -3039,25 +3264,31 @@ document
 // 🔥 REMEMBER COMMAND
 
 if (
-  question.toLowerCase().startsWith("remember:")
+    question.toLowerCase().startsWith("remember:") ||
+    isMemoryRequest(question)
 ) {
 
-  const memoryText = question
-    .replace(/remember:/i, "")
-    .trim();
+    let memoryText = question;
 
-  saveMemory(memoryText);
+    if (question.toLowerCase().startsWith("remember:")) {
 
-  addAIMessage(
+        memoryText = question
+            .replace(/remember:/i, "")
+            .trim();
 
-    "Memory added permanently 😄🔥",
+    }
 
-    "Astro AI"
-  );
+    memoryText = extractMemory(memoryText);
 
-  return;
+    saveMemory(memoryText);
+
+    addAIMessage(
+        "🧠 I've remembered that for future conversations.",
+        "Astro AI"
+    );
+
+    return;
 }
-
 // 🔥 FORGET COMMAND
 
 // 🔥 FORGET COMMAND
@@ -3210,6 +3441,17 @@ if (
 
     if (!question) return;
 
+    
+
+if (
+    !isMemoryRequest(question) &&
+    shouldSuggestMemory(question)
+) {
+
+    pendingMemory = question;
+
+}
+
     addAIMessage(
       question,
       "You"
@@ -3281,9 +3523,19 @@ renderAttachments();
 
 const relatedMemories =
 
-  searchMemories(question)
-    .map(m => "- " + m.text)
-    .join("\n");
+    astroMemory.memories
+        ?.map(memory => {
+
+            if (memory.key && memory.value) {
+
+                return `${memory.key}: ${memory.value}`;
+
+            }
+
+            return memory.text;
+
+        })
+        .join("\n") || "None";
 
     let userInterestProfile = "";
 
@@ -3515,6 +3767,10 @@ Give a dedicated astrophotography analysis section.
 
 Saved User Memory:
 
+${loadAllMemories()}
+
+Relevant Memories:
+
 ${relatedMemories || "None"}
 
 ${userInterestProfile}
@@ -3597,6 +3853,79 @@ const responseLength =
 localStorage.getItem("responseLength")
 || "medium";
 
+const defaultAISettings = {
+    responseLength: "medium",
+    creativity: "balanced"
+};
+
+const creativity =
+localStorage.getItem("creativity")
+|| "balanced";
+
+let creativityInstruction = "";
+
+switch (localStorage.getItem("creativity") || "balanced") {
+
+case "precise":
+
+creativityInstruction = `
+You are an expert astronomy scientist.
+
+Always:
+- Be concise and factual.
+- Avoid storytelling.
+- Avoid unnecessary analogies.
+- Use precise scientific terminology.
+- Focus on accuracy over style.
+`;
+
+break;
+
+case "balanced":
+
+creativityInstruction = `
+You are a friendly astronomy educator.
+
+Always:
+- Explain concepts clearly.
+- Use simple language.
+- Give examples when helpful.
+- Keep the answer engaging.
+- Maintain scientific accuracy.
+`;
+
+break;
+
+case "creative":
+
+creativityInstruction = `
+You are an inspiring astronomy educator like Carl Sagan or Neil deGrasse Tyson.
+
+Instead of sounding like a textbook:
+
+- Start with an engaging hook.
+- Explain concepts through storytelling.
+- Use vivid analogies.
+- Create curiosity and wonder.
+- Help the reader visualize space.
+- Speak naturally as if talking to a curious person.
+- Avoid sounding robotic.
+- Avoid unnecessary headings unless the user requests them.
+- Use memorable examples from space.
+- End with an interesting fact or question whenever appropriate.
+
+- Do not sound like a textbook.
+- Write as if you are talking directly to the user.
+- Use headings only when they genuinely improve readability.
+- Begin with a surprising question or an imaginative scenario instead of a definition.
+
+- Keep every scientific fact accurate.
+`;
+
+break;
+
+}
+
 let responseInstruction = "";
 
 switch(responseLength){
@@ -3637,10 +3966,13 @@ break;
 
 }
 
-const enhancedPrompt =
-finalPrompt +
-"\n\n" +
-responseInstruction;
+const enhancedPrompt = `
+${creativityInstruction}
+
+${responseInstruction}
+
+${finalPrompt}
+`;
       const endpoint = isLocal
     ? "https://openrouter.ai/api/v1/chat/completions"
     : "/api/chat";
@@ -3661,6 +3993,24 @@ const headers = isLocal
     "Content-Type":"application/json"
 };
 
+let temperature = 0.8;
+
+switch(localStorage.getItem("creativity")){
+
+case "precise":
+temperature = 0.2;
+break;
+
+case "balanced":
+temperature = 0.7;
+break;
+
+case "creative":
+temperature = 1.0;
+break;
+
+}
+
 const response = await fetch(endpoint,{
 
     method:"POST",
@@ -3671,33 +4021,46 @@ const response = await fetch(endpoint,{
 
         model:"openai/gpt-4o-mini",
 
-        messages:[
+       messages:[
+
+    {
+        role:"system",
+        content:`
+${creativityInstruction}
+
+${responseInstruction}
+`
+    },
+
+    {
+        role:"user",
+        content:[
 
             {
-                role:"user",
-                content:[
-                    {
-                        type:"text",
-                        text:enhancedPrompt
-                    },
-                    {
-                        type:"text",
-                        text:attachmentPrompt
-                    },
-                    ...uploadedAttachments
-                    .filter(f=>f.type==="image")
-                    .map(f=>({
-                        type:"image_url",
-                        image_url:{
-                            url:f.data
-                        }
-                    }))
-                ]
-            }
+                type:"text",
+                text:finalPrompt
+            },
 
-        ],
+            {
+                type:"text",
+                text:attachmentPrompt
+            },
 
-        temperature:0.8,
+            ...uploadedAttachments
+            .filter(f=>f.type==="image")
+            .map(f=>({
+                type:"image_url",
+                image_url:{
+                    url:f.data
+                }
+            }))
+
+        ]
+    }
+
+],
+
+        temperature,
         max_tokens:3000
 
     })
@@ -3763,6 +4126,26 @@ if (
       removeThinkingLoader(loader);
 
 await typeAIMessage(reply);
+
+if (pendingMemory) {
+
+    pendingStructuredMemory =
+        extractStructuredMemory(pendingMemory);
+
+    showMemorySuggestion(
+        pendingStructuredMemory
+    );
+
+    pendingMemory = null;
+
+}
+
+
+
+
+
+
+saveMessage("Astro AI", reply);
 
 saveMessage("Astro AI", reply);
 
@@ -3835,6 +4218,20 @@ input.click();
 attachMenu.classList.remove("show");
 
 };
+document.getElementById("memory-filter")
+?.addEventListener("change", () => {
+
+    renderMemoryList();
+
+});
+
+document.getElementById("memory-search")
+?.addEventListener("input", () => {
+
+    renderMemoryList();
+
+});
+
 
 document
 .getElementById("observation-option")
@@ -3890,17 +4287,93 @@ attachMenu.classList.remove("show");
 
 };
 
+// ================= EDIT MEMORY OUTSIDE CLICK =================
 
+document
+.getElementById("edit-memory-overlay")
+?.addEventListener("click", e => {
 
+    if (e.target.id === "edit-memory-overlay") {
 
+        document
+        .getElementById("edit-memory-overlay")
+        .classList.remove("show");
 
+        editingMemory = null;
 
+    }
 
+});
 
+// ================= CHAT HISTORY OUTSIDE CLICK =================
 
+document
+.getElementById("history-overlay")
+?.addEventListener("click", e => {
+
+    if (e.target.id === "history-overlay") {
+
+        document
+        .getElementById("history-overlay")
+        .style.display = "none";
+
+    }
+
+});
 
 
 }); // 🔥 DOMContentLoaded END
+
+document
+.getElementById("cancel-edit-memory")
+?.addEventListener("click",()=>{
+
+document
+.getElementById("edit-memory-overlay")
+.classList.remove("show");
+
+editingMemory = null;
+
+});
+
+document
+.getElementById("save-edit-memory")
+?.addEventListener("click",()=>{
+
+if(!editingMemory) return;
+
+editingMemory.text =
+
+document
+.getElementById("edit-memory-text")
+.value
+.trim();
+
+editingMemory.updatedAt =
+
+new Date().toISOString();
+
+localStorage.setItem(
+
+"astroMemory",
+
+JSON.stringify(astroMemory)
+
+);
+
+saveCloudMemory();
+
+updateMemorySettings();
+
+renderMemoryList();
+
+document
+.getElementById("edit-memory-overlay")
+.classList.remove("show");
+
+editingMemory = null;
+
+});
 
 function addAIMessage(text, sender) {
 
@@ -4113,6 +4586,9 @@ speakBtn.onclick = () => {
 
     // 🔥 Message ke niche buttons
     msg.appendChild(actions);
+    
+
+
 
 }
 
@@ -4177,6 +4653,8 @@ input.setSelectionRange(text.length,text.length);
 
 msg.appendChild(actions);
 
+
+
 }
 
 // 🔥 Sirf ek baar append karna hai
@@ -4184,6 +4662,8 @@ document
     .getElementById("ai-messages")
     .appendChild(msg);
 }
+
+
 
 function formatHistoryDate(time){
 
@@ -4249,6 +4729,125 @@ year:"numeric"
 
 }
 
+function isMemoryRequest(text){
+
+    const t = text.toLowerCase().trim();
+
+    return (
+
+        t.startsWith("remember:") ||
+
+        t.startsWith("save") ||
+
+        t.startsWith("store") ||
+
+        t.includes("yaad rakh") ||
+
+        t.includes("yaad rakhna") ||
+
+        t.includes("remember me") ||
+
+        t.includes("memory me") ||
+
+        t.includes("memory mein") ||
+
+        t.includes("add to memory") ||
+
+        t.includes("save this") ||
+
+        t.includes("remember this")
+
+    );
+
+}
+
+function shouldSuggestMemory(text){
+
+const t = text.toLowerCase();
+
+const patterns = [
+
+"my favourite",
+
+"my favorite",
+
+"i like",
+
+"i love",
+
+"i prefer",
+
+"my telescope",
+
+"my camera",
+
+"my language",
+
+"my name is",
+
+"i am a",
+
+"mera favourite",
+
+"mera favorite",
+
+"mujhe pasand",
+
+"mere paas",
+
+"meri language",
+
+"mera telescope",
+
+"mera camera",
+
+"main",
+
+"mujhe"
+
+];
+
+return patterns.some(p => t.includes(p));
+
+}
+
+function extractMemory(text){
+
+let memory = text.trim();
+
+const removePatterns = [
+
+/^remember\s*:?\s*/i,
+/^remember this\s*/i,
+/^remember that\s*/i,
+/^save this\s*/i,
+/^save it\s*/i,
+/^add to memory\s*/i,
+/^store this\s*/i,
+
+/^yaad rakhna\s*/i,
+/^yaad rakh\s*/i,
+/^yaad rakh lena\s*/i,
+
+/^apni memory me add kar lo\s*/i,
+/^apni memory mein add kar lo\s*/i,
+/^memory me add kar lo\s*/i,
+/^memory mein add kar lo\s*/i,
+
+/^save kar lo\s*/i,
+/^note kar lo\s*/i
+
+];
+
+removePatterns.forEach(pattern=>{
+
+memory = memory.replace(pattern,"");
+
+});
+
+return memory.trim();
+
+}
 
 function showToast(message){
 
@@ -4470,20 +5069,44 @@ renderAttachments();
 });
 function searchMemories(query) {
 
-  if (!astroMemory.memories)
-    return [];
+    if (!astroMemory.memories)
+        return [];
 
-  query =
-    query.toLowerCase();
+    const words = query
+        .toLowerCase()
+        .replace(/[^\w\s]/g, "")
+        .split(/\s+/)
+        .filter(w =>
+            w.length > 2 &&
+            ![
+                "what",
+                "which",
+                "where",
+                "when",
+                "who",
+                "why",
+                "how",
+                "is",
+                "are",
+                "the",
+                "a",
+                "an",
+                "my",
+                "me",
+                "tell",
+                "about"
+            ].includes(w)
+        );
 
-  return astroMemory.memories.filter(m =>
+    return astroMemory.memories.filter(memory => {
 
-    m.text
-      .toLowerCase()
-      .includes(query)
-  );
+        const text = memory.text.toLowerCase();
+
+        return words.some(word => text.includes(word));
+
+    });
+
 }
-
 function addCopyButtons() {
 
   document
@@ -4656,6 +5279,8 @@ document.getElementById("logout-menu-btn").style.display =
   // ✅ Pehle current user set karo
   window.currentUser = user;
 
+  await loadCloudMemory();
+
   // ✅ Sirf ek baar conversations load karo
   await loadConversations();
 
@@ -4680,7 +5305,7 @@ ${user.displayName}
     "Astro AI"
   );*/
 
-  await loadCloudMemory();
+  
 
 }
 
@@ -5364,6 +5989,16 @@ async function createNewConversation(title = "New Chat") {
     pinned: false
   };
 
+  convo.messages.push({
+
+    sender: "Astro AI",
+
+    text: "Hello 🌌 I am Astro AI. Ask me anything about space.",
+
+    time: Date.now()
+
+});
+
   currentConversationId = id;
 
   await setDoc(
@@ -5548,44 +6183,30 @@ body:JSON.stringify({
 
 model:"openai/gpt-4o-mini",
 
-messages:[
+messages: [
 
 {
-
 role:"system",
-
 content:`
 Generate a short conversation title.
 
 Rules:
-
 - Maximum 5 words.
-- English only.
-- No quotation marks.
-- No emoji.
-- No punctuation at the end.
-- Capture the main topic.
-- Return ONLY the title.
+- Do not use quotes.
+- Do not use markdown.
+- Return only the title.
 `
-
 },
 
 {
-
 role:"user",
-
 content:`
-
 Question:
-
 ${question}
 
-Assistant:
-
+Assistant Reply:
 ${reply}
-
 `
-
 }
 
 ],
@@ -6747,48 +7368,862 @@ showToast(
 
 function applyAISettings(){
 
-const responseLength =
+    const responseLength =
+        localStorage.getItem("responseLength") || "medium";
 
-localStorage.getItem("responseLength")
+    const creativity =
+        localStorage.getItem("creativity") || "balanced";
 
-|| "medium";
+    const responseSelect =
+        document.getElementById("response-length");
 
-const select =
+    const creativitySelect =
+        document.getElementById("creativity-select");
 
-document.getElementById("response-length");
+    if(responseSelect){
+        responseSelect.value = responseLength;
+    }
 
-if(select){
-
-select.value = responseLength;
-
-}
+    if(creativitySelect){
+        creativitySelect.value = creativity;
+    }
 
 }
 
 const responseLengthSelect =
-
 document.getElementById("response-length");
 
-responseLengthSelect?.addEventListener(
+const creativitySelect =
+document.getElementById("creativity-select");
 
-"change",
+// Response Length
+responseLengthSelect?.addEventListener("change", () => {
 
-()=>{
+    localStorage.setItem(
+        "responseLength",
+        responseLengthSelect.value
+    );
 
-localStorage.setItem(
+    applyAISettings();
 
-"responseLength",
+    showToast("🤖 AI Settings Saved");
 
-responseLengthSelect.value
+});
 
-);
+// Creativity
+creativitySelect?.addEventListener("change", () => {
+
+    localStorage.setItem(
+        "creativity",
+        creativitySelect.value
+    );
+
+    applyAISettings();
+
+    showToast("🤖 AI Settings Saved");
+
+});
 
 applyAISettings();
 
-showToast(
+function updateMemorySettings() {
 
-"🤖 AI Settings Saved"
+    const memories = astroMemory.memories || [];
+    const theories = astroMemory.theories || [];
+    const observations = astroMemory.observations || [];
+
+    document.getElementById("memory-total").textContent =
+        memories.length + theories.length + observations.length;
+
+    document.getElementById("memory-pref-count").textContent =
+        memories.length;
+
+    document.getElementById("memory-theory-count").textContent =
+        theories.length;
+
+    document.getElementById("memory-observation-count").textContent =
+        observations.length;
+
+}
+
+function renderMemoryList() {
+
+  console.log("Memories:", astroMemory);
+console.table(getAllMemoryItems());
+
+    const list = document.getElementById("memory-list");
+
+    if (!list) return;
+
+    let memories = getAllMemoryItems();
+
+    const search =
+        document.getElementById("memory-search")?.value
+        ?.toLowerCase() || "";
+
+    const filter =
+        document.getElementById("memory-filter")?.value
+        || "all";
+
+    // Search
+    memories = memories.filter(m =>
+        (m.text || "").toLowerCase().includes(search)
+    );
+
+    // Filter
+    if (filter !== "all" && filter !== "pinned") {
+
+    memories = memories.filter(m =>
+        m.type.toLowerCase() === filter
+    );
+
+}
+
+if (filter === "pinned") {
+
+    memories = memories.filter(m => m.pinned);
+
+}
+
+
+    // Sort
+    memories.sort((a, b) => {
+
+        if (a.pinned !== b.pinned)
+            return b.pinned - a.pinned;
+
+        if (a.favorite !== b.favorite)
+            return b.favorite - a.favorite;
+
+        return new Date(b.time) - new Date(a.time);
+
+    });
+
+    if (memories.length === 0) {
+
+        list.innerHTML = `
+            <div class="memory-empty">
+
+                <h3>🧠 No Memories</h3>
+
+                <p>
+                    Saved memories will appear here.
+                </p>
+
+            </div>
+        `;
+
+        return;
+    }
+
+    list.innerHTML = "";
+
+    memories.forEach(memory => {
+
+        const card = document.createElement("div");
+
+        card.className = "memory-card";
+
+        card.innerHTML = `
+
+<div class="memory-top">
+
+<div class="memory-title">
+
+${memory.pinned ? "📌" : "🧠"}
+
+${memory.type}
+
+</div>
+
+<div class="memory-icons">
+
+<button
+class="memory-btn"
+onclick="togglePin(${memory.id})">
+
+${memory.pinned ? "📍" : "📌"}
+
+</button>
+
+<button
+class="memory-btn"
+onclick="toggleFavorite(${memory.id})">
+
+${memory.favorite ? "⭐" : "☆"}
+
+</button>
+
+</div>
+
+</div>
+
+<div class="memory-body">
+
+${memory.text}
+
+</div>
+
+<div class="memory-bottom">
+
+<div class="memory-time">
+
+${new Date(memory.time).toLocaleString()}
+
+</div>
+
+<div class="memory-actions">
+
+<button
+class="memory-btn edit-btn"
+onclick="editMemory(${memory.id})">
+
+✏ Edit
+
+</button>
+
+<button
+class="memory-btn delete-btn"
+onclick="deleteMemoryById(${memory.id})">
+
+🗑 Delete
+
+</button>
+
+</div>
+
+</div>
+
+`;
+
+        list.appendChild(card);
+
+    });
+
+}
+
+function findMemoryById(id){
+
+    const groups=[
+
+        astroMemory.memories||[],
+        astroMemory.theories||[],
+        astroMemory.observations||[],
+        astroMemory.telescopeSessions||[]
+
+    ];
+
+    for(const group of groups){
+
+        const memory=group.find(m=>m.id==id);
+
+        if(memory) return memory;
+
+    }
+
+    return null;
+
+}
+
+function deleteMemoryById(id){
+
+if(!confirm("Delete this memory?")) return;
+
+[
+astroMemory.memories,
+astroMemory.theories,
+astroMemory.observations,
+astroMemory.telescopeSessions
+
+].forEach(arr=>{
+
+const index=arr.findIndex(m=>m.id==id);
+
+if(index!=-1){
+
+arr.splice(index,1);
+
+}
+
+});
+
+localStorage.setItem(
+
+"astroMemory",
+
+JSON.stringify(astroMemory)
 
 );
 
+saveCloudMemory();
+
+updateMemorySettings();
+
+renderMemoryList();
+
+}
+
+function editMemory(id){
+
+    const memory = findMemoryById(id);
+
+    if(!memory) return;
+
+    editingMemory = memory;
+
+    document.getElementById(
+        "edit-memory-text"
+    ).value = memory.text;
+
+    document
+        .getElementById("edit-memory-overlay")
+        .classList.add("show");
+
+}
+function togglePin(id){
+
+    const memory=findMemoryById(id);
+
+    if(!memory) return;
+
+    memory.pinned=!memory.pinned;
+
+    memory.updatedAt=new Date().toISOString();
+
+    localStorage.setItem(
+
+        "astroMemory",
+
+        JSON.stringify(astroMemory)
+
+    );
+
+    saveCloudMemory();
+
+    updateMemorySettings();
+
+    renderMemoryList();
+
+}
+
+function toggleFavorite(id){
+
+    const memory=findMemoryById(id);
+
+    if(!memory) return;
+
+    memory.favorite=!memory.favorite;
+
+    memory.updatedAt=new Date().toISOString();
+
+    localStorage.setItem(
+
+        "astroMemory",
+
+        JSON.stringify(astroMemory)
+
+    );
+
+    saveCloudMemory();
+
+    updateMemorySettings();
+
+    renderMemoryList();
+
+}
+
+function getAllMemoryItems() {
+
+    return [
+
+        ...(astroMemory.memories || []).map(m => ({
+            ...m,
+            type: "Memory",
+            source: "memories"
+        })),
+
+        ...(astroMemory.theories || []).map(m => ({
+            ...m,
+            type: "Theory",
+            source: "theories"
+        })),
+
+        ...(astroMemory.observations || []).map(m => ({
+            ...m,
+            type: "Observation",
+            source: "observations"
+        })),
+
+        ...(astroMemory.telescopeSessions || []).map(m => ({
+            ...m,
+            type: "Telescope",
+            source: "telescopeSessions"
+        }))
+
+    ];
+
+}
+function toggleFavorite(id){
+
+    const memory = findMemoryById(id);
+
+    if(!memory) return;
+
+    memory.favorite = !memory.favorite;
+
+    memory.updatedAt = new Date().toISOString();
+
+    localStorage.setItem(
+        "astroMemory",
+        JSON.stringify(astroMemory)
+    );
+
+    saveCloudMemory();
+
+    updateMemorySettings();
+
+    renderMemoryList();
+
+}
+function togglePin(id){
+
+    const memory = findMemoryById(id);
+
+    if(!memory) return;
+
+    memory.pinned = !memory.pinned;
+
+    memory.updatedAt = new Date().toISOString();
+
+    localStorage.setItem(
+        "astroMemory",
+        JSON.stringify(astroMemory)
+    );
+
+    saveCloudMemory();
+
+    updateMemorySettings();
+
+    renderMemoryList();
+
+}
+document.getElementById("export-memory")
+?.addEventListener("click",()=>{
+
+const blob = new Blob(
+
+[
+JSON.stringify(
+astroMemory,
+null,
+2
+)
+],
+
+{
+type:"application/json"
+}
+
+);
+
+const url =
+URL.createObjectURL(blob);
+
+const a =
+document.createElement("a");
+
+a.href = url;
+
+a.download =
+"astro-memory.json";
+
+a.click();
+
+URL.revokeObjectURL(url);
+
 });
+
+document.getElementById("export-memory")
+?.addEventListener("click",()=>{
+
+const blob = new Blob(
+
+[
+JSON.stringify(
+astroMemory,
+null,
+2
+)
+],
+
+{
+type:"application/json"
+}
+
+);
+
+const url =
+URL.createObjectURL(blob);
+
+const a =
+document.createElement("a");
+
+a.href = url;
+
+a.download =
+"astro-memory.json";
+
+a.click();
+
+URL.revokeObjectURL(url);
+
+});
+
+document
+.getElementById("import-memory")
+?.addEventListener("click",()=>{
+
+const input =
+document.createElement("input");
+
+input.type="file";
+
+input.accept=".json";
+
+input.onchange=e=>{
+
+const file =
+e.target.files[0];
+
+if(!file) return;
+
+const reader =
+new FileReader();
+
+reader.onload=()=>{
+
+try{
+
+astroMemory=
+JSON.parse(reader.result);
+
+localStorage.setItem(
+
+"astroMemory",
+
+JSON.stringify(astroMemory)
+
+);
+
+saveCloudMemory();
+
+updateMemorySettings();
+
+renderMemoryList();
+
+alert("Memory Imported.");
+
+}
+
+catch{
+
+alert("Invalid File.");
+
+}
+
+};
+
+reader.readAsText(file);
+
+};
+
+input.click();
+
+});
+
+document
+.getElementById("clear-memory")
+?.addEventListener("click",()=>{
+
+if(
+
+!confirm(
+
+"Delete ALL memories?"
+
+)
+
+)
+
+return;
+
+astroMemory={
+
+memories:[],
+
+theories:[],
+
+observations:[],
+
+telescopeSessions:[]
+
+};
+
+localStorage.setItem(
+
+"astroMemory",
+
+JSON.stringify(astroMemory)
+
+);
+
+saveCloudMemory();
+
+updateMemorySettings();
+
+renderMemoryList();
+
+});
+
+function findMemoryById(id){
+
+    const groups = [
+
+        astroMemory.memories || [],
+        astroMemory.theories || [],
+        astroMemory.observations || [],
+        astroMemory.telescopeSessions || []
+
+    ];
+
+    for(const group of groups){
+
+        const memory = group.find(m => m.id == id);
+
+        if(memory) return memory;
+
+    }
+
+    return null;
+
+}
+
+function showMemorySuggestion(memory){
+
+  const duplicate =
+findDuplicateMemory(memory);
+
+const existing =
+document.getElementById("memory-suggestion");
+
+if(existing) existing.remove();
+
+const box=document.createElement("div");
+
+box.id="memory-suggestion";
+
+box.innerHTML = `
+
+<h3>🧠 Memory Detected</h3>
+
+<div class="memory-preview-row">
+
+<b>Category</b>
+
+<span>${memory.category}</span>
+
+</div>
+
+<div class="memory-preview-row">
+
+<b>Key</b>
+
+<span>${memory.key}</span>
+
+</div>
+
+<div class="memory-preview-row">
+
+<b>Value</b>
+
+<span>${memory.value}</span>
+
+</div>
+
+${
+duplicate ?
+
+`
+
+<div class="duplicate-warning">
+
+⚠ Similar memory already exists.
+
+<br><br>
+
+<b>Old:</b>
+
+${duplicate.value||duplicate.text}
+
+<br>
+
+<b>New:</b>
+
+${memory.value}
+
+</div>
+
+`
+
+:
+
+""
+
+}
+
+<div class="memory-suggest-buttons">
+
+${
+duplicate ?
+
+`
+
+<button id="update-memory-btn">
+
+Update Existing
+
+</button>
+
+<button id="save-new-memory-btn">
+
+Save New
+
+</button>
+
+`
+
+:
+
+`
+
+<button id="remember-btn">
+
+Remember
+
+</button>
+
+`
+
+}
+
+<button id="edit-memory-preview-btn">
+
+Edit
+
+</button>
+
+<button id="dismiss-memory-btn">
+
+Dismiss
+
+</button>
+
+`;
+
+document
+.getElementById("memory-suggestion-container")
+.appendChild(box);
+
+box.scrollIntoView({
+behavior:"smooth"
+});
+
+document
+.getElementById("remember-btn")
+?.addEventListener("click",()=>{
+
+saveMemory(
+
+memory.value,
+
+memory.category
+
+);
+
+box.remove();
+
+showToast("🧠 Memory Saved");
+
+});
+
+document
+.getElementById("update-memory-btn")
+?.addEventListener("click",()=>{
+
+duplicate.value = memory.value;
+
+duplicate.text = memory.value;
+
+duplicate.updatedAt = new Date().toISOString();
+
+localStorage.setItem(
+"astroMemory",
+JSON.stringify(astroMemory)
+);
+
+saveCloudMemory();
+
+updateMemorySettings();
+
+renderMemoryList();
+
+box.remove();
+
+showToast("🧠 Memory Updated");
+
+});
+
+document
+.getElementById("save-new-memory-btn")
+?.addEventListener("click",()=>{
+
+saveMemory(
+
+memory.value,
+
+memory.category
+
+);
+
+box.remove();
+
+showToast("🧠 New Memory Saved");
+
+});
+
+document
+.getElementById("edit-memory-preview-btn")
+.onclick = () => {
+
+    const value = prompt(
+        "Edit Memory",
+        memory.value
+    );
+
+    if (value === null) return;
+
+    memory.value = value;
+
+    box.querySelectorAll("span")[2].textContent = value;
+
+};
+
+document
+.getElementById("dismiss-memory-btn")
+.onclick=()=>{
+
+box.remove();
+
+};
+
+}

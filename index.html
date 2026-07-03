@@ -223,6 +223,8 @@ Logout
 
 <div id="ai-messages"></div>
 
+<div id="memory-suggestion-container"></div>
+
   <div id="attachment-preview"></div>
 
   <div id="ai-input-area">
@@ -373,6 +375,10 @@ autocapitalize="off"
         data-page="ai">
           🤖 AI
         </button>
+
+        <button class="settings-tab" data-page="memory">
+    🧠 Memory
+</button>
 
         <button class="settings-tab"
         data-page="sky">
@@ -609,6 +615,24 @@ DeepSeek (Coming Soon)
 
 <div class="settings-card">
 
+  <h3>Creativity</h3>
+
+  <p>Controls how creative Astro AI responses should be.</p>
+
+  <select id="creativity-select">
+
+    <option value="Precise">Precise</option>
+
+    <option value="Balanced" selected>Balanced</option>
+
+    <option value="Creative">Creative</option>
+
+  </select>
+
+</div>
+
+<div class="settings-card">
+
 <h3>💬 Chat</h3>
 
 <label>
@@ -653,6 +677,80 @@ Clear All Chats
 
 </div>
 
+</div>
+
+<div class="settings-page" id="memory-page">
+<h2>🧠 Astro Memory</h2>
+<div class="settings-card">
+<h3>Memory Status</h3>
+<p>
+Status:
+<span id="memory-status">
+🟢 Enabled
+</span>
+</p>
+<p>
+Cloud:
+<span id="memory-cloud-status">
+☁ Synced
+</span>
+</p>
+</div>
+<div class="settings-card">
+<h3>Memory Statistics</h3>
+<p><b>Total Memories:</b>
+<span id="memory-total">0</span></p>
+<p><b>Preferences:</b>
+<span id="memory-pref-count">0</span></p>
+<p><b>Theories:</b>
+<span id="memory-theory-count">0</span></p>
+<p><b>Observations:</b>
+<span id="memory-observation-count">0</span></p>
+<p><b>Pinned:</b>
+<span id="memory-pinned-count">0</span></p>
+</div>
+<div class="settings-card">
+<h3>Search</h3>
+<input id="memory-search" placeholder="Search memories..." type="text"/>
+</div>
+<div class="settings-card">
+<h3>Category</h3>
+<select id="memory-filter">
+<option value="all">
+All
+</option>
+<option value="memory">
+Memory
+</option>
+<option value="theory">
+Theory
+</option>
+<option value="observation">
+Observation
+</option>
+<option value="pinned">
+Pinned
+</option>
+</select>
+</div>
+<div class="settings-card">
+<h3>Memories</h3>
+<div id="memory-list">
+<p>No memories found.</p>
+</div>
+</div>
+<div class="settings-card">
+<h3>Actions</h3>
+<button id="export-memory">
+📤 Export Memory
+</button>
+<button id="import-memory">
+📥 Import Memory
+</button>
+<button id="clear-memory">
+🗑 Clear Memory
+</button>
+</div>
 </div>
 
         <!-- SKY -->
@@ -753,6 +851,39 @@ style="display:none;">
 <div id="history-list">
 
 <!-- Conversations appear here -->
+
+
+</div>
+
+</div>
+
+</div>
+
+<!-- ================= EDIT MEMORY ================= -->
+
+<div id="edit-memory-overlay">
+
+<div id="edit-memory-window">
+
+<h2>✏ Edit Memory</h2>
+
+<textarea
+id="edit-memory-text"
+placeholder="Edit memory..."></textarea>
+
+<div class="edit-memory-buttons">
+
+<button id="cancel-edit-memory">
+
+Cancel
+
+</button>
+
+<button id="save-edit-memory">
+
+Save
+
+</button>
 
 </div>
 
