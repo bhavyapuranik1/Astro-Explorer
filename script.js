@@ -43,6 +43,7 @@ let nasaMemoryCache = {};
 let pendingMemory = null;
 let editingMemory = null;
 let pendingStructuredMemory = null;
+let useCloud = false;
 let nasaCache =
 
 JSON.parse(
@@ -202,6 +203,26 @@ let astroMemory = JSON.parse(
 
 };
 
+async function detectCloudMode(){
+
+    try{
+
+        const res = await fetch("/api/chat",{
+            method:"GET"
+        });
+
+        useCloud = res.status !== 404 && res.status !== 500;
+
+    }
+    catch{
+
+        useCloud = false;
+
+    }
+
+    console.log("Cloud Mode:", useCloud);
+
+}
 async function refreshNASA(date){
 
 try{
@@ -3030,7 +3051,10 @@ ${userMessage}
 `;
 }
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
+
+  
+await detectCloudMode();
 
   const auth = window.auth;
 const provider = window.provider;
@@ -3046,11 +3070,18 @@ const deleteDoc = window.deleteDoc;
 const signInWithPopup = window.signInWithPopup;
 const signOut = window.signOut;
 
-  if (
-  isLocal &&
-  !localStorage.getItem("OPENROUTER_API_KEY")
-) {
-  showAPIKeyModal();
+  if(
+
+!useCloud &&
+
+!localStorage.getItem("OPENROUTER_API_KEY")
+
+){
+
+showAPIKeyModal();
+
+return;
+
 }
 
 document
@@ -3973,14 +4004,26 @@ ${responseInstruction}
 
 ${finalPrompt}
 `;
-      const endpoint = isLocal
-    ? "https://openrouter.ai/api/v1/chat/completions"
-    : "/api/chat";
+      const endpoint = useCloud
 
-const headers = isLocal
+? "/api/chat"
+
+: "https://openrouter.ai/api/v1/chat/completions";
+
+const headers = useCloud
+
 ?{
+
+    "Content-Type":"application/json"
+
+}
+
+:{
+
     "Authorization":
+
     "Bearer " +
+
     localStorage.getItem("OPENROUTER_API_KEY"),
 
     "Content-Type":"application/json",
@@ -3988,11 +4031,8 @@ const headers = isLocal
     "HTTP-Referer":location.origin,
 
     "X-Title":"Astro AI"
-}
-:{
-    "Content-Type":"application/json"
-};
 
+};
 let temperature = 0.8;
 
 switch(localStorage.getItem("creativity")){
@@ -4010,6 +4050,10 @@ temperature = 1.0;
 break;
 
 }
+
+console.log("===== MAIN CHAT =====");
+console.log("Endpoint:", endpoint);
+console.log("useCloud:", useCloud);
 
 const response = await fetch(endpoint,{
 
@@ -6156,22 +6200,31 @@ if(!currentConversationId) return;
 
 try{
 
-const endpoint = isLocal
-? "https://openrouter.ai/api/v1/chat/completions"
-: "/api/chat";
+const endpoint = useCloud
+? "/api/chat"
+: "https://openrouter.ai/api/v1/chat/completions";
 
-const headers = isLocal
-?{
-"Authorization":
-"Bearer " +
-localStorage.getItem("OPENROUTER_API_KEY"),
-"Content-Type":"application/json",
-"HTTP-Referer":location.origin,
-"X-Title":"Astro AI"
+const headers = useCloud
+? {
+    "Content-Type": "application/json"
 }
-:{
-"Content-Type":"application/json"
+: {
+    "Authorization":
+    "Bearer " +
+    localStorage.getItem("OPENROUTER_API_KEY"),
+
+    "Content-Type":"application/json",
+
+    "HTTP-Referer":location.origin,
+
+    "X-Title":"Astro AI"
 };
+
+
+
+console.log("===== TITLE =====");
+console.log("Endpoint:", endpoint);
+console.log("useCloud:", useCloud);
 
 const response = await fetch(endpoint,{
 
@@ -8227,3 +8280,5 @@ box.remove();
 };
 
 }
+
+
