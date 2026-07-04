@@ -5,6 +5,9 @@ const isLocal =
   location.hostname === "localhost" ||
   location.hostname === "127.0.0.1" ||
   location.protocol === "file:";
+
+  const useCloud =
+!localStorage.getItem("OPENROUTER_API_KEY");
 var currentHDImage = "";
 let showHazardOnly = false;
 let showNewestOnly = false;
@@ -43,7 +46,7 @@ let nasaMemoryCache = {};
 let pendingMemory = null;
 let editingMemory = null;
 let pendingStructuredMemory = null;
-let useCloud = false;
+
 let nasaCache =
 
 JSON.parse(
@@ -203,26 +206,6 @@ let astroMemory = JSON.parse(
 
 };
 
-async function detectCloudMode(){
-
-    try{
-
-        const res = await fetch("/api/chat",{
-            method:"GET"
-        });
-
-        useCloud = res.status !== 404 && res.status !== 500;
-
-    }
-    catch{
-
-        useCloud = false;
-
-    }
-
-    console.log("Cloud Mode:", useCloud);
-
-}
 async function refreshNASA(date){
 
 try{
@@ -3054,7 +3037,7 @@ ${userMessage}
 document.addEventListener("DOMContentLoaded", async () => {
 
   
-await detectCloudMode();
+
 
   const auth = window.auth;
 const provider = window.provider;
@@ -3069,20 +3052,6 @@ const deleteDoc = window.deleteDoc;
 
 const signInWithPopup = window.signInWithPopup;
 const signOut = window.signOut;
-
-  if(
-
-!useCloud &&
-
-!localStorage.getItem("OPENROUTER_API_KEY")
-
-){
-
-showAPIKeyModal();
-
-return;
-
-}
 
 document
 .getElementById("save-api-key")
@@ -4005,9 +3974,7 @@ ${responseInstruction}
 ${finalPrompt}
 `;
       const endpoint = useCloud
-
-? "/api/chat"
-
+? "https://astro-exp-seven.vercel.app/api/chat"
 : "https://openrouter.ai/api/v1/chat/completions";
 
 const headers = useCloud
@@ -6201,7 +6168,7 @@ if(!currentConversationId) return;
 try{
 
 const endpoint = useCloud
-? "/api/chat"
+? "https://astro-exp-seven.vercel.app/api/chat"
 : "https://openrouter.ai/api/v1/chat/completions";
 
 const headers = useCloud
