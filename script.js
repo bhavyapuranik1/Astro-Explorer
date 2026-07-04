@@ -6,8 +6,11 @@ const isLocal =
   location.hostname === "127.0.0.1" ||
   location.protocol === "file:";
 
-  const useCloud =
-!localStorage.getItem("OPENROUTER_API_KEY");
+  const apiKey = localStorage.getItem("OPENROUTER_API_KEY");
+
+const useCloud = !apiKey;
+
+console.log("Mode:", useCloud ? "☁️ Cloud" : "🔑 API Key");
 var currentHDImage = "";
 let showHazardOnly = false;
 let showNewestOnly = false;
