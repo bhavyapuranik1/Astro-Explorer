@@ -2821,3 +2821,170 @@ background:rgba(255,180,0,.12);
 border:1px solid orange;
 
 }
+
+.memory-timeline{
+
+    font-size:18px;
+
+    font-weight:bold;
+
+    margin:18px 0 10px;
+
+    color:#22d3ee;
+
+    border-bottom:1px solid rgba(255,255,255,.12);
+
+    padding-bottom:6px;
+
+}
+
+.account-profile{
+
+display:flex;
+
+align-items:center;
+
+gap:16px;
+
+margin:15px 0;
+
+}
+
+.account-avatar{
+
+width:72px;
+
+height:72px;
+
+border-radius:50%;
+
+border:2px solid var(--accent);
+
+object-fit:cover;
+
+background:#1f2937;
+
+}
+
+.account-profile p{
+
+margin:4px 0;
+
+color:#cbd5e1;
+
+}
+
+#account-name{
+
+font-size:18px;
+
+color:#fff;
+
+}
+
+#account-status{
+
+font-weight:600;
+
+}
+
+#manage-account-btn,
+#sync-now-btn,
+#export-account-data,
+#import-account-data{
+
+width:100%;
+
+margin-top:12px;
+
+padding:12px;
+
+border:none;
+
+border-radius:12px;
+
+background:var(--accent);
+
+color:#000;
+
+font-weight:600;
+
+cursor:pointer;
+
+transition:.2s;
+
+}
+
+#manage-account-btn:hover,
+#sync-now-btn:hover,
+#export-account-data:hover,
+#import-account-data:hover{
+
+transform:translateY(-2px);
+
+opacity:.9;
+
+}
+
+.account-details{
+
+display:flex;
+
+flex-direction:column;
+
+gap:6px;
+
+}
+
+.account-details p{
+
+margin:0;
+
+font-size:14px;
+
+color:#cbd5e1;
+
+}
+
+#account-name{
+
+font-size:18px;
+
+font-weight:700;
+
+color:#fff;
+
+}
+
+#account-status{
+
+font-weight:600;
+
+color:#4ade80;
+
+}
+
+#account-type{
+
+font-weight:600;
+
+color:#38bdf8;
+
+}
+
+.no-results{
+    text-align:center;
+    padding:25px;
+    opacity:.8;
+}
+
+.no-results .history-title{
+    font-size:18px;
+    font-weight:600;
+}
+
+.no-results .history-preview{
+    margin-top:8px;
+    font-size:14px;
+    color:#9ca3af;
+}

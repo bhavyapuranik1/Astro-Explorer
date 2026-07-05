@@ -441,6 +441,8 @@ autocapitalize="off"
 
 <h3>Statistics</h3>
 
+<p><b>Files:</b> <span id="file-count">0</span></p>
+
 <p><b>Conversations:</b> <span id="conversation-count">0</span></p>
 
 <p><b>Memories:</b> <span id="memory-count">0</span></p>
@@ -461,20 +463,7 @@ autocapitalize="off"
 
 </div>
 
-          <p>
-
-            This is the central place to customize
-            Astro Explorer.
-
-          </p>
-
-          <p>
-
-            Select a category from the left sidebar
-            to begin.
-
-          </p>
-
+         
         </div>
 
         <!-- APPEARANCE -->
@@ -525,7 +514,53 @@ autocapitalize="off"
 
 </div>
 
+<div class="setting-card">
+
+<label>💬 Chat Bubble Style</label>
+
+<select id="bubble-style">
+
+<option value="rounded">Rounded</option>
+
+<option value="square">Square</option>
+
+</select>
+
 </div>
+
+<div class="setting-card">
+<label>📏 Message Width</label>
+
+<select id="message-width">
+
+<option value="70">Compact</option>
+
+<option value="85">Normal</option>
+
+<option value="100">Wide</option>
+
+</select>
+</div>
+
+
+<div class="setting-card">
+
+<h3>✨ Typing Animation</h3>
+
+<label>
+
+<input
+type="checkbox"
+id="animation-toggle">
+
+Enable Typing Animation
+
+</label>
+
+</div>
+
+</div>
+
 
         
         
@@ -706,8 +741,16 @@ Cloud:
 <span id="memory-theory-count">0</span></p>
 <p><b>Observations:</b>
 <span id="memory-observation-count">0</span></p>
-<p><b>Pinned:</b>
-<span id="memory-pinned-count">0</span></p>
+<p><b>Telescope Sessions:</b>
+<span id="memory-telescope-count">0</span></p>
+<p><strong>Telescopes:</strong> <span id="memory-telescope-equipment-count">0</span></p>
+<p><b>Cameras:</b> <span id="memory-camera-count">0</span></p>
+<p><b>Binoculars:</b> <span id="memory-binocular-count">0</span></p>
+<p><b>Eyepieces:</b> <span id="memory-eyepiece-count">0</span></p>
+<p><b>Files:</b>
+<span id="memory-file-count">0</span></p>
+
+
 </div>
 <div class="settings-card">
 <h3>Search</h3>
@@ -728,9 +771,20 @@ Theory
 <option value="observation">
 Observation
 </option>
+
+<option value="telescope">Telescope</option>
+
+<option value="file">📄 Files</option>
+
+<option value="favorite">⭐ Favorites</option>
+
 <option value="pinned">
 Pinned
 </option>
+<option value="telescope_session">🛰 Telescope Session</option>
+<option value="camera">📷 Camera</option>
+<option value="binoculars">🔭 Binoculars</option>
+<option value="eyepiece">👁️ Eyepiece</option>
 </select>
 </div>
 <div class="settings-card">
@@ -754,15 +808,29 @@ Pinned
 </div>
 
         <!-- SKY -->
+<div class="settings-page" id="sky-page">
 
-        <div class="settings-page"
-        id="sky-page">
+<h2>🌌 Sky</h2>
 
-          <h2>
-            Sky
-          </h2>
+<div class="settings-card">
 
-        </div>
+<h3>🌌 Constellations</h3>
+
+<label class="switch">
+
+<input
+type="checkbox"
+id="toggle-constellation-lines"
+checked>
+
+<span class="slider"></span>
+
+</label>
+
+<span>Show Constellation Lines</span>
+
+</div>
+</div>
 
         <!-- OBSERVATION -->
 
@@ -776,16 +844,145 @@ Pinned
         </div>
 
         <!-- ACCOUNT -->
+         <div class="settings-page"
+id="account-page">
 
-        <div class="settings-page"
-        id="account-page">
+        <h2>👤 Account</h2>
 
-          <h2>
-            Account
-          </h2>
+<!-- Account -->
 
-        </div>
+<div class="setting-card">
 
+<h3>👤 Account</h3>
+
+<div class="account-profile">
+
+<img
+id="account-photo"
+src="https://ui-avatars.com/api/?name=User"
+class="account-avatar">
+
+<div class="account-details">
+
+<p>
+
+<strong id="account-name">
+
+Guest User
+
+</strong>
+
+</p>
+
+<p id="account-email">
+
+Not Signed In
+
+</p>
+
+<p>
+
+Status:
+<span id="account-status">
+
+🔴 Signed Out
+
+</span>
+
+</p>
+
+<p>
+
+
+<span id="account-type">
+
+Cloud Account
+
+</span>
+
+</p>
+
+</div>
+
+</div>
+
+<button id="manage-account-btn">
+
+⚙ Manage Profile
+
+</button>
+
+</div>
+
+<!-- Cloud -->
+
+<div class="setting-card">
+
+<h3>☁ Cloud Sync</h3>
+
+<p>
+
+Status:
+<span id="cloud-status">
+
+🟢 Synced
+
+</span>
+
+</p>
+
+<p>
+
+Last Sync:
+<span id="last-sync">
+
+Never
+
+</span>
+
+</p>
+
+<button id="sync-now-btn">
+
+Sync Now
+
+</button>
+
+</div>
+
+<!-- Data -->
+
+<div class="setting-card">
+
+<h3>📦 Data</h3>
+
+<p>
+
+Backup your Astro AI data.
+
+</p>
+
+<button id="export-account-data">
+
+⬇ Export Astro Data
+
+</button>
+
+<button id="import-account-data">
+
+⬆ Import Astro Data
+
+</button>
+
+<input
+type="file"
+id="import-account-file"
+accept=".json"
+style="display:none;">
+
+</div>
+
+</div>
         <!-- ABOUT -->
 
         <div class="settings-page"
@@ -794,6 +991,96 @@ Pinned
           <h2>
             About Astro Explorer
           </h2>
+
+          <div class="setting-card">
+
+<h3>🚀 About Astro Explorer</h3>
+
+<p>
+
+Astro Explorer is an astronomy web application
+designed for sky exploration, celestial object
+search, NASA content and an intelligent
+Astro AI assistant.
+
+</p>
+
+</div>
+
+<div class="setting-card">
+
+<h3>✨ Features</h3>
+
+<ul>
+
+<li>🌌 Interactive Sky Map</li>
+
+<li>🤖 Astro AI Assistant</li>
+
+<li>🧠 Smart Memory</li>
+
+<li>📸 NASA APOD</li>
+
+<li>☄️ Asteroid Explorer</li>
+
+<li>☁ Cloud Sync</li>
+
+<li>🔭 Observation Tools</li>
+
+</ul>
+
+</div>
+
+<div class="setting-card">
+
+<h3>👨‍💻 Developer</h3>
+
+<p>
+
+Developed by
+
+<b>Bhavya Puranik</b>
+
+</p>
+
+<p>
+
+Project
+
+<b>Astro Explorer</b>
+
+</p>
+
+<p>
+
+Made with
+
+❤️ HTML, CSS, JavaScript & Firebase
+
+</p>
+
+</div>
+<div class="setting-card">
+
+<h3>📜 Information</h3>
+
+<p>
+
+Version
+
+<b>2.6 Beta</b>
+
+</p>
+
+<p>
+
+Built for learning astronomy,
+sky observation and AI-powered
+space exploration.
+
+</p>
+
+</div>
 
         </div>
 
@@ -804,6 +1091,8 @@ Pinned
   </div>
 
 </div>
+
+
 
 <!-- ================= CHAT HISTORY ================= -->
 

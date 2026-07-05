@@ -195,17 +195,16 @@ const objectMorphology = {
 
 let astroMemory = JSON.parse(
 
-  localStorage.getItem("astroMemory")
+localStorage.getItem("astroMemory")
 
 ) || {
 
-  memories: [],
+    memories: [],
+    theories: [],
+    observations: [],
+    telescopeSessions: [],
 
-  theories: [],
-
-  observations: [],
-
-  telescopeSessions: []
+    files: []
 
 };
 
@@ -251,12 +250,67 @@ function extractStructuredMemory(text){
     const t = text.trim();
 
     const memory = {
-        category: "general",
-        key: "",
-        value: t
-    };
+
+    type: "Memory",
+
+    category: "general",
+
+    key: "",
+
+    value: t
+
+};
 
     const rules = [
+
+      // 📚 Theory
+{
+    category: "Theory",
+    key: "Theory",
+    patterns: [
+        /remember theory:\s*(.+)/i,
+        /theory:\s*(.+)/i,
+        /i have a theory (.+)/i,
+        /my theory is (.+)/i,
+        /(.+) is a theory/i,
+        /i think (.+)/i,
+        /i believe (.+)/i,
+
+        /meri theory (.+)/i,
+        /mera maanna hai (.+)/i
+    ]
+},
+
+// 🔭 Observation
+{
+    category: "Observation",
+    key: "Observation",
+    patterns: [
+
+        /remember observation:\s*(.+)/i,
+        /observation:\s*(.+)/i,
+
+        /i observed (.+)/i,
+        /i saw (.+)/i,
+        /i viewed (.+)/i,
+        /i detected (.+)/i,
+        /i captured (.+)/i,
+
+        /today i observed (.+)/i,
+        /tonight i observed (.+)/i,
+
+        /maine observe kiya (.+)/i,
+        /maine dekha (.+)/i,
+        /aaj maine dekha (.+)/i,
+        /i photographed (.+)/i,
+
+      
+
+    ]
+},
+
+// 🔭 Telescope Session
+
 
         // 👤 Name
         {
@@ -265,7 +319,12 @@ function extractStructuredMemory(text){
             patterns:[
                 /my name is (.+)/i,
                 /i am (.+)/i,
-                /mera naam (.+)/i
+                /mera naam (.+)/i,
+                /my nickname is (.+)/i,
+/people call me (.+)/i,
+/everyone calls me (.+)/i,
+/i'm called (.+)/i,
+/mujhe (.+) bulate hain/i
             ]
         },
 
@@ -278,7 +337,12 @@ function extractStructuredMemory(text){
                 /my language is (.+)/i,
                 /meri language (.+)/i,
                 /main (.+) bolta/i,
-                /main (.+) bolti/i
+                /main (.+) bolti/i,
+                /i usually speak (.+)/i,
+/i mostly speak (.+)/i,
+/i prefer (.+) language/i,
+/meri preferred language (.+)/i
+                
             ]
         },
 
@@ -292,7 +356,13 @@ function extractStructuredMemory(text){
                 /my favourite planet is (.+)/i,
                 /my favorite planet is (.+)/i,
                 /mera favourite planet (.+)/i,
-                /mera favorite planet (.+)/i
+                /mera favorite planet (.+)/i,
+                /i love (.+)/i,
+/i really like (.+)/i,
+/(.+) is my favourite planet/i,
+/(.+) is my favorite planet/i,
+/saturn is my favourite/i,
+/saturn is my favorite/i
             ]
         },
 
@@ -305,7 +375,9 @@ function extractStructuredMemory(text){
                 /favourite satellite is (.+)/i,
                 /my favourite satellite is (.+)/i,
                 /my favorite satellite is (.+)/i,
-                /mera favourite satellite (.+)/i
+                /mera favourite satellite (.+)/i,
+                /(\w+) is my favourite satellite/i,
+/i love (.+) satellite/i
             ]
         },
 
@@ -317,7 +389,9 @@ function extractStructuredMemory(text){
                 /favorite galaxy is (.+)/i,
                 /favourite galaxy is (.+)/i,
                 /my favourite galaxy is (.+)/i,
-                /mera favourite galaxy (.+)/i
+                /mera favourite galaxy (.+)/i,
+                /(\w+) is my favourite galaxy/i,
+/i love (.+) galaxy/i
             ]
         },
 
@@ -329,7 +403,9 @@ function extractStructuredMemory(text){
                 /favorite star is (.+)/i,
                 /favourite star is (.+)/i,
                 /my favourite star is (.+)/i,
-                /mera favourite star (.+)/i
+                /mera favourite star (.+)/i,
+                /(\w+) is my favourite star/i,
+/i love (.+) star/i
             ]
         },
 
@@ -357,25 +433,126 @@ function extractStructuredMemory(text){
 
         // 🔭 Telescope
         {
-            category:"equipment",
-            key:"telescope",
-            patterns:[
-                /my telescope is (.+)/i,
-                /i use (.+) telescope/i,
-                /mere paas (.+) telescope/i
-            ]
-        },
+    category: "equipment",
+    key: "telescope",
+    patterns: [
+
+        /my telescope is (.+)/i,
+
+        /i use (?:a |an |my )?(.+?) telescope\.?$/i,
+        /i have (?:a |an |my )?(.+?) telescope\.?$/i,
+        /i own (?:a |an |my )?(.+?) telescope\.?$/i,
+        /i bought (?:a |an |my )?(.+?) telescope\.?$/i,
+
+        /using (?:a |an |my )?(.+?) telescope/i,
+        /i am using (?:a |an |my )?(.+?) telescope/i,
+        /i currently use (?:a |an |my )?(.+?) telescope/i,
+        /i have been using (?:a |an |my )?(.+?) telescope/i,
+
+        /mere paas (.+?) telescope hai/i,
+        /mere paas (.+?) telescope/i,
+        /main (.+?) telescope use karta/i,
+        /main (.+?) telescope use karti/i,
+        /remember telescope:\s*(.+)/i,
+
+    ]
+},
 
         // 📷 Camera
         {
-            category:"equipment",
-            key:"camera",
-            patterns:[
-                /my camera is (.+)/i,
-                /i use (.+) camera/i
-            ]
-        }
+    category: "equipment",
+    key: "camera",
+    patterns: [
 
+        /my camera is (.+)/i,
+
+        /i use (?:a |an |my )?(.+?) camera\.?$/i,
+        /i have (?:a |an |my )?(.+?) camera\.?$/i,
+        /i own (?:a |an |my )?(.+?) camera\.?$/i,
+        /i bought (?:a |an |my )?(.+?) camera\.?$/i,
+
+        /using (?:a |an |my )?(.+?) camera/i,
+        /i am using (?:a |an |my )?(.+?) camera/i,
+        /i currently use (?:a |an |my )?(.+?) camera/i,
+        /i have been using (?:a |an |my )?(.+?) camera/i,
+
+        /i shoot with (.+)/i,
+
+        /mere paas (.+?) camera hai/i,
+        /mere paas (.+?) camera/i,
+        /main (.+?) camera use karta/i,
+        /main (.+?) camera use karti/i
+
+    ]
+
+    
+},
+
+{
+    category: "equipment",
+    key: "binoculars",
+    patterns: [
+
+        /remember binoculars:\s*(.+)/i,
+
+        /my binoculars are (.+)/i,
+        /my binocular is (.+)/i,
+
+        /i use (?:a |an |my )?(.+?) binoculars?\.?$/i,
+        /i have (?:a |an |my )?(.+?) binoculars?\.?$/i,
+        /i own (?:a |an |my )?(.+?) binoculars?\.?$/i,
+        /i bought (?:a |an |my )?(.+?) binoculars?\.?$/i,
+
+        /using (?:a |an |my )?(.+?) binoculars?/i,
+        /i am using (?:a |an |my )?(.+?) binoculars?/i,
+        /i currently use (?:a |an |my )?(.+?) binoculars?/i,
+        /i have been using (?:a |an |my )?(.+?) binoculars?/i,
+
+        /mere paas (.+?) binoculars? hai/i,
+        /mere paas (.+?) binoculars?/i,
+        /main (.+?) binoculars? use karta/i,
+        /main (.+?) binoculars? use karti/i
+
+    ]
+},
+
+{
+    category: "equipment",
+    key: "eyepiece",
+    patterns: [
+
+        /remember eyepiece:\s*(.+)/i,
+
+        /my eyepiece is (.+)/i,
+
+        /i use (?:a |an |my )?(.+?) eyepiece\.?$/i,
+        /i have (?:a |an |my )?(.+?) eyepiece\.?$/i,
+        /i own (?:a |an |my )?(.+?) eyepiece\.?$/i,
+        /i bought (?:a |an |my )?(.+?) eyepiece\.?$/i,
+
+        /using (?:a |an |my )?(.+?) eyepiece/i,
+        /i am using (?:a |an |my )?(.+?) eyepiece/i,
+        /i currently use (?:a |an |my )?(.+?) eyepiece/i,
+        /i have been using (?:a |an |my )?(.+?) eyepiece/i,
+
+        /mere paas (.+?) eyepiece hai/i,
+        /mere paas (.+?) eyepiece/i,
+        /main (.+?) eyepiece use karta/i,
+        /main (.+?) eyepiece use karti/i
+
+    ]
+},
+
+{
+    category: "Telescope",
+    key: "Telescope",
+    patterns: [
+
+        
+        /remember telescope session:\s*(.+)/i,
+        /telescope session:\s*(.+)/i
+    ]
+},
     ];
 
     for(const rule of rules){
@@ -385,6 +562,8 @@ function extractStructuredMemory(text){
             const match = t.match(pattern);
 
             if(match){
+
+              memory.type = rule.category;
 
                 memory.category = rule.category;
                 memory.key = rule.key;
@@ -404,37 +583,75 @@ function extractStructuredMemory(text){
 
 function findDuplicateMemory(memory){
 
-    return getAllMemoryItems().find(m=>
+  console.log("Checking:", memory);
+console.table(getAllMemoryItems());
 
-        m.key &&
-        memory.key &&
+    return getAllMemoryItems().find(m => {
 
-        m.key.toLowerCase()===memory.key.toLowerCase()
+        if(!m.key || !memory.key)
+            return false;
+
+        return (
+
+            m.key.trim().toLowerCase() ===
+            memory.key.trim().toLowerCase()
+
+        );
+
+    });
+
+}
+
+function findDuplicateInArray(array, text){
+
+    return (array || []).find(item =>
+
+        item.text.trim().toLowerCase() ===
+        text.trim().toLowerCase()
 
     );
 
 }
 
-function saveMemory(
+function saveMemory(memory, importance = 1){
 
-  
-  memoryText,
-  category = "general",
-  importance = 1
-) {
+    if(!astroMemory.memories)
+        astroMemory.memories=[];
 
-  if (!astroMemory.memories) {
+    const structured =
+        typeof memory==="object"
+        ? memory
+        : extractStructuredMemory(memory);
+        console.log("Input:", memory);
+console.log("Structured:", structured);
 
-    astroMemory.memories = [];
-  }
+    const duplicate =
+        findDuplicateMemory(structured);
 
-  const structured = extractStructuredMemory(memoryText);
+    if(duplicate){
 
-astroMemory.memories.push({
+        duplicate.value = structured.value;
+        duplicate.text  = structured.value;
+        duplicate.updatedAt =
+            new Date().toISOString();
+
+        localStorage.setItem(
+            "astroMemory",
+            JSON.stringify(astroMemory)
+        );
+
+        saveCloudMemory();
+        updateMemorySettings();
+        renderMemoryList();
+
+        return;
+    }
+
+   const item = {
 
     id: Date.now(),
 
-    text: memoryText,
+    text: structured.value,
 
     category: structured.category,
 
@@ -452,26 +669,46 @@ astroMemory.memories.push({
 
     updatedAt: new Date().toISOString()
 
-});
+};
 
-console.log("Saved Memory:", astroMemory.memories);
+if (structured.category === "Theory") {
 
-  localStorage.setItem(
+    astroMemory.theories ??= [];
+    astroMemory.theories.push(item);
 
-    "astroMemory",
+}
 
-    JSON.stringify(
-      astroMemory
-    )
-  );
-  saveCloudMemory();
-  updateGeneralSettings();
-  updateMemorySettings();
-renderMemoryList();
+else if (structured.category === "Observation") {
+
+    astroMemory.observations ??= [];
+    astroMemory.observations.push(item);
+
+}
+
+else if (structured.category === "Telescope") {
+
+    astroMemory.telescopeSessions ??= [];
+    astroMemory.telescopeSessions.push(item);
+
+}
+else {
+
+    astroMemory.memories.push(item);
+
+}
+
+    localStorage.setItem(
+        "astroMemory",
+        JSON.stringify(astroMemory)
+    );
+
+    saveCloudMemory();
+    updateMemorySettings();
+    renderMemoryList();
 }
 
 
-function saveTheory(text) {
+function saveTheory(text, skipDuplicate = false) {
 
   console.log("🔥 saveTheory()");
 
@@ -479,6 +716,24 @@ function saveTheory(text) {
     astroMemory.theories = [];
   }
 
+  const duplicate = (astroMemory.theories || []).find(item =>
+    item.text.trim().toLowerCase() ===
+    text.trim().toLowerCase()
+);
+
+if (duplicate && !skipDuplicate) {
+
+    showMemorySuggestion({
+
+        type: "Theory",
+        category: "Theory",
+        key: "Theory",
+        value: text
+
+    });
+
+    return;
+}
   astroMemory.theories.push({
 
     id: Date.now(),
@@ -510,11 +765,34 @@ renderMemoryList();
 }
 
 
-function saveObservation(text) {
+function saveObservation(text, skipDuplicate = false){
 
   if (!astroMemory.observations) {
     astroMemory.observations = [];
   }
+
+  const duplicate = findDuplicateInArray(
+    astroMemory.observations,
+    text
+);
+
+if (duplicate && !skipDuplicate) {
+
+    showMemorySuggestion({
+
+    type: "Observation",
+
+    category: "Observation",
+
+    key: "Observation",
+
+    value: text
+
+});
+
+    return;
+
+}
 
   astroMemory.observations.push({
 
@@ -544,11 +822,34 @@ renderMemoryList();
 }
 
 
-function saveTelescopeSession(text) {
+function saveTelescopeSession(text, skipDuplicate = false){
 
   if (!astroMemory.telescopeSessions) {
     astroMemory.telescopeSessions = [];
   }
+
+  const duplicate = findDuplicateInArray(
+    astroMemory.telescopeSessions,
+    text
+);
+
+if (duplicate && !skipDuplicate) {
+
+    showMemorySuggestion({
+
+    type: "Telescope",
+
+    category: "Telescope",
+
+    key: "Telescope",
+
+    value: text
+
+});
+
+    return;
+
+}
 
   astroMemory.telescopeSessions.push({
 
@@ -608,7 +909,16 @@ ${
     ?.map(s => "- " + s.text)
     .join("\n") || "None"
 }
+
+Files:
+${
+  astroMemory.files
+    ?.map(f => "- " + f.name)
+    .join("\n") || "None"
+}
 `;
+
+
 }
 function deleteMemory() {
 
@@ -737,6 +1047,8 @@ function decToDeg(dec) {
 
 function showTab(tabId, el) {
 
+  console.log("TAB =", tabId);
+
   // 🔹 Hide all tabs
   document.querySelectorAll(".tab-content").forEach(tab => {
     tab.style.display = "none";
@@ -779,13 +1091,18 @@ function showTab(tabId, el) {
 
   // 🌌 SKY TAB
   if (tabId === "sky") {
+
+    console.log("SHOWTAB SKY");
+
+    initSkySettings();
+
     if (!window.skyLoaded) {
-      initSky();
-      window.skyLoaded = true;
+        initSky();
+        window.skyLoaded = true;
     }
 
     requestAnimationFrame(() => {
-      Celestial.resize();
+        Celestial.resize();
     });
   }
 }
@@ -1242,42 +1559,74 @@ else if (index === 2) {
 
     });
   }
+  function buildSkyConfig() {
+
+    console.log("BUILD CONFIG CALLED");
+    console.log(
+        "Value:",
+        skySettings.showConstellationLines,
+        "Type:",
+        typeof skySettings.showConstellationLines
+    );
+    return {
+        container: "skyContainer",
+        projection: "equirectangular",
+        datapath: "data/",
+
+        stars: {
+            show: true,
+            limit: 4,
+            names: skySettings.showStarLabels,
+            proper: true
+        },
+
+        constellations:
+{
+    show:true,
+    names:true,
+    lines: true
+},
+
+        dsos: {
+            show: true,
+            names: skySettings.showDSOLabels,
+            name: "id",
+            limit: 4
+        },
+
+        planets: {
+            show: false
+        },
+
+        mw: {
+            show: skySettings.showMilkyWay,
+            opacity: 0.5
+        }
+    };
+}
  
   
 
 function initSky() {
-  Celestial.display({
-    container: "skyContainer",
 
-    projection: "equirectangular",
-    datapath: "data/",
+    Celestial.display(buildSkyConfig());
 
-    stars: { show: true, limit: 4, names: true, proper: true },
-    constellations: { show: true, names: true, lines: true },
+    Celestial.add("lg.json");
 
-    dsos: {
-      show: true,
-      names: true,
-      name: "id" , 
-      limit: 4,
-      
-    
-    },
-    messier: {  show: true,
-      names: true,
-      limit: 100,
-      name: "id"  
-    },
-
-    planets: { show: false },
-
-    mw: { show: true, opacity: 0.5 },
-  });
-  
-  Celestial.add("lg.json");
-  
 }
 
+
+
+
+function refreshSky(){
+
+    console.log("refreshSky called");
+
+    initSky();
+
+    createMarker();
+
+}
 let marker;
 let currentTarget = null;
 
@@ -3099,6 +3448,7 @@ document
   applyAISettings();
   updateMemorySettings();
 renderMemoryList();
+applyAppearanceSettings();
   const dateInput = document.getElementById("date-picker");
   const loadBtn = document.getElementById("load-btn");
   const prevBtn = document.getElementById("prev-btn");
@@ -3283,7 +3633,10 @@ if (
 
     memoryText = extractMemory(memoryText);
 
-    saveMemory(memoryText);
+const structuredMemory =
+    extractStructuredMemory(memoryText);
+
+saveMemory(structuredMemory);
 
     addAIMessage(
         "🧠 I've remembered that for future conversations.",
@@ -3969,12 +4322,16 @@ break;
 
 }
 
-const enhancedPrompt = `
-${creativityInstruction}
+const memoryContext = buildMemoryContext(question);
 
-${responseInstruction}
+const finalUserPrompt = `
+
+Relevant User Memory:
+
+${memoryContext || "None"}
 
 ${finalPrompt}
+
 `;
       const endpoint = useCloud
 ? "https://astro-exp-seven.vercel.app/api/chat"
@@ -4052,7 +4409,7 @@ ${responseInstruction}
 
             {
                 type:"text",
-                text:finalPrompt
+                text:finalUserPrompt
             },
 
             {
@@ -4396,11 +4753,26 @@ function addAIMessage(text, sender) {
 
     msg.className = "message";
 
-    msg.style.maxWidth = "85%";
+    const width =
+localStorage.getItem("messageWidth")
+|| "85";
+
+msg.style.maxWidth =
+width + "%";
 
 msg.style.padding = "12px";
 
-msg.style.borderRadius = "16px";
+const bubble =
+localStorage.getItem("bubbleStyle")
+|| "rounded";
+
+msg.style.borderRadius =
+
+bubble==="rounded"
+
+? "16px"
+
+: "4px";
 
 msg.style.margin = "10px";
 
@@ -4777,51 +5149,9 @@ function isMemoryRequest(text){
 
 function shouldSuggestMemory(text){
 
-const t = text.toLowerCase();
+    const structured = extractStructuredMemory(text);
 
-const patterns = [
-
-"my favourite",
-
-"my favorite",
-
-"i like",
-
-"i love",
-
-"i prefer",
-
-"my telescope",
-
-"my camera",
-
-"my language",
-
-"my name is",
-
-"i am a",
-
-"mera favourite",
-
-"mera favorite",
-
-"mujhe pasand",
-
-"mere paas",
-
-"meri language",
-
-"mera telescope",
-
-"mera camera",
-
-"main",
-
-"mujhe"
-
-];
-
-return patterns.some(p => t.includes(p));
+    return structured.category.toLowerCase() !== "general";
 
 }
 
@@ -5017,6 +5347,10 @@ if (files.length === 0)
     
     files.forEach(file=>{
 
+      saveFileMemory(file);
+
+      
+
 const reader=
 new FileReader();
 
@@ -5026,6 +5360,8 @@ new FileReader();
         "image/"
       )
     ) {
+
+      
 
       reader.onload = () => {
 
@@ -5053,6 +5389,8 @@ renderAttachments();
 
     // 📄 TEXT / CODE FILE
     else {
+
+      
 
       reader.onload = () => {
 
@@ -5293,6 +5631,8 @@ document.getElementById("logout-menu-btn").style.display =
   // ✅ Pehle current user set karo
   window.currentUser = user;
 
+  updateAccountSettings();
+
   await loadCloudMemory();
 
   // ✅ Sirf ek baar conversations load karo
@@ -5348,6 +5688,7 @@ document.getElementById("profile-email").innerText =
 
 window.currentUser = null;
 
+updateAccountSettings();
 const profilePic = document.getElementById("profile-pic");
 const profileMenu = document.getElementById("profile-menu");
 const profileName = document.getElementById("profile-name");
@@ -5422,52 +5763,68 @@ async function saveCloudMemory() {
 
     {
 
-      memories:
-        astroMemory.memories || []
+      memories: astroMemory.memories || [],
+
+      theories: astroMemory.theories || [],
+
+      observations: astroMemory.observations || [],
+
+      telescopeSessions: astroMemory.telescopeSessions || [],
+
+      files: astroMemory.files || []
 
     }
 
   );
 
 }
-
 async function loadCloudMemory() {
 
   if (!window.currentUser)
     return;
 
-  const docRef =
+  const docRef = doc(
+    db,
+    "memories",
+    window.currentUser.uid
+  );
 
-    doc(
-      db,
-      "memories",
-      window.currentUser.uid
-    );
-
-  const snap =
-
-    await getDoc(
-      docRef
-    );
+  const snap = await getDoc(docRef);
 
   if (snap.exists()) {
 
-    astroMemory.memories =
+    const data = snap.data();
 
-      snap.data().memories;
+    astroMemory = {
+
+      memories:
+        data.memories || [],
+
+      theories:
+        data.theories || [],
+
+      observations:
+        data.observations || [],
+
+      telescopeSessions:
+        data.telescopeSessions || [],
+
+      files:
+        data.files || []
+
+    };
 
     localStorage.setItem(
-
       "astroMemory",
-
-      JSON.stringify(
-        astroMemory
-      )
-
+      JSON.stringify(astroMemory)
     );
 
   }
+
   updateGeneralSettings();
+  updateMemorySettings();
+  renderMemoryList();
+  updateAccountSettings();
 
 }
 
@@ -5698,11 +6055,26 @@ async function typeAIMessage(text) {
   const msg =
     document.createElement("div");
 
-    msg.style.maxWidth = "85%";
+    const width =
+localStorage.getItem("messageWidth")
+|| "85";
+
+msg.style.maxWidth =
+width + "%";
 
 msg.style.padding = "12px";
 
-msg.style.borderRadius = "16px";
+const bubble =
+localStorage.getItem("bubbleStyle")
+|| "rounded";
+
+msg.style.borderRadius =
+
+bubble==="rounded"
+
+? "16px"
+
+: "4px";
 
 msg.style.margin = "10px";
 
@@ -5765,9 +6137,19 @@ msg.style.boxShadow =
     container.scrollTop =
       container.scrollHeight;
 
+    const animations =
+JSON.parse(
+    localStorage.getItem("animations")
+    ?? "true"
+);
+
+if(animations){
+
     await new Promise(r =>
-      setTimeout(r, 8)
+        setTimeout(r,8)
     );
+
+}
   }
 
   span.innerHTML =
@@ -6335,6 +6717,140 @@ document.getElementById(
 
 }
 
+function updateAccountSettings(){
+
+const photo =
+document.getElementById("account-photo");
+
+const name =
+document.getElementById("account-name");
+
+const email =
+document.getElementById("account-email");
+
+const status =
+document.getElementById("account-status");
+
+if(window.currentUser){
+
+photo.src =
+window.currentUser.photoURL ||
+"https://ui-avatars.com/api/?name=User";
+
+name.textContent =
+window.currentUser.displayName ||
+"User";
+
+email.textContent =
+window.currentUser.email ||
+"";
+
+status.textContent =
+"🟢 Signed In";
+
+document.getElementById("account-type").textContent =
+"☁ Cloud Account";
+
+}
+
+else{
+
+photo.src =
+"https://ui-avatars.com/api/?name=Guest";
+
+name.textContent =
+"Guest User";
+
+email.textContent =
+"Not Signed In";
+
+status.textContent =
+"🔴 Signed Out";
+
+document.getElementById("account-type").textContent =
+"☁ Cloud Account";
+
+
+}
+
+}
+
+document.getElementById("manage-account-btn").onclick = () => {
+
+    document.getElementById("settings-overlay").style.display = "none";
+
+    setTimeout(() => {
+        document.getElementById("profile-menu").classList.add("show");
+    }, 100);
+
+};
+
+document
+.getElementById("sync-now-btn")
+.onclick=async()=>{
+
+await saveCloudMemory();
+
+document
+.getElementById("last-sync")
+.textContent =
+new Date().toLocaleString();
+
+showToast("☁ Cloud Synced");
+
+};
+
+document
+.getElementById("export-account-data")
+.onclick=()=>{
+
+document
+.getElementById("export-memory")
+?.click();
+
+};
+
+document
+.getElementById("import-account-data")
+.onclick=()=>{
+
+document
+.getElementById("import-account-file")
+.click();
+
+};
+
+document
+.getElementById("import-account-file")
+.onchange=e=>{
+
+const file=e.target.files[0];
+
+if(!file)return;
+
+const reader=
+new FileReader();
+
+reader.onload=()=>{
+
+astroMemory=
+JSON.parse(reader.result);
+
+localStorage.setItem(
+"astroMemory",
+JSON.stringify(astroMemory)
+);
+
+updateMemorySettings();
+renderMemoryList();
+showToast("📦 Data Imported");
+
+};
+
+reader.readAsText(file);
+
+};
+
 function updateGeneralSettings(){
 
 const conversationCount =
@@ -6343,8 +6859,44 @@ document.getElementById("conversation-count");
 const memoryCount =
 document.getElementById("memory-count");
 
+const fileCount =
+document.getElementById("file-count");
+
+if(fileCount){
+
+    fileCount.textContent =
+    (astroMemory.files || []).length;
+
+}
+
 const aiStatus =
 document.getElementById("ai-status-general");
+
+const apiKey =
+localStorage.getItem("OPENROUTER_API_KEY");
+
+const aiConnected =
+
+useCloud
+
+?
+
+true
+
+:
+
+(apiKey && apiKey.trim() !== "");
+aiStatus.textContent =
+
+aiConnected
+
+?
+
+"🟢 Connected"
+
+:
+
+"🔴 Not Connected";
 
 if(conversationCount){
 
@@ -6359,20 +6911,14 @@ const totalMemories =
 (astroMemory.memories?.length || 0) +
 (astroMemory.theories?.length || 0) +
 (astroMemory.observations?.length || 0) +
-(astroMemory.telescopeSessions?.length || 0);
+(astroMemory.telescopeSessions?.length || 0) +
+(astroMemory.files?.length || 0);
 
 memoryCount.textContent = totalMemories;
 
 }
 
-if(aiStatus){
 
-aiStatus.textContent =
-localStorage.getItem("OPENROUTER_API_KEY")
-? "🟢 Connected"
-: "🔴 Not Connected";
-
-}
 
 }
 /* ==========================================
@@ -6474,18 +7020,22 @@ window.db
 ? "🟢 Online"
 : "🔴 Offline";
 
-document.getElementById("ai-status-general").textContent =
-localStorage.getItem("OPENROUTER_API_KEY")
-? "🟢 Connected"
-: "🔴 Not Connected";
-
 document.getElementById("conversation-count").textContent =
 conversations.length;
 
 document.getElementById("memory-count").textContent =
 astroMemory.memories.length;
 
+document.getElementById("file-count").textContent =
+(astroMemory.files || []).length;
+
 document.getElementById("clear-cache-btn").onclick=()=>{
+
+if(!confirm(
+
+"Are you sure you want to clear the application cache?"
+
+)) return;
 
 localStorage.clear();
 
@@ -6538,7 +7088,7 @@ document.getElementById("clear-all-chat");
 // Load current API key
 
 const savedKey =
-localStorage.getItem("openrouter_api_key");
+localStorage.getItem("OPENROUTER_API_KEY");
 
 if(savedKey){
 
@@ -6571,7 +7121,8 @@ removeApiKeySettingsBtn?.addEventListener("click",()=>{
 
 if(confirm("Remove saved API Key?")){
 
-localStorage.removeItem("openrouter_api_key");
+localStorage.removeItem("OPENROUTER_API_KEY");
+updateGeneralSettings();
 
 settingsApiKey.value="";
 
@@ -6957,15 +7508,27 @@ return b.pinned-a.pinned;
 return (b.updatedAt||0)-(a.updatedAt||0);
 
 });
+let found = 0;
 
 sortedConversations.forEach(conv=>{
 
-if(
+const titleMatch =
+    (conv.title || "")
+        .toLowerCase()
+        .includes(search);
 
-search &&
-!conv.title.toLowerCase().includes(search)
+const messageMatch =
+    (conv.messages || []).some(msg =>
+        (msg.text || "")
+            .toLowerCase()
+            .includes(search)
+    );
 
-)return;
+if (search && !(titleMatch || messageMatch)) {
+    return;
+}
+
+found++;
 
 const item=
 document.createElement("div");
@@ -6984,16 +7547,33 @@ if(conv.pinned){
     item.classList.add("pinned");
 
 }
-const lastMessage =
+let lastMessage = "No messages yet";
 
-conv.messages &&
-conv.messages.length
+if (conv.messages?.length) {
 
-? conv.messages[
-conv.messages.length-1
-].text.substring(0,60)
+    if (search) {
 
-: "No messages yet";
+        const found = conv.messages.find(msg =>
+            (msg.text || "")
+                .toLowerCase()
+                .includes(search)
+        );
+
+        if (found) {
+            lastMessage = found.text.substring(0, 60);
+        } else {
+            lastMessage =
+                conv.messages.at(-1).text.substring(0, 60);
+        }
+
+    } else {
+
+        lastMessage =
+            conv.messages.at(-1).text.substring(0, 60);
+
+    }
+
+}
 
 item.innerHTML=`
 
@@ -7284,30 +7864,36 @@ historyList.appendChild(item);
 
 });
 
-}
+if (found === 0) {
 
-function applyAppearanceSettings(){
+    historyList.innerHTML = `
+        <div class="history-item no-results">
 
-const size =
+            <div class="history-title">
+                🔍 No conversations found
+            </div>
 
-localStorage.getItem("fontSize") || "16";
+            <div class="history-preview">
+                Try searching with different keywords.
+            </div>
 
-document.documentElement.style.fontSize =
-size + "px";
-
-const select =
-document.getElementById("font-size-select");
-
-if(select){
-
-select.value = size;
+        </div>
+    `;
 
 }
 
 }
+
+
+
+
+
+
 
 const fontSizeSelect =
 document.getElementById("font-size-select");
+
+
 
 fontSizeSelect?.addEventListener("change",()=>{
 
@@ -7325,6 +7911,114 @@ showToast("🎨 Font size updated");
 
 });
 
+
+
+function applyAppearanceSettings(){
+
+    // Font Size
+    const size =
+        localStorage.getItem("fontSize") || "16";
+
+    document.documentElement.style.fontSize =
+        size + "px";
+
+    // Bubble Style
+    const bubble =
+        localStorage.getItem("bubbleStyle")
+        || "rounded";
+
+    // Message Width
+    const width =
+        localStorage.getItem("messageWidth")
+        || "85";
+
+    // Typing Animation
+    const animation =
+        JSON.parse(
+            localStorage.getItem("animations")
+            ?? "true"
+        );
+
+    // Existing Messages
+    document
+    .querySelectorAll(".message")
+    .forEach(msg=>{
+
+        msg.style.maxWidth =
+            width + "%";
+
+        msg.style.borderRadius =
+            bubble==="rounded"
+            ? "16px"
+            : "4px";
+
+    });
+
+    // Controls
+    document.getElementById("font-size-select").value =
+        size;
+
+    document.getElementById("bubble-style").value =
+        bubble;
+
+    document.getElementById("message-width").value =
+        width;
+
+    document.getElementById("animation-toggle").checked =
+        animation;
+
+}
+
+const bubbleStyle =
+document.getElementById("bubble-style");
+
+bubbleStyle?.addEventListener("change",()=>{
+
+    localStorage.setItem(
+        "bubbleStyle",
+        bubbleStyle.value
+    );
+
+    applyAppearanceSettings();
+
+    showToast("💬 Bubble Style Updated");
+
+});
+
+const messageWidth =
+document.getElementById("message-width");
+
+messageWidth?.addEventListener("change",()=>{
+
+    localStorage.setItem(
+
+        "messageWidth",
+
+        messageWidth.value
+
+    );
+
+    applyAppearanceSettings();
+
+    showToast("📏 Message Width Updated");
+
+});
+
+const animationToggle =
+document.getElementById("animation-toggle");
+
+animationToggle?.addEventListener("change",()=>{
+
+    localStorage.setItem(
+        "animations",
+        animationToggle.checked
+    );
+
+    applyAppearanceSettings();
+
+    showToast("✨ Typing Animation Updated");
+
+});
 function applyAccentColor(){
 
 const color =
@@ -7454,6 +8148,7 @@ function updateMemorySettings() {
     const memories = astroMemory.memories || [];
     const theories = astroMemory.theories || [];
     const observations = astroMemory.observations || [];
+    const equipments = astroMemory.memories || [];
 
     document.getElementById("memory-total").textContent =
         memories.length + theories.length + observations.length;
@@ -7466,6 +8161,38 @@ function updateMemorySettings() {
 
     document.getElementById("memory-observation-count").textContent =
         observations.length;
+
+    document.getElementById("memory-telescope-count").textContent =
+    astroMemory.telescopeSessions?.length || 0;
+
+document.getElementById("memory-file-count").textContent =
+    astroMemory.files?.length || 0;
+
+    
+
+document.getElementById("memory-telescope-equipment-count").textContent =
+equipments.filter(m =>
+m.category === "equipment" &&
+m.key === "telescope"
+).length;
+
+document.getElementById("memory-camera-count").textContent =
+equipments.filter(m =>
+m.category === "equipment" &&
+m.key === "camera"
+).length;
+
+document.getElementById("memory-binocular-count").textContent =
+equipments.filter(m =>
+m.category === "equipment" &&
+m.key === "binoculars"
+).length;
+
+document.getElementById("memory-eyepiece-count").textContent =
+equipments.filter(m =>
+m.category === "equipment" &&
+m.key === "eyepiece"
+).length;
 
 }
 
@@ -7489,24 +8216,114 @@ console.table(getAllMemoryItems());
         || "all";
 
     // Search
+    // Search
+if (search) {
+
     memories = memories.filter(m =>
-        (m.text || "").toLowerCase().includes(search)
+
+        (m.text || "")
+        .toLowerCase()
+        .includes(search)
+
     );
+
+}
 
     // Filter
-    if (filter !== "all" && filter !== "pinned") {
+   if(filter === "memory"){
 
     memories = memories.filter(m =>
-        m.type.toLowerCase() === filter
+        m.type === "Memory" &&
+        m.category !== "equipment"
     );
 
 }
 
-if (filter === "pinned") {
+else if(filter === "theory"){
 
-    memories = memories.filter(m => m.pinned);
+    memories = memories.filter(m =>
+        m.type === "Theory"
+    );
 
 }
+
+else if(filter === "observation"){
+
+    memories = memories.filter(m =>
+        m.type === "Observation"
+    );
+
+}
+
+else if(filter === "telescope"){
+
+    memories = memories.filter(m =>
+        m.category === "equipment" &&
+        m.key === "telescope"
+    );
+
+}
+
+else if(filter === "telescope_session"){
+
+    memories = memories.filter(m =>
+        m.type === "Telescope"
+    );
+
+}
+
+else if(filter === "camera"){
+
+    memories = memories.filter(m =>
+        m.category === "equipment" &&
+        m.key === "camera"
+    );
+
+}
+
+else if(filter === "binoculars"){
+
+    memories = memories.filter(m =>
+        m.category === "equipment" &&
+        m.key === "binoculars"
+    );
+
+}
+
+else if(filter === "eyepiece"){
+
+    memories = memories.filter(m =>
+        m.category === "equipment" &&
+        m.key === "eyepiece"
+    );
+
+}
+
+else if(filter === "file"){
+
+    memories = memories.filter(m =>
+        m.type === "File"
+    );
+
+}
+
+else if(filter === "favorite"){
+
+    memories = memories.filter(m =>
+        m.favorite
+    );
+
+}
+
+else if(filter === "pinned"){
+
+    memories = memories.filter(m =>
+        m.pinned
+    );
+
+}
+
+
 
 
     // Sort
@@ -7540,8 +8357,17 @@ if (filter === "pinned") {
     }
 
     list.innerHTML = "";
+    let currentTimeline = "";
 
     memories.forEach(memory => {
+
+      const timeline = getTimelineLabel(memory.time);
+
+if(timeline !== currentTimeline){
+
+
+
+}
 
         const card = document.createElement("div");
 
@@ -7553,13 +8379,52 @@ if (filter === "pinned") {
 
 <div class="memory-title">
 
-${memory.pinned ? "📌" : "🧠"}
+${
+memory.type === "File"
+? "📄 File"
 
-${memory.type}
+: memory.type === "Telescope"
+? "🛰 Telescope Session"
 
+: memory.category === "equipment"
+? (
+memory.key === "telescope"
+? "🔭 Telescope"
+
+: memory.key === "camera"
+? "📷 Camera"
+
+: memory.key === "binoculars"
+? "🔭 Binoculars"
+
+: memory.key === "eyepiece"
+? "👁️ Eyepiece"
+
+: "🔧 Equipment"
+)
+
+: memory.type === "Theory"
+? "📚 Theory"
+
+: memory.type === "Observation"
+? "🔭 Observation"
+
+: "🧠 Memory"
+}
 </div>
 
 <div class="memory-icons">
+
+${
+memory.type === "File"
+
+?
+
+""
+
+:
+
+`
 
 <button
 class="memory-btn"
@@ -7577,13 +8442,42 @@ ${memory.favorite ? "⭐" : "☆"}
 
 </button>
 
+`
+
+}
+
 </div>
 
 </div>
 
 <div class="memory-body">
 
-${memory.text}
+${
+memory.type === "File"
+
+?
+
+`
+<div><strong>📄 ${memory.name}</strong></div>
+
+<div style="margin-top:6px;font-size:13px;opacity:.8;">
+
+Type:
+${memory.fileType || "Unknown"}
+
+<br>
+
+Size:
+${(memory.size/1024).toFixed(1)} KB
+
+</div>
+`
+
+:
+
+memory.text
+
+}
 
 </div>
 
@@ -7591,11 +8485,33 @@ ${memory.text}
 
 <div class="memory-time">
 
-${new Date(memory.time).toLocaleString()}
+${formatMemoryDate(memory.time)}
 
 </div>
 
 <div class="memory-actions">
+<div class="memory-actions">
+
+${
+memory.type === "File"
+
+?
+
+`
+
+<button
+class="memory-btn delete-btn"
+onclick="removeFileMemory(${memory.id})">
+
+📄 Remove File
+
+</button>
+
+`
+
+:
+
+`
 
 <button
 class="memory-btn edit-btn"
@@ -7612,6 +8528,10 @@ onclick="deleteMemoryById(${memory.id})">
 🗑 Delete
 
 </button>
+
+`
+
+}
 
 </div>
 
@@ -7683,6 +8603,39 @@ saveCloudMemory();
 updateMemorySettings();
 
 renderMemoryList();
+
+}
+
+function removeFileMemory(id){
+
+if(!confirm("Remove this file from memory?"))
+return;
+
+const index =
+astroMemory.files.findIndex(f=>f.id==id);
+
+if(index===-1)
+return;
+
+astroMemory.files.splice(index,1);
+
+localStorage.setItem(
+
+"astroMemory",
+
+JSON.stringify(astroMemory)
+
+);
+
+saveCloudMemory();
+
+updateMemorySettings();
+
+updateGeneralSettings();
+
+renderMemoryList();
+
+showToast("📄 File Removed");
 
 }
 
@@ -7781,7 +8734,20 @@ function getAllMemoryItems() {
             ...m,
             type: "Telescope",
             source: "telescopeSessions"
-        }))
+        })),
+
+        ...(astroMemory.files || []).map(f => ({
+    ...f,
+
+    text:f.name,
+
+    fileType:f.type,
+
+    type:"File",
+
+    source:"files"
+
+}))
 
     ];
 
@@ -7918,6 +8884,8 @@ input.onchange=e=>{
 const file =
 e.target.files[0];
 
+
+
 if(!file) return;
 
 const reader =
@@ -7929,6 +8897,12 @@ try{
 
 astroMemory=
 JSON.parse(reader.result);
+
+astroMemory.files ??= [];
+astroMemory.memories ??= [];
+astroMemory.theories ??= [];
+astroMemory.observations ??= [];
+astroMemory.telescopeSessions ??= [];
 
 localStorage.setItem(
 
@@ -7988,7 +8962,9 @@ theories:[],
 
 observations:[],
 
-telescopeSessions:[]
+telescopeSessions:[],
+
+files:[]
 
 };
 
@@ -8033,8 +9009,45 @@ function findMemoryById(id){
 
 function showMemorySuggestion(memory){
 
-  const duplicate =
-findDuplicateMemory(memory);
+  console.log("Calling showMemorySuggestion");
+console.log("Pending:", pendingStructuredMemory);
+
+  let duplicate;
+
+if(memory.type === "Theory"){
+
+    duplicate = findDuplicateInArray(
+        astroMemory.theories,
+        memory.value
+    );
+
+}
+else if(memory.type === "Observation"){
+
+    duplicate = findDuplicateInArray(
+        astroMemory.observations,
+        memory.value
+    );
+
+}
+else if(memory.type === "Telescope"){
+
+    duplicate = findDuplicateInArray(
+        astroMemory.telescopeSessions,
+        memory.value
+    );
+
+}
+else{
+
+    duplicate = findDuplicateMemory(memory);
+
+}
+
+console.log("Memory:", memory);
+  console.log("Duplicate:", duplicate);
+  console.log("All Memories:", astroMemory.memories);
+
 
 const existing =
 document.getElementById("memory-suggestion");
@@ -8047,7 +9060,26 @@ box.id="memory-suggestion";
 
 box.innerHTML = `
 
-<h3>🧠 Memory Detected</h3>
+<h3>
+
+${
+memory.type==="Theory"
+
+? "📚 Theory Detected"
+
+: memory.type==="Observation"
+
+? "🔭 Observation Detected"
+
+: memory.type==="Telescope"
+
+? "🔭 Telescope Session Detected"
+
+: "🧠 Memory Detected"
+
+}
+
+</h3>
 
 <div class="memory-preview-row">
 
@@ -8164,14 +9196,31 @@ behavior:"smooth"
 document
 .getElementById("remember-btn")
 ?.addEventListener("click",()=>{
+  
 
-saveMemory(
+if(memory.category==="Theory"){
 
-memory.value,
+    saveTheory(memory.value, true);
 
-memory.category
+}
 
-);
+else if(memory.category==="Observation"){
+
+    saveObservation(memory.value, true);
+
+}
+
+else if(memory.category==="Telescope"){
+
+    saveTelescopeSession(memory.value, true);
+
+}
+
+else{
+
+   saveMemory(memory);
+
+}
 
 box.remove();
 
@@ -8210,13 +9259,29 @@ document
 .getElementById("save-new-memory-btn")
 ?.addEventListener("click",()=>{
 
-saveMemory(
+if(memory.category==="Theory"){
 
-memory.value,
+    saveTheory(memory.value, true);
 
-memory.category
+}
 
-);
+else if(memory.category==="Observation"){
+
+    saveObservation(memory.value, true);
+
+}
+
+else if(memory.category==="Telescope"){
+
+    saveTelescopeSession(memory.value, true);
+
+}
+
+else{
+
+    saveMemory(memory);
+
+}
 
 box.remove();
 
@@ -8251,4 +9316,236 @@ box.remove();
 
 }
 
+function saveFileMemory(file){
 
+    if(!astroMemory.files){
+
+        astroMemory.files=[];
+
+    }
+
+    astroMemory.files.push({
+
+        id:Date.now(),
+
+        name:file.name,
+
+        type:file.type,
+
+        size:file.size,
+
+        uploadedAt:new Date().toISOString(),
+
+        time:new Date().toISOString(),
+
+        summary:"",
+
+        tags:[],
+
+        pinned:false,
+
+        favorite:false
+
+    });
+
+    localStorage.setItem(
+
+        "astroMemory",
+
+        JSON.stringify(astroMemory)
+
+    );
+
+    saveCloudMemory();
+
+    updateMemorySettings();
+
+}
+
+function getRelevantMemories(question){
+
+    const q = question.toLowerCase();
+
+    const memories = getAllMemoryItems();
+
+    return memories.filter(m => {
+
+        const text = (m.text || "").toLowerCase();
+        const value = (m.value || "").toLowerCase();
+        const key = (m.key || "").toLowerCase();
+
+        return (
+            q.includes(key) ||
+            q.includes(value) ||
+            text.includes(q) ||
+            q.includes(text)
+        );
+
+    });
+
+}
+
+function buildMemoryContext(question){
+
+    const memories =
+        getRelevantMemories(question);
+
+    if(memories.length===0)
+        return "";
+
+    return memories
+        .slice(0,5)
+        .map(m=>`- ${m.type}: ${m.text}`)
+        .join("\n");
+
+}
+
+function getTimelineLabel(date){
+
+    const now = new Date();
+
+    const d = new Date(date);
+
+    const diff = Math.floor(
+        (now - d) / (1000 * 60 * 60 * 24)
+    );
+
+    if(diff === 0) return "📅 Today";
+
+    if(diff === 1) return "📆 Yesterday";
+
+    if(diff <= 7) return "🗓 Last 7 Days";
+
+    if(diff <= 30) return "📁 Last Month";
+
+    return "📦 Older";
+
+}
+
+function formatMemoryDate(time){
+
+    const d = new Date(time);
+
+    const now = new Date();
+
+    const today = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate()
+    );
+
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    const target = new Date(
+        d.getFullYear(),
+        d.getMonth(),
+        d.getDate()
+    );
+
+    if(target.getTime() === today.getTime()){
+
+        return "Today • " + d.toLocaleTimeString([],{
+            hour:"2-digit",
+            minute:"2-digit"
+        });
+
+    }
+
+    if(target.getTime() === yesterday.getTime()){
+
+        return "Yesterday • " + d.toLocaleTimeString([],{
+            hour:"2-digit",
+            minute:"2-digit"
+        });
+
+    }
+
+    return d.toLocaleDateString([],{
+        day:"numeric",
+        month:"short",
+        year:"numeric"
+    });
+
+}
+
+const skySettings = JSON.parse(
+
+localStorage.getItem("skySettings")
+
+) || {
+
+showConstellationLines:true,
+
+showConstellationLabels:true,
+
+showStarLabels:true,
+
+showPlanetLabels:true,
+
+showDSOLabels:true,
+
+showMilkyWay:true,
+
+showMarker:true,
+
+showCoordinates:true,
+
+defaultZoom:1,
+
+followObject:true,
+
+smoothAnimations:true,
+
+timeSpeed:1,
+
+starMagnitude:6
+
+};
+
+function saveSkySettings(){
+
+localStorage.setItem(
+
+"skySettings",
+
+JSON.stringify(skySettings)
+
+);
+
+}
+
+function initSkySettings(){
+
+  console.log("INIT SKY SETTINGS");
+
+  console.log(
+        document.getElementById("toggle-constellation-lines")
+    );
+
+const constellationToggle =
+document.getElementById("toggle-constellation-lines");
+
+if(!constellationToggle) return;
+
+constellationToggle.checked =
+skySettings.showConstellationLines;
+
+constellationToggle.addEventListener("change", () => {
+
+    console.log("CHANGE EVENT");
+
+    skySettings.showConstellationLines =
+        constellationToggle.checked;
+
+    console.log(
+        "Value:",
+        skySettings.showConstellationLines
+    );
+
+    saveSkySettings();
+
+    refreshSky();
+
+});
+}
