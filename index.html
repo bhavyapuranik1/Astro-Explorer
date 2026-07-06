@@ -807,31 +807,140 @@ Pinned
 </div>
 </div>
 
-        <!-- SKY -->
+       <!-- SKY -->
+<!-- SKY -->
 <div class="settings-page" id="sky-page">
 
 <h2>🌌 Sky</h2>
 
 <div class="settings-card">
 
-<h3>🌌 Constellations</h3>
+<h3>🌌 Sky Display</h3>
 
+<!-- Constellation Lines -->
 <label class="switch">
-
 <input
 type="checkbox"
 id="toggle-constellation-lines"
 checked>
-
 <span class="slider"></span>
-
 </label>
 
 <span>Show Constellation Lines</span>
 
-</div>
+<br><br>
+
+<!-- Constellation Names -->
+<label class="switch">
+<input
+type="checkbox"
+id="toggle-constellation-names"
+checked>
+<span class="slider"></span>
+</label>
+
+<span>Show Constellation Names</span>
+
+<br><br>
+
+<!-- Stars -->
+<label class="switch">
+<input
+type="checkbox"
+id="toggle-stars"
+checked>
+<span class="slider"></span>
+</label>
+
+<span>Show Stars</span>
+
+<br><br>
+
+<!-- Deep Sky Objects -->
+<label class="switch">
+<input
+type="checkbox"
+id="toggle-dsos"
+checked>
+<span class="slider"></span>
+</label>
+
+<span>Show Deep Sky Objects</span>
+
+<br><br>
+
+<!-- Milky Way -->
+<label class="switch">
+<input
+type="checkbox"
+id="toggle-milky-way"
+checked>
+<span class="slider"></span>
+</label>
+
+<span>Show Milky Way</span>
+
+<br><br>
+
+<!-- Planets -->
+<label class="switch">
+<input
+type="checkbox"
+id="toggle-planets"
+checked>
+<span class="slider"></span>
+</label>
+
+<span>Show Planets</span>
+
 </div>
 
+<div class="settings-card">
+
+<h3>⭐ Star Magnitude</h3>
+
+<input
+type="range"
+id="star-magnitude"
+min="1"
+max="8"
+step="0.5">
+
+<span id="star-magnitude-value">6</span>
+
+</div>
+
+<div class="settings-card">
+
+<h3>🌌 DSO Magnitude</h3>
+
+<input
+type="range"
+id="dso-magnitude"
+min="1"
+max="8"
+step="0.5">
+
+<span id="dso-magnitude-value">6</span>
+
+</div>
+
+<div class="settings-card">
+
+<h3>🔍 Zoom</h3>
+
+<input
+type="range"
+id="sky-zoom"
+min="1"
+max="8"
+step="0.1">
+
+<span id="sky-zoom-value">1</span>
+
+</div>
+
+</div>
         <!-- OBSERVATION -->
 
         <div class="settings-page"
