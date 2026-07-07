@@ -59,6 +59,11 @@
   <div id="skyContainer"></div>
 
   <div id="object-info-panel">
+
+    <button id="close-info-panel">
+✖
+</button>
+
 <h2 id="info-name">
   No Object Selected
 </h2>
@@ -298,7 +303,9 @@ Logout
 
 <script src="lib/d3.v3.min.js"></script>
 
-<script src="lib/celestial.min.js"></script>
+<!-- <script src="js/celestial.min.js"></script> -->
+
+<script src="lib/celestial.js"></script>
 
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <div id="toast"></div>
@@ -818,6 +825,8 @@ Pinned
 <h3>🌌 Sky Display</h3>
 
 <!-- Constellation Lines -->
+
+<div class="setting-row">
 <label class="switch">
 <input
 type="checkbox"
@@ -828,9 +837,10 @@ checked>
 
 <span>Show Constellation Lines</span>
 
-<br><br>
+</div>
 
 <!-- Constellation Names -->
+ <div class="setting-row">
 <label class="switch">
 <input
 type="checkbox"
@@ -841,9 +851,10 @@ checked>
 
 <span>Show Constellation Names</span>
 
-<br><br>
+</div>
 
 <!-- Stars -->
+ <div class="setting-row">
 <label class="switch">
 <input
 type="checkbox"
@@ -854,9 +865,10 @@ checked>
 
 <span>Show Stars</span>
 
-<br><br>
+</div>
 
 <!-- Deep Sky Objects -->
+ <div class="setting-row">
 <label class="switch">
 <input
 type="checkbox"
@@ -867,9 +879,10 @@ checked>
 
 <span>Show Deep Sky Objects</span>
 
-<br><br>
+</div>
 
 <!-- Milky Way -->
+ <div class="setting-row">
 <label class="switch">
 <input
 type="checkbox"
@@ -880,9 +893,11 @@ checked>
 
 <span>Show Milky Way</span>
 
-<br><br>
+</div>
+
 
 <!-- Planets -->
+ <div class="setting-row">
 <label class="switch">
 <input
 type="checkbox"
@@ -893,6 +908,7 @@ checked>
 
 <span>Show Planets</span>
 
+</div>
 </div>
 
 <div class="settings-card">
@@ -1296,5 +1312,8 @@ Save
 <script type="module" src="firebase.js"></script>
  
  <script defer src="script.js"></script>
+
+ <script defer src="/_vercel/insights/script.js"></script>
+<script defer src="/_vercel/speed-insights/script.js"></script>
 </body>
 </html>

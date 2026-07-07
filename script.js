@@ -1095,12 +1095,12 @@ function showTab(tabId, el) {
 
     console.log("SHOWTAB SKY");
 
-    if (!window.skyLoaded) {
-        initSky();
-        window.skyLoaded = true;
-    }
-
     initSkySettings();
+
+if (!window.skyLoaded) {
+    initSky();
+    window.skyLoaded = true;
+}
 
     requestAnimationFrame(() => {
         Celestial.resize();
@@ -1563,7 +1563,7 @@ else if (index === 2) {
   }
   function buildSkyConfig() {
 
-    console.log("BUILD CONFIG CALLED");
+    console.log("showConstellationNames =", skySettings.showConstellationNames);
     console.log(
         "Value:",
         skySettings.showConstellationLines,
@@ -1577,50 +1577,41 @@ else if (index === 2) {
         zoomlevel: skySettings.defaultZoom,
 
         stars: {
-
     show: skySettings.showStars,
-
     limit: skySettings.starMagnitude,
-
     names: skySettings.showStarLabels,
-
     proper: true
-
 },
 
-        constellations: {
-    show: true,
-    names: true,
+constellations: {
+    show: skySettings.showConstellationNames,
+    names: skySettings.showConstellationNames,
     lines: skySettings.showConstellationLines
 },
 
-        dsos: {
-
+dsos: {
     show: skySettings.showDSOs,
-
     names: skySettings.showDSOLabels,
-
     limit: skySettings.dsoMagnitude,
-
     name: "id"
-
 },
 
-        planets: {
-            show: false
-        },
 
-        mw: {
-            show: skySettings.showMilkyWay,
-            opacity: 0.5
-        }
+planets: {
+    show: skySettings.showPlanets
+},
+
+mw: {
+    show: skySettings.showMilkyWay,
+    opacity: 0.5
+}
     };
 }
  
 
 function refreshSky() {
 
-    Celestial.display(buildSkyConfig());
+    Celestial.apply(buildSkyConfig());
 
 }
   
@@ -1629,7 +1620,7 @@ function initSky() {
 
     Celestial.display(buildSkyConfig());
 
-    Celestial.add("lg.json");
+    //Celestial.add("lg.json");
 
     celestialSettings = Celestial.settings();
 
@@ -1639,39 +1630,47 @@ function initSky() {
 
 
 let marker;
+let searchHighlight = null;
 let currentTarget = null;
 
 function createMarker() {
 
-  const container = document.getElementById("skyContainer");
+    const container = document.getElementById("skyContainer");
 
-  if (!marker) {
-    marker = document.createElement("div");
-    marker.className = "marker";
-    marker.style.position = "absolute";
-    marker.style.width = "12px";
-    marker.style.height = "12px";
-    marker.style.border = "2px solid red";
-    marker.style.borderRadius = "50%";
-    marker.style.transform = "translate(-50%, -50%)";
-    marker.style.pointerEvents = "none";
-    marker.style.zIndex = "25";
+    if (!marker) {
 
-    container.appendChild(marker);
-  }
+        marker = document.createElement("div");
 
-  // 🔥 IMPORTANT: initial position force
-  if (currentTarget) {
-    const pt = Celestial.mapProjection(currentTarget);
-    if (pt) {
-      marker.style.left = pt[0] + "px";
-      marker.style.top  = pt[1] + "px";
+        marker.className = "sky-crosshair";
+
+        marker.innerHTML = `
+            <div class="cross-top"></div>
+            <div class="cross-right"></div>
+            <div class="cross-bottom"></div>
+            <div class="cross-left"></div>
+            <div class="cross-center"></div>
+        `;
+
+        container.appendChild(marker);
+
     }
-  }
 
-  // 🔥 loop start (no delay)
-  trackMarker();
+    if (currentTarget) {
+
+        const pt = Celestial.mapProjection(currentTarget);
+
+        if (pt) {
+
+            marker.style.left = pt[0] + "px";
+            marker.style.top  = pt[1] + "px";
+
+        }
+
+    }
+
 }
+
+
 
 let tracking = false;
 
@@ -1687,14 +1686,7 @@ function trackMarker() {
 
   function loop() {
 
-    if (isRotating) {
-
-  animationId =
-    requestAnimationFrame(loop);
-
-  return;
-}
-
+    
     // 🔥 STOP IF INVALID
     if (!marker || !currentTarget) {
       tracking = false;
@@ -1741,6 +1733,13 @@ function trackMarker() {
       // 🔥 MARKER POSITION
       marker.style.left = smoothX + "px";
       marker.style.top  = smoothY + "px";
+
+      if (searchHighlight) {
+
+    searchHighlight.style.left = smoothX + "px";
+    searchHighlight.style.top  = smoothY + "px";
+
+}
       if (searchedObjectName) {
   createDSOSearchLabel(
     searchedObjectName,
@@ -1748,6 +1747,7 @@ function trackMarker() {
     smoothY
   );
 }
+
 
       // 🌍 PLANET LABEL FOLLOW
       if (planetLabel) {
@@ -2203,6 +2203,16 @@ function searchObject() {
   marker.remove();
   marker = null; // 🔥 IMPORTANT
 }
+
+
+if (searchHighlight) {
+
+    searchHighlight.remove();
+
+    searchHighlight = null;
+
+}
+
   document.getElementById("highlight-marker")?.remove();
 
   tracking = false;
@@ -2312,52 +2322,46 @@ const search = normalize(cleanSearch);
   console.log("Found:", obj);
   selectedObject = obj;
   updateObjectInfo(obj);
+  document.getElementById("object-info-panel").style.display = "block";
   updateDynamicInfo();
 
   // 🌌 DSO
   // 🌌 DSO
+// 🌌 DSO
+// 🌌 DSO
 if (obj.type === "dso") {
 
     lastSelectedPlanet = null;
-    isRotating = true;
+isRotating = true;
 
-    requestAnimationFrame(() => {
+currentTarget = [obj.ra, obj.dec];
+searchedObjectName = obj.name;
 
-        Celestial.rotate({
-            center: [obj.ra, obj.dec],
-            duration: 0
-        });
+smoothRotate(currentTarget, 1000).then(() => {
 
-        requestAnimationFrame(() => {
+    isRotating = false;
 
-            isRotating = false;
+    createMarker();
+    
+    trackMarker();
 
-            currentTarget = [obj.ra, obj.dec];
-            searchedObjectName = obj.name;
-
-            createMarker();
-
-        });
-
-    });
+});
 
     return;
 }
 
 
-// 🪐 PLANET (FINAL STABLE + TIME TRAVEL READY)
+// 🪐 PLANET
+// 🪐 PLANET
 if (obj.type === "planet") {
 
     isRotating = true;
 
-    // 🔥 Full name resolve
     const planetName = reversePlanetMap[obj.id] || obj.name;
 
-    // 🔥 Save for follow mode
     lastSelectedPlanet = planetName;
     followObject = true;
 
-    // 🔥 Get position
     const pos = getPlanetPosition(planetName, skyTime);
 
     if (!pos) {
@@ -2369,26 +2373,16 @@ if (obj.type === "planet") {
     const raDeg = pos[0] * 15;
     const dec   = pos[1];
 
-    requestAnimationFrame(() => {
+    // 🔥 SET TARGET FIRST
+    currentTarget = [raDeg, dec];
 
-        Celestial.rotate({
-            center: [raDeg, dec],
-            duration: 0
-        });
+    smoothRotate(currentTarget, 1000).then(() => {
 
-        requestAnimationFrame(() => {
+        isRotating = false;
 
-            isRotating = false;
-
-            currentTarget = [raDeg, dec];
-
-            createMarker();
-
-            const pt = Celestial.mapProjection([raDeg, dec]);
-
-            // (Future planet label yahin use kar sakte ho)
-
-        });
+        createMarker();
+        
+        trackMarker();
 
     });
 
@@ -2402,22 +2396,16 @@ if (obj.type === "constellation") {
     lastSelectedPlanet = null;
     isRotating = true;
 
-    requestAnimationFrame(() => {
+    // 🔥 SET TARGET FIRST
+    currentTarget = [obj.ra, obj.dec];
 
-        Celestial.rotate({
-            center: [obj.ra, obj.dec],
-            duration: 0
-        });
+    smoothRotate(currentTarget, 1000).then(() => {
 
-        requestAnimationFrame(() => {
+        isRotating = false;
 
-            isRotating = false;
-
-            currentTarget = [obj.ra, obj.dec];
-
-            createMarker();
-
-        });
+        createMarker();
+        
+        trackMarker();
 
     });
 
@@ -2431,43 +2419,108 @@ if (obj.type === "star") {
     lastSelectedPlanet = null;
     isRotating = true;
 
-    requestAnimationFrame(() => {
+    // 🔥 SET TARGET FIRST
+    currentTarget = [obj.ra, obj.dec];
 
-        Celestial.rotate({
-            center: [obj.ra, obj.dec],
-            duration: 0
-        });
+    smoothRotate(currentTarget, 1000).then(() => {
 
-        requestAnimationFrame(() => {
+        isRotating = false;
 
-            isRotating = false;
+        createMarker();
+        
+        trackMarker();
 
-            currentTarget = [obj.ra, obj.dec];
+        const pt = Celestial.mapProjection(currentTarget);
 
-            createMarker();
+        if (pt) {
 
-            const pt = Celestial.mapProjection([
-                obj.ra,
-                obj.dec
-            ]);
+            createStarSearchLabel(
+                obj.name,
+                pt[0],
+                pt[1]
+            );
 
-            if (pt) {
-
-                createStarSearchLabel(
-                    obj.name,
-                    pt[0],
-                    pt[1]
-                );
-
-            }
-
-        });
+        }
 
     });
 
     return;
 }
 }
+function smoothRotate(target, duration = 1000) {
+
+    const sky = document.getElementById("skyContainer");
+
+    const rect = sky.getBoundingClientRect();
+
+    const start = Celestial.mapProjection.invert([
+        rect.width / 2,
+        rect.height / 2
+    ]);
+
+    if (!start) {
+        Celestial.rotate({
+            center: target,
+            duration: 0
+        });
+        return Promise.resolve();
+    }
+
+    const startRA = start[0];
+    const startDEC = start[1];
+
+    const endRA = target[0];
+    const endDEC = target[1];
+
+    return new Promise(resolve => {
+
+        const startTime = performance.now();
+
+        function animate(now) {
+
+            let t = (now - startTime) / duration;
+
+            if (t > 1) t = 1;
+
+            // Smoothstep easing
+            t = 0.5 - Math.cos(Math.PI * t) / 2;
+
+            const ra =
+                startRA + (endRA - startRA) * t;
+
+            const dec =
+                startDEC + (endDEC - startDEC) * t;
+
+            Celestial.rotate({
+                center: [ra, dec],
+                duration: 0
+            });
+
+            if (t < 1) {
+
+                requestAnimationFrame(animate);
+
+            } else {
+
+                Celestial.rotate({
+                    center: target,
+                    duration: 0
+                });
+
+                resolve();
+
+            }
+
+        }
+
+        requestAnimationFrame(animate);
+
+    });
+
+}
+
+
+
 
 function applySkyTime() {
 
@@ -2784,6 +2837,7 @@ console.log(await response.clone().text());
   }
 }
 function updateObjectInfo(obj) {
+  
   currentAIObject = obj;
 
   const cleanName =
@@ -3208,8 +3262,12 @@ function dynamicInfoLoop() {
 
   // 🔥 ADVANCE SIMULATION TIME
   skyTime = new Date(
-    skyTime.getTime() +1000
+    skyTime.getTime() + 1000
   );
+
+  Celestial.skyview({
+        date: skyTime
+    });
 
   updateDynamicInfo();
   if (
@@ -6948,6 +7006,49 @@ memoryCount.textContent = totalMemories;
 
 
 }
+
+document.getElementById("close-info-panel").addEventListener("click", () => {
+
+    document.getElementById("object-info-panel").style.display = "none";
+
+    if (marker) {
+        marker.remove();
+        marker = null;
+    }
+
+    if (searchHighlight) {
+
+    searchHighlight.remove();
+
+    searchHighlight = null;
+
+}
+
+    tracking = false;
+    currentTarget = null;
+
+    if (starLabel) {
+        starLabel.remove();
+        starLabel = null;
+    }
+
+    if (planetLabel) {
+        planetLabel.remove();
+        planetLabel = null;
+    }
+
+    if (dsoSearchLabel) {
+        dsoSearchLabel.remove();
+        dsoSearchLabel = null;
+    }
+
+    searchedObjectName = "";
+    selectedObject = null;
+    lastSelectedPlanet = null;
+
+    document.getElementById("searchBox").value = "";
+
+});
 /* ==========================================
    ASTRO EXPLORER SETTINGS
 ========================================== */
@@ -9500,39 +9601,32 @@ function formatMemoryDate(time){
 
 }
 
-const skySettings = JSON.parse(
+const skySettings = {
 
-localStorage.getItem("skySettings")
+showConstellationLines: true,
+showConstellationNames: true,
 
-) || {
+showStars: true,
+showDSOs: true,
+showPlanets: true,
 
-showConstellationLines:true,
+showStarLabels: true,
+showPlanetLabels: true,
+showDSOLabels: true,
 
-showConstellationLabels:true,
+showMilkyWay: true,
+showMarker: true,
+showCoordinates: true,
 
-showStarLabels:true,
+defaultZoom: 1,
+followObject: true,
+smoothAnimations: true,
+timeSpeed: 1,
 
-showPlanetLabels:true,
+starMagnitude: 4,
+dsoMagnitude: 6,
 
-showDSOLabels:true,
-
-showMilkyWay:true,
-
-showMarker:true,
-
-showCoordinates:true,
-
-defaultZoom:1,
-
-followObject:true,
-
-smoothAnimations:true,
-
-timeSpeed:1,
-
-starMagnitude:6,
-
- dsoMagnitude: 6
+...(JSON.parse(localStorage.getItem("skySettings")) || {})
 
 };
 
@@ -9541,6 +9635,11 @@ starMagnitude:6,
     
 
     function initSkySettings() {
+
+      console.log(
+    "Toggle checked =",
+    document.getElementById("toggle-constellation-names")?.checked
+);
 
     const constellationLines = document.getElementById("toggle-constellation-lines");
     const constellationNames = document.getElementById("toggle-constellation-names");
@@ -9553,8 +9652,7 @@ starMagnitude:6,
 
     if (constellationLines) constellationLines.checked = skySettings.showConstellationLines;
     if (constellationNames) constellationNames.checked = skySettings.showConstellationNames;
-    if (starLabels) starLabels.checked = skySettings.showStarLabels;
-    if (dsoLabels) dsoLabels.checked = skySettings.showDSOLabels;
+
     if (milkyWay) milkyWay.checked = skySettings.showMilkyWay;
     if (planets) planets.checked = skySettings.showPlanets;
     if (stars) stars.checked = skySettings.showStars;
@@ -9577,13 +9675,11 @@ document.getElementById("sky-zoom");
 
     }
 
-       bindToggle(constellationLines, function () {
+      bindToggle(constellationLines, function () {
 
     skySettings.showConstellationLines = this.checked;
 
-    const s = Celestial.settings();
-    s.constellations.lines = this.checked;
-    Celestial.apply(s);
+    refreshSky();
 
 });
 
@@ -9591,9 +9687,7 @@ bindToggle(constellationNames, function () {
 
     skySettings.showConstellationNames = this.checked;
 
-    const s = Celestial.settings();
-    s.constellations.names = this.checked;
-    Celestial.apply(s);
+    refreshSky();
 
 });
 
@@ -9601,40 +9695,23 @@ bindToggle(stars, function () {
 
     skySettings.showStars = this.checked;
 
-    const s = Celestial.settings();
-    s.stars.show = this.checked;
-    Celestial.apply(s);
+    refreshSky();
 
 });
 
 bindToggle(dsos, function () {
-
     skySettings.showDSOs = this.checked;
-
-    const s = Celestial.settings();
-    s.dsos.show = this.checked;
-    Celestial.apply(s);
-
+    refreshSky();
 });
 
 bindToggle(milkyWay, function () {
-
     skySettings.showMilkyWay = this.checked;
-
-    const s = Celestial.settings();
-    s.mw.show = this.checked;
-    Celestial.apply(s);
-
+    refreshSky();
 });
 
 bindToggle(planets, function () {
-
     skySettings.showPlanets = this.checked;
-
-    const s = Celestial.settings();
-    s.planets.show = this.checked;
-    Celestial.apply(s);
-
+    refreshSky();
 });
 
 starMagnitude.oninput = function () {
