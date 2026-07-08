@@ -134,6 +134,122 @@ const reversePlanetMap = {
   lun: "moon"
 };
 
+const PLANETS = [
+    "sun",
+    "moon",
+    "mercury",
+    "venus",
+    "mars",
+    "jupiter",
+    "saturn",
+    "uranus",
+    "neptune",
+    "pluto"
+];
+
+const planetSymbols={
+
+sun:"☉",
+
+moon:"☾",
+
+mercury:"☿",
+
+venus:"♀",
+
+mars:"♂",
+
+jupiter:"♃",
+
+saturn:"♄",
+
+uranus:"♅",
+
+neptune:"♆",
+
+pluto:"♇"
+
+};
+
+let planetMarkers = {};
+
+function createPlanetMarkers() {
+
+    const overlay = document.getElementById("planetOverlay");
+
+    if (!overlay) return;
+
+    // Already created
+    if (Object.keys(planetMarkers).length) return;
+
+    PLANETS.forEach(name => {
+
+        const div = document.createElement("div");
+
+        div.className = "planet-marker";
+
+        div.innerHTML = planetSymbols[name];
+
+        overlay.appendChild(div);
+
+        planetMarkers[name] = div;
+
+    });
+
+}
+
+function updatePlanetMarkers() {
+
+   if (!skySettings.showPlanets) {
+
+        Object.values(planetMarkers).forEach(div => {
+            div.style.display = "none";
+        });
+
+        return;
+    }
+
+    Object.values(planetMarkers).forEach(div => {
+        div.style.display = "block";
+    });
+
+    PLANETS.forEach(name => {
+
+        const pos = getPlanetPosition(
+            name,
+            skyTime
+        );
+
+        if (!pos) return;
+
+        const pt = Celestial.mapProjection([
+            pos[0] * 15,
+            pos[1]
+        ]);
+
+        if (!pt) return;
+
+        const div = planetMarkers[name];
+
+        if (!div) return;
+
+        div.style.left = pt[0] + "px";
+        div.style.top = pt[1] + "px";
+
+    });
+
+}
+
+let planetAnimationId = null;
+
+function planetMarkerLoop() {
+
+    updatePlanetMarkers();
+
+    planetAnimationId =
+        requestAnimationFrame(planetMarkerLoop);
+}
+
 const objectDescriptions = {
 
   sirius:
@@ -1598,7 +1714,7 @@ dsos: {
 
 
 planets: {
-    show: skySettings.showPlanets
+    show: false
 },
 
 mw: {
@@ -1644,12 +1760,11 @@ function createMarker() {
         marker.className = "sky-crosshair";
 
         marker.innerHTML = `
-            <div class="cross-top"></div>
-            <div class="cross-right"></div>
-            <div class="cross-bottom"></div>
-            <div class="cross-left"></div>
-            <div class="cross-center"></div>
-        `;
+    <div class="cross-top"></div>
+    <div class="cross-right"></div>
+    <div class="cross-bottom"></div>
+    <div class="cross-left"></div>
+`;
 
         container.appendChild(marker);
 
@@ -2459,6 +2574,7 @@ function smoothRotate(target, duration = 1000) {
     ]);
 
     if (!start) {
+      console.trace("ROTATE");
         Celestial.rotate({
             center: target,
             duration: 0
@@ -2490,7 +2606,7 @@ function smoothRotate(target, duration = 1000) {
 
             const dec =
                 startDEC + (endDEC - startDEC) * t;
-
+            console.trace("ROTATE");
             Celestial.rotate({
                 center: [ra, dec],
                 duration: 0
@@ -2501,6 +2617,8 @@ function smoothRotate(target, duration = 1000) {
                 requestAnimationFrame(animate);
 
             } else {
+
+              console.trace("ROTATE");
 
                 Celestial.rotate({
                     center: target,
@@ -3265,9 +3383,11 @@ function dynamicInfoLoop() {
     skyTime.getTime() + 1000
   );
 
-  Celestial.skyview({
-        date: skyTime
-    });
+  /*Celestial.skyview({
+       date: skyTime
+    });*/
+
+    
 
   updateDynamicInfo();
   if (
@@ -3326,6 +3446,8 @@ smoothFollowDEC +=
   (dec - smoothFollowDEC) * 0.1;
 
 // 🔥 ROTATE USING SMOOTHED VALUES
+
+console.trace("ROTATE");
 Celestial.rotate({
 
   center: [
@@ -3657,10 +3779,14 @@ if (!window.skyLoaded) {
 
   createAllPlanetLabels();
 
-  setInterval(
+createPlanetMarkers();
+
+planetMarkerLoop();
+
+setInterval(
     dynamicInfoLoop,
     1000
-  );
+);
 
   updatePlanetLabelPositions();
 
@@ -9710,8 +9836,15 @@ bindToggle(milkyWay, function () {
 });
 
 bindToggle(planets, function () {
+
     skySettings.showPlanets = this.checked;
+
+    // 🔥 Update our HTML planets immediately
+    updatePlanetMarkers();
+
+    // 🔥 Refresh sky
     refreshSky();
+
 });
 
 starMagnitude.oninput = function () {

@@ -3148,7 +3148,7 @@ color:#38bdf8;
 
     left:50%;
     top:50%;
-
+    display: none;
     width:12px;
     height:12px;
 
@@ -3219,4 +3219,32 @@ color:#38bdf8;
     top:50%;
 
     transform:translateY(-50%);
+}
+
+#skyContainer{
+    position: relative;
+}
+
+#planetOverlay{
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 900;
+}
+
+.planet-marker{
+
+    position:absolute;
+
+    transform:
+    translate(-50%,-50%);
+
+    font-size:22px;
+
+    color:white;
+
+    pointer-events:none;
+
+    text-shadow:
+        0 0 10px currentColor;
 }
