@@ -171,29 +171,65 @@ pluto:"♇"
 
 };
 
+const planetLabelColors = {
+    sun: "#fff200",      // Bright Yellow
+    mercury: "#d8d8d8", // Light Gray
+    venus: "#fff200",   // Yellow
+    moon: "#fff200",    // Yellow
+    mars: "#ff9800",    // Orange
+    jupiter: "#f5b642", // Golden Orange
+    saturn: "#f4c542",  // Gold
+    uranus: "#4dd9ff",  // Cyan
+    neptune: "#5b5bff", // Blue
+    pluto: "#d8d8d8"    // Light Gray
+};
+
 let planetMarkers = {};
 
-function createPlanetMarkers() {
+function createPlanetMarkers(){
 
-    const overlay = document.getElementById("planetOverlay");
+    const overlay =
+        document.getElementById("planetOverlay");
 
-    if (!overlay) return;
+    PLANETS.forEach(name=>{
 
-    // Already created
-    if (Object.keys(planetMarkers).length) return;
-
-    PLANETS.forEach(name => {
-
-        const div = document.createElement("div");
+        const div =
+            document.createElement("div");
 
         div.className = "planet-marker";
 
         div.innerHTML = planetSymbols[name];
 
+        // ✅ Planet-wise colour
+        div.style.color =
+            planetLabelColors[name.toLowerCase()] || "#ffffff";
+
+            // 🌟 Glow strength by planet
+switch(name.toLowerCase()){
+
+    case "sun":
+        div.style.textShadow =
+        "0 0 4px currentColor,0 0 8px currentColor,0 0 14px currentColor";
+        break;
+
+    case "moon":
+        div.style.textShadow =
+        "0 0 4px currentColor,0 0 8px currentColor,0 0 14px currentColor";
+        break;
+
+    case "venus":
+        div.style.textShadow =
+        "0 0 3px currentColor,0 0 7px currentColor,0 0 12px currentColor";
+        break;
+
+    default:
+        div.style.textShadow =
+        "0 0 2px currentColor,0 0 5px currentColor";
+}
+
         overlay.appendChild(div);
 
         planetMarkers[name] = div;
-
     });
 
 }
@@ -1872,10 +1908,10 @@ function trackMarker() {
           .getBoundingClientRect();
 
         planetLabel.style.left =
-          (smoothX + rect.left + 10) + "px";
+          (smoothX + rect.left + 3) + "px";
 
         planetLabel.style.top =
-          (smoothY + rect.top - 10) + "px";
+          (smoothY + rect.top - 3) + "px";
       }
 
       // ⭐ STAR LABEL FOLLOW
@@ -2759,16 +2795,52 @@ function createPlanetLabel(name, pt) {
   const label = document.createElement("div");
   label.className = "planet-label";
   label.innerText = name;
+
+  label.style.color =
+    planetLabelColors[name.toLowerCase()] || "#ffffff";
+
+    // 👇 YE ADD KARO
+label.style.fontSize = "18px";
+label.style.fontWeight = "700";
+label.style.whiteSpace = "nowrap";
+
+// 🌟 Glow strength by planet
+const glow =
+(
+    fullName || name
+).toLowerCase();
+
+if(
+    glow==="sun" ||
+    glow==="moon"
+){
+
+    label.style.textShadow =
+    "0 0 3px currentColor,0 0 6px currentColor,0 0 10px currentColor";
+
+}
+else if(glow==="venus"){
+
+    label.style.textShadow =
+    "0 0 3px currentColor,0 0 6px currentColor";
+
+}
+else{
+
+    label.style.textShadow =
+    "0 0 2px currentColor,0 0 4px currentColor";
+
+}
+
 label.style.zIndex = "30"; 
   label.style.position = "absolute";
-  label.style.color = "yellow";
-  label.style.fontSize = "14px";
+  label.style.fontSize = "18px";
   label.style.fontWeight = "bold";
   label.style.zIndex = "9999";
 
   // 🔥 OFFSET FIX
- label.style.left = (pt[0] + 10) + "px";
-label.style.top  = (pt[1] - 10) + "px";
+ label.style.left = (pt[0] + 3) + "px";
+label.style.top  = (pt[1] - 3) + "px";
   document.getElementById("skyContainer").appendChild(label); // 🔥 CHANGE HERE
 
   planetLabel = label;
@@ -2796,14 +2868,52 @@ function createAllPlanetLabels() {
     const rect = document.getElementById("skyContainer").getBoundingClientRect();
 
     const label = document.createElement("div");
+    label.className = "planet-label"; 
     label.innerText = fullName;
+    label.className = "planet-label";
+
+label.style.whiteSpace = "nowrap";
+label.style.display = "inline-block";
+
     label.style.position = "absolute";
-    label.style.color = "yellow";
-    label.style.fontSize = "12px";
+    label.style.color =
+    planetLabelColors[fullName.toLowerCase()] || "#ffffff";
+    // 👇 YE ADD KARO
+label.style.fontSize = "18px";
+label.style.fontWeight = "700";
+label.style.whiteSpace = "nowrap";
+
+const glow =
+(
+    fullName || name
+).toLowerCase();
+
+if(
+    glow==="sun" ||
+    glow==="moon"
+){
+
+    label.style.textShadow =
+    "0 0 3px currentColor,0 0 6px currentColor,0 0 10px currentColor";
+
+}
+else if(glow==="venus"){
+
+    label.style.textShadow =
+    "0 0 3px currentColor,0 0 6px currentColor";
+
+}
+else{
+
+    label.style.textShadow =
+    "0 0 2px currentColor,0 0 4px currentColor";
+
+}
+    label.style.fontSize = "18px";
     label.style.zIndex = "20";
 
-    label.style.left = (pt[0] + 10) + "px";
-label.style.top  = (pt[1] - 10) + "px";
+    label.style.left = (pt[0] + 3) + "px";
+label.style.top  = (pt[1] - 3) + "px";
 
     document.getElementById("skyContainer").appendChild(label);
 

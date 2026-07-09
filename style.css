@@ -3236,15 +3236,15 @@ color:#38bdf8;
 
     position:absolute;
 
-    transform:
-    translate(-50%,-50%);
+    transform:translate(-50%,-50%);
 
-    font-size:22px;
+    font-size:30px;
 
-    color:white;
+    font-weight:bold;
 
     pointer-events:none;
 
-    text-shadow:
-        0 0 10px currentColor;
+    user-select:none;
+
+    transition:text-shadow .2s,color .2s;
 }
