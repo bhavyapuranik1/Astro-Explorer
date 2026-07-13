@@ -4,6 +4,10 @@
   <title>Astronomy Project</title>
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="lib/celestial.css">
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <link
   rel="stylesheet"
@@ -59,9 +63,9 @@ gtag('config', 'G-9747XL0FQQ');
 <!-- 🔝 NAVBAR -->
 <div id="navbar">
   <div id="tabs">
-    <button onclick="showTab('sky', this)">🌌 Sky</button>
-    <button onclick="showTab('asteroids', this)">☄️ Asteroids</button>
-    <button onclick="showTab('nasa', this)">📸 NASA</button>
+    <button onclick="showTab('sky', this)"> Sky</button>
+    <button onclick="showTab('asteroids', this)"> Asteroids</button>
+    <button onclick="showTab('nasa', this)"> NASA</button>
   </div>
 </div>
 
@@ -69,28 +73,54 @@ gtag('config', 'G-9747XL0FQQ');
 <div id="sky" class="tab-content">
 
   <!-- 🔍 SEARCH BAR -->
-  <div style="text-align:center; margin:10px;">
-    <input type="text" id="searchBox" placeholder="Search object (M31, Orion...)">
-    <button onclick="searchObject()">Search</button>
-  </div>
-
-  <div id="time-controls">
-
-    <input
-      type="datetime-local"
-      id="sky-datetime"
-    >
-
-    <button onclick="applySkyTime()">
-      Apply Time
-    </button>
-
-  </div>
-
-  <div id="skyContainer">
+ <div id="skyContainer">
 
     <div id="planetOverlay"></div>
-  </div>
+
+    <div id="compassHud">
+
+    <div id="compassScale"></div>
+
+    <div id="compassPointer">▲</div>
+
+</div>
+
+   
+
+</div>
+
+<div id="sky-ui">
+
+    <div id="sky-search">
+
+        <input
+            type="text"
+            id="searchBox"
+            placeholder="Search object (M31, Orion...)">
+
+        <button onclick="searchObject()">
+            Search
+        </button>
+
+    </div>
+
+    <div id="time-controls">
+
+        <input
+            type="datetime-local"
+            id="sky-datetime">
+
+        <button onclick="applySkyTime()">
+            Apply Time
+        </button>
+
+    </div>
+
+</div>
+
+  
+
+  
 
   <div id="object-info-panel">
 
@@ -111,6 +141,11 @@ gtag('config', 'G-9747XL0FQQ');
 <p id="info-alt"></p>
 
 <p id="info-az"></p>
+
+<div>
+        Facing :
+        <span id="nav-direction">--</span>
+    </div>
 
 <p id="info-mag"></p>
 
@@ -134,24 +169,24 @@ gtag('config', 'G-9747XL0FQQ');
 
 <!-- ☄️ ASTEROIDS -->
 <div id="asteroids" class="tab-content" style="display:none;">
-  <h2>☄️ Near Earth Objects</h2>
+  <h2> Near Earth Objects</h2>
 
   <div class="controls-bar">
 
     <div class="left-controls">
       <button id="hazard-filter">
-        ⚠️ Show Hazardous Only
+         Show Hazardous Only
       </button>
 
       <button id="newest-filter">
-        🌍 Recently Approaching Asteroids
+         Recently Approaching Asteroids
       </button>
     </div>
 
     <input
       type="text"
       id="search-input"
-      placeholder="🔍 Search asteroid by name..."
+      placeholder=" Search asteroid by name..."
     >
 
   </div>
@@ -162,7 +197,7 @@ gtag('config', 'G-9747XL0FQQ');
 <!-- NASA -->
 <div id="nasa" class="tab-content" style="display:none;">
 
-  <h2>🚀 NASA Picture of the Day</h2>
+  <h2> NASA Picture of the Day</h2>
 
   <div class="nasa-controls">
 
@@ -175,7 +210,7 @@ gtag('config', 'G-9747XL0FQQ');
     <button id="load-btn">Load</button>
 
     <button id="download-btn">
-      ⬇️ Download
+      ⬇ Download
     </button>
 
   </div>
@@ -218,7 +253,7 @@ gtag('config', 'G-9747XL0FQQ');
 
   <div id="ai-header">
 
-<h2>🌌 Astro AI</h2>
+<h2> Astro AI</h2>
 
 <div id="header-actions">
 
@@ -232,7 +267,6 @@ gtag('config', 'G-9747XL0FQQ');
 
 <div id="profile-email"></div>
 
-<hr>
 
 <button id="google-login">
 Sign in with Google
@@ -715,6 +749,7 @@ DeepSeek (Coming Soon)
 
 <input
 type="checkbox"
+id="toggle-save-chat-history"
 checked>
 
 Save Chat History
@@ -727,6 +762,7 @@ Save Chat History
 
 <input
 type="checkbox"
+id="toggle-cloud-sync"
 checked>
 
 Cloud Sync
@@ -956,7 +992,7 @@ min="1"
 max="8"
 step="0.5">
 
-<span id="star-magnitude-value">6</span>
+<span id="star-magnitude-value">4</span>
 
 </div>
 
@@ -971,7 +1007,7 @@ min="1"
 max="8"
 step="0.5">
 
-<span id="dso-magnitude-value">6</span>
+<span id="dso-magnitude-value">4</span>
 
 </div>
 
@@ -1168,23 +1204,23 @@ Astro AI assistant.
 
 <div class="setting-card">
 
-<h3>✨ Features</h3>
+<h3> Features</h3>
 
 <ul>
 
-<li>🌌 Interactive Sky Map</li>
+<li> Interactive Sky Map</li>
 
-<li>🤖 Astro AI Assistant</li>
+<li> Astro AI Assistant</li>
 
-<li>🧠 Smart Memory</li>
+<li> Smart Memory</li>
 
-<li>📸 NASA APOD</li>
+<li> NASA APOD</li>
 
-<li>☄️ Asteroid Explorer</li>
+<li> Asteroid Explorer</li>
 
-<li>☁ Cloud Sync</li>
+<li> Cloud Sync</li>
 
-<li>🔭 Observation Tools</li>
+<li> Observation Tools</li>
 
 </ul>
 
@@ -1192,7 +1228,7 @@ Astro AI assistant.
 
 <div class="setting-card">
 
-<h3>👨‍💻 Developer</h3>
+<h3> Developer</h3>
 
 <p>
 
@@ -1214,7 +1250,7 @@ Project
 
 Made with
 
-❤️ HTML, CSS, JavaScript & Firebase
+ HTML, CSS, JavaScript & Firebase
 
 </p>
 

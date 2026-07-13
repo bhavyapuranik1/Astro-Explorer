@@ -31,6 +31,7 @@ let planetLabels = [];
 let dsoSearchLabel = null;
 let searchedObjectName = "";
 let selectedObject = null;
+window.compassHeading = 0;
 let followObject = false;
 let lastFollowRA = null;
 let lastFollowDEC = null;
@@ -50,6 +51,149 @@ let pendingMemory = null;
 let editingMemory = null;
 let pendingStructuredMemory = null;
 let celestialSettings = null;
+let compassScale;
+let currentAzimuth = 0;
+let compassHeading = 0;
+
+
+const AstroSettings = {
+  defaults: {
+    fontSize: "16",
+    accentColor: "#00f5ff",
+    bubbleStyle: "rounded",
+    messageWidth: "85",
+    animations: true,
+    responseLength: "medium",
+    creativity: "Balanced",
+    aiModel: "GPT-5",
+    saveChatHistory: true,
+    cloudSync: true,
+    skySettings: {
+      showConstellationLines: true,
+      showConstellationNames: true,
+      showStars: true,
+      showDSOs: true,
+      showMilkyWay: true,
+      showPlanets: true,
+      showStarLabels: true,
+      showPlanetLabels: true,
+      showDSOLabels: true,
+      showMarker: true,
+      showCoordinates: true,
+      defaultZoom: 1,
+      followObject: true,
+      smoothAnimations: true,
+      timeSpeed: 1,
+      starMagnitude: 4,
+      dsoMagnitude: 4
+    }
+  },
+  data: {},
+  load() {
+    this.data = JSON.parse(JSON.stringify(this.defaults));
+    let saved = null;
+    try {
+      saved = JSON.parse(localStorage.getItem("astro_settings_consolidated"));
+    } catch (e) {
+      console.warn("Corrupted settings found, resetting to defaults", e);
+    }
+    if (saved && typeof saved === "object") {
+      this.merge(this.data, saved);
+    } else {
+      const legacyKeys = {
+        fontSize: "fontSize",
+        accentColor: "accentColor",
+        bubbleStyle: "bubbleStyle",
+        messageWidth: "messageWidth",
+        animations: "animations",
+        responseLength: "responseLength",
+        creativity: "creativity"
+      };
+      for (const [settingsKey, localStorageKey] of Object.entries(legacyKeys)) {
+        const val = localStorage.getItem(localStorageKey);
+        if (val !== null) {
+          if (settingsKey === "animations") {
+            this.data[settingsKey] = val === "true";
+          } else {
+            this.data[settingsKey] = val;
+          }
+        }
+      }
+      try {
+        const savedSky = JSON.parse(localStorage.getItem("skySettings"));
+        if (savedSky && typeof savedSky === "object") {
+          this.merge(this.data.skySettings, savedSky);
+        }
+      } catch (e) {}
+    }
+    this.syncToGlobals();
+  },
+  merge(target, source) {
+    for (const key in source) {
+      if (source.hasOwnProperty(key)) {
+        if (source[key] !== null && typeof source[key] === "object" && !Array.isArray(source[key])) {
+          if (!target[key] || typeof target[key] !== "object") {
+            target[key] = {};
+          }
+          this.merge(target[key], source[key]);
+        } else {
+          target[key] = source[key];
+        }
+      }
+    }
+  },
+  save() {
+    try {
+      localStorage.setItem("astro_settings_consolidated", JSON.stringify(this.data));
+    } catch (e) {
+      console.error("Failed to save settings", e);
+    }
+  },
+  get(path) {
+    const parts = path.split(".");
+    let current = this.data;
+    for (const part of parts) {
+      if (current === undefined || current === null) return undefined;
+      current = current[part];
+    }
+    return current;
+  },
+  set(path, value) {
+    const parts = path.split(".");
+    let current = this.data;
+    for (let i = 0; i < parts.length - 1; i++) {
+      const part = parts[i];
+      if (current[part] === undefined || current[part] === null || typeof current[part] !== "object") {
+        current[part] = {};
+      }
+      current = current[part];
+    }
+    const lastPart = parts[parts.length - 1];
+    if (current[lastPart] !== value) {
+      current[lastPart] = value;
+      this.syncToGlobals();
+      this.save();
+    }
+  },
+  syncToGlobals() {
+    if (typeof skySettings === "object") {
+      Object.assign(skySettings, this.data.skySettings);
+    }
+  }
+};
+
+const COMPASS_MARGIN = 28;
+
+const compassDirs = {
+
+    N: 0,
+    E: 90,
+    S: 180,
+    W: 270
+
+};
+
+
 
 let nasaCache =
 
@@ -234,7 +378,11 @@ switch(name.toLowerCase()){
 
 }
 
-function updatePlanetMarkers() {
+let lastProjX = null;
+let lastProjY = null;
+let lastSkyTime = null;
+
+function updatePlanetMarkers(projChanged) {
 
    if (!skySettings.showPlanets) {
 
@@ -249,6 +397,8 @@ function updatePlanetMarkers() {
         div.style.display = "block";
     });
 
+    if (!projChanged) return;
+
     PLANETS.forEach(name => {
 
         const pos = getPlanetPosition(
@@ -258,10 +408,13 @@ function updatePlanetMarkers() {
 
         if (!pos) return;
 
-        const pt = Celestial.mapProjection([
-            pos[0] * 15,
-            pos[1]
-        ]);
+        let pt = null;
+        try {
+            pt = Celestial.mapProjection([
+                pos[0] * 15,
+                pos[1]
+            ]);
+        } catch(e) {}
 
         if (!pt) return;
 
@@ -276,15 +429,7 @@ function updatePlanetMarkers() {
 
 }
 
-let planetAnimationId = null;
 
-function planetMarkerLoop() {
-
-    updatePlanetMarkers();
-
-    planetAnimationId =
-        requestAnimationFrame(planetMarkerLoop);
-}
 
 const objectDescriptions = {
 
@@ -1249,14 +1394,34 @@ function showTab(tabId, el) {
 
     initSkySettings();
 
-if (!window.skyLoaded) {
-    initSky();
-    window.skyLoaded = true;
-}
+    if (!window.skyLoaded) {
 
-    requestAnimationFrame(() => {
+        initSky();
+        window.skyLoaded = true;
+
+        // First load ke baad resize
+        setTimeout(() => {
+
+    const sky = document.getElementById("skyContainer");
+
+    sky.style.top = "50px";
+    sky.style.height = "calc(100% - 50px)";
+
+    Celestial.resize();
+
+},300);
+
+    } else {
+
+        // Tab dubara open hua
         Celestial.resize();
-    });
+
+        console.log(
+            "After reopen:",
+            document.getElementById("skyContainer").getBoundingClientRect()
+        );
+
+    }
 
 }
 }
@@ -1528,46 +1693,43 @@ preload.src = data.hdurl || data.url;
       if (title) title.innerText = data.title;
       if (desc) desc.innerText = data.explanation;
     } else if (data.media_type === "video") {
+      if (img) img.style.display = "none";
 
-  if (img) img.style.display = "none";
+      let videoURL = data.url;
 
-  let videoURL = data.url;
+      // 🎯 YouTube / embeddable
+      if (videoURL.includes("youtube.com") || videoURL.includes("youtu.be")) {
+        if (videoURL.includes("watch?v=")) {
+          videoURL = videoURL.replace("watch?v=", "embed/");
+        }
 
-  // 🎯 YouTube / embeddable
-  if (videoURL.includes("youtube.com") || videoURL.includes("youtu.be")) {
+        if (videoContainer) {
+          videoContainer.innerHTML = `
+            <iframe src="${videoURL}" frameborder="0" allowfullscreen></iframe>
+          `;
 
-    if (videoURL.includes("watch?v=")) {
-      videoURL = videoURL.replace("watch?v=", "embed/");
+          videoContainer.style.opacity = "0";
+          videoContainer.style.transition = "opacity 0.3s ease";
+
+          requestAnimationFrame(() => {
+            videoContainer.style.opacity = "1";
+          });
+        }
+      } else {
+        // ❌ fallback restore
+        if (videoContainer) {
+          videoContainer.innerHTML = `
+            <div style="padding:20px; text-align:center;">
+              <p>⚠️ This video cannot be embedded</p>
+              <a href="${videoURL}" target="_blank">▶️ Watch Video</a>
+            </div>
+          `;
+        }
+      }
+
+      if (title) title.innerText = data.title + " 🎥";
+      if (desc) desc.innerText = data.explanation;
     }
-
-    if (videoContainer) {
-      videoContainer.innerHTML = `
-        <iframe src="${videoURL}" frameborder="0" allowfullscreen></iframe>
-      `;
-
-      videoContainer.style.opacity = "0";
-      videoContainer.style.transition = "opacity 0.3s ease";
-
-      requestAnimationFrame(() => {
-        videoContainer.style.opacity = "1";
-      });
-    }
-
-  } else {
-    // ❌ fallback restore
-    if (videoContainer) {
-      videoContainer.innerHTML = `
-        <div style="padding:20px; text-align:center;">
-          <p>⚠️ This video cannot be embedded</p>
-          <a href="${videoURL}" target="_blank">▶️ Watch Video</a>
-        </div>
-      `;
-    }
-  }
-
-  if (title) title.innerText = data.title + " 🎥";
-  if (desc) desc.innerText = data.explanation;
-}
   }
   
 
@@ -1716,48 +1878,55 @@ else if (index === 2) {
   function buildSkyConfig() {
 
     console.log("showConstellationNames =", skySettings.showConstellationNames);
+
     console.log(
         "Value:",
         skySettings.showConstellationLines,
         "Type:",
         typeof skySettings.showConstellationLines
     );
+
     return {
         container: "skyContainer",
+        width: document.getElementById("skyContainer").clientWidth,
+        height: document.getElementById("skyContainer").clientHeight,
         projection: "equirectangular",
         datapath: "data/",
         zoomlevel: skySettings.defaultZoom,
 
-        stars: {
-    show: skySettings.showStars,
-    limit: skySettings.starMagnitude,
-    names: skySettings.showStarLabels,
-    proper: true
-},
+        stars:{
+            show: skySettings.showStars,
+            limit: skySettings.starMagnitude,
+            names: skySettings.showStarLabels,
+            proper:true
+        },
 
-constellations: {
-    show: skySettings.showConstellationNames,
-    names: skySettings.showConstellationNames,
-    lines: skySettings.showConstellationLines
-},
+        constellations:{
+            show: skySettings.showConstellationNames,
+            names: skySettings.showConstellationNames,
+            lines: skySettings.showConstellationLines
+        },
 
-dsos: {
-    show: skySettings.showDSOs,
-    names: skySettings.showDSOLabels,
-    limit: skySettings.dsoMagnitude,
-    name: "id"
-},
+        dsos:{
+            show: skySettings.showDSOs,
+            names: skySettings.showDSOLabels,
+            limit: skySettings.dsoMagnitude,
+            name:"id"
+        },
 
+        planets:{
+            show:false
+        },
 
-planets: {
-    show: false
-},
-
-mw: {
-    show: skySettings.showMilkyWay,
-    opacity: 0.5
-}
+        mw:{
+            show: skySettings.showMilkyWay,
+            opacity:0.5
+        }
     };
+
+    console.log(config);
+
+    return config;
 }
  
 
@@ -1824,112 +1993,114 @@ function createMarker() {
 
 
 let tracking = false;
+let smoothX = null;
+let smoothY = null;
+let skyLoopId = null;
+let skyContainerRect = null;
+
+function updateSkyContainerRect() {
+  const container = document.getElementById("skyContainer");
+  if (container) {
+    skyContainerRect = container.getBoundingClientRect();
+  }
+}
+
+window.addEventListener("resize", updateSkyContainerRect);
 
 function trackMarker() {
-
   if (!marker || !currentTarget) return;
-
-  if (tracking) return;
+  smoothX = null;
+  smoothY = null;
   tracking = true;
-
-  let smoothX = null;
-  let smoothY = null;
-
-  function loop() {
-
-    
-    // 🔥 STOP IF INVALID
-    if (!marker || !currentTarget) {
-      tracking = false;
-      return;
-    }
-
-    let pt = null;
-
-    // 🔥 SAFE PROJECTION
-    if (Array.isArray(currentTarget)) {
-
-      try {
-        pt = Celestial.mapProjection(currentTarget);
-      }
-      catch(err) {
-        pt = null;
-      }
-
-      // 🔥 INVALID / NOT READY YET
-      if (
-        !pt ||
-        isNaN(pt[0]) ||
-        isNaN(pt[1])
-      ) {
-
-        animationId = requestAnimationFrame(loop);
-        return;
-      }
-    }
-
-    // 🔥 VALID POINT
-    if (pt) {
-
-      // 🔥 FIRST FRAME
-      if (smoothX === null) {
-        smoothX = pt[0];
-        smoothY = pt[1];
-      }
-
-      // 🔥 SMOOTH INTERPOLATION
-      smoothX += (pt[0] - smoothX) * 0.2;
-      smoothY += (pt[1] - smoothY) * 0.2;
-
-      // 🔥 MARKER POSITION
-      marker.style.left = smoothX + "px";
-      marker.style.top  = smoothY + "px";
-
-      if (searchHighlight) {
-
-    searchHighlight.style.left = smoothX + "px";
-    searchHighlight.style.top  = smoothY + "px";
-
-}
-      if (searchedObjectName) {
-  createDSOSearchLabel(
-    searchedObjectName,
-    smoothX,
-    smoothY
-  );
 }
 
-
-      // 🌍 PLANET LABEL FOLLOW
-      if (planetLabel) {
-
-        const rect = document
-          .getElementById("skyContainer")
-          .getBoundingClientRect();
-
-        planetLabel.style.left =
-          (smoothX + rect.left + 3) + "px";
-
-        planetLabel.style.top =
-          (smoothY + rect.top - 3) + "px";
-      }
-
-      // ⭐ STAR LABEL FOLLOW
-      if (starLabel) {
-
-  starLabel.style.left = smoothX + "px";
-
-  starLabel.style.top  = smoothY + "px";
-
-}
+function globalSkyAnimationLoop() {
+  try {
+    // Update sky container rect cache if not loaded yet
+    if (!skyContainerRect) {
+      updateSkyContainerRect();
     }
 
-    // 🔥 NEXT FRAME
-    animationId = requestAnimationFrame(loop);
+    // 1. Check if projection center or time changed
+    let currentProj = null;
+    try {
+      currentProj = Celestial.mapProjection([0, 0]);
+    } catch(e) {}
+
+    const projChanged = !currentProj || 
+                        lastProjX !== currentProj[0] || 
+                        lastProjY !== currentProj[1] || 
+                        !lastSkyTime || 
+                        Math.abs(skyTime - lastSkyTime) >= 1000;
+
+    if (projChanged) {
+      if (currentProj) {
+        lastProjX = currentProj[0];
+        lastProjY = currentProj[1];
+      }
+      lastSkyTime = new Date(skyTime);
+    }
+
+    // 2. Update Planet Markers & Labels
+    updatePlanetMarkers(projChanged);
+    updatePlanetLabelPositions(projChanged);
+
+    // 3. Update Tracking Marker if tracking is active
+    if (tracking && marker && currentTarget) {
+      let pt = null;
+      if (Array.isArray(currentTarget)) {
+        try {
+          pt = Celestial.mapProjection(currentTarget);
+        } catch(err) {
+          pt = null;
+        }
+        
+        if (pt && !isNaN(pt[0]) && !isNaN(pt[1])) {
+          if (smoothX === null) {
+            smoothX = pt[0];
+            smoothY = pt[1];
+          }
+
+          smoothX += (pt[0] - smoothX) * 0.2;
+          smoothY += (pt[1] - smoothY) * 0.2;
+
+          marker.style.left = smoothX + "px";
+          marker.style.top  = smoothY + "px";
+
+          if (searchHighlight) {
+            searchHighlight.style.left = smoothX + "px";
+            searchHighlight.style.top  = smoothY + "px";
+          }
+
+          if (searchedObjectName) {
+            if (!dsoSearchLabel) {
+              createDSOSearchLabel(searchedObjectName, smoothX, smoothY);
+            } else {
+              dsoSearchLabel.style.left = smoothX + "px";
+              dsoSearchLabel.style.top  = smoothY + "px";
+            }
+          }
+
+          if (planetLabel && skyContainerRect) {
+            planetLabel.style.left = (smoothX + skyContainerRect.left + 3) + "px";
+            planetLabel.style.top = (smoothY + skyContainerRect.top - 3) + "px";
+          }
+
+          if (starLabel) {
+            starLabel.style.left = smoothX + "px";
+            starLabel.style.top  = smoothY + "px";
+          }
+        }
+      }
+    } else {
+      smoothX = null;
+      smoothY = null;
+    }
+  } catch (error) {
+    console.error("Error in globalSkyAnimationLoop:", error);
   }
 
-  // 🔥 START LOOP
-  loop();
+  skyLoopId = requestAnimationFrame(globalSkyAnimationLoop);
 }
 
 
@@ -2475,6 +2646,7 @@ const search = normalize(cleanSearch);
   updateObjectInfo(obj);
   document.getElementById("object-info-panel").style.display = "block";
   updateDynamicInfo();
+  
 
   // 🌌 DSO
   // 🌌 DSO
@@ -2599,78 +2771,20 @@ if (obj.type === "star") {
 }
 }
 function smoothRotate(target, duration = 1000) {
-
-    const sky = document.getElementById("skyContainer");
-
-    const rect = sky.getBoundingClientRect();
-
-    const start = Celestial.mapProjection.invert([
-        rect.width / 2,
-        rect.height / 2
-    ]);
-
-    if (!start) {
-      console.trace("ROTATE");
+    return new Promise(resolve => {
+        isRotating = true;
+        
+        // Utilize D3-celestial's native transition system for smooth, hardware-accelerated movement
         Celestial.rotate({
             center: target,
-            duration: 0
+            duration: duration
         });
-        return Promise.resolve();
-    }
 
-    const startRA = start[0];
-    const startDEC = start[1];
-
-    const endRA = target[0];
-    const endDEC = target[1];
-
-    return new Promise(resolve => {
-
-        const startTime = performance.now();
-
-        function animate(now) {
-
-            let t = (now - startTime) / duration;
-
-            if (t > 1) t = 1;
-
-            // Smoothstep easing
-            t = 0.5 - Math.cos(Math.PI * t) / 2;
-
-            const ra =
-                startRA + (endRA - startRA) * t;
-
-            const dec =
-                startDEC + (endDEC - startDEC) * t;
-            console.trace("ROTATE");
-            Celestial.rotate({
-                center: [ra, dec],
-                duration: 0
-            });
-
-            if (t < 1) {
-
-                requestAnimationFrame(animate);
-
-            } else {
-
-              console.trace("ROTATE");
-
-                Celestial.rotate({
-                    center: target,
-                    duration: 0
-                });
-
-                resolve();
-
-            }
-
-        }
-
-        requestAnimationFrame(animate);
-
+        setTimeout(() => {
+            isRotating = false;
+            resolve();
+        }, duration + 50);
     });
-
 }
 
 
@@ -2750,7 +2864,9 @@ function createStarSearchLabel(name, x, y) {
   starLabel = label;
 }
 
-function updatePlanetLabelPositions() {
+function updatePlanetLabelPositions(projChanged) {
+
+    if (!projChanged) return;
 
   planetLabels.forEach(p => {
 
@@ -2762,11 +2878,13 @@ function updatePlanetLabelPositions() {
     const raDeg = pos[0] * 15;
     const dec   = pos[1];
 
-    const pt =
-      Celestial.mapProjection([
+    let pt = null;
+    try {
+      pt = Celestial.mapProjection([
         raDeg,
         dec
       ]);
+    } catch(e) {}
 
     if (!pt) return;
 
@@ -2776,10 +2894,6 @@ function updatePlanetLabelPositions() {
     p.el.style.top =
       (pt[1] - 10) + "px";
   });
-
-  requestAnimationFrame(
-    updatePlanetLabelPositions
-  );
 }
 
 function createPlanetLabel(name, pt) {
@@ -3445,6 +3559,30 @@ catch(err) {
       "normal"
     );
 
+    let facing = "";
+
+const az = hor.azimuth;
+currentAzimuth = hor.azimuth;
+
+if (az >= 337.5 || az < 22.5)
+    facing = "N";
+else if (az < 67.5)
+    facing = "NE";
+else if (az < 112.5)
+    facing = "E";
+else if (az < 157.5)
+    facing = "SE";
+else if (az < 202.5)
+    facing = "S";
+else if (az < 247.5)
+    facing = "SW";
+else if (az < 292.5)
+    facing = "W";
+else
+    facing = "NW";
+
+document.getElementById("nav-direction").innerText = facing;
+
   // 🔥 ALTITUDE
   document.getElementById(
     "info-alt"
@@ -3474,6 +3612,8 @@ document.getElementById(
 ).innerText =
 
   "Set: " + setText;
+  // 🧭 Navigation HUD
+
 }
 
 function formatTime(date) {
@@ -3500,6 +3640,11 @@ function dynamicInfoLoop() {
     
 
   updateDynamicInfo();
+
+  
+
+
+  
   if (
   followObject &&
   selectedObject &&
@@ -3891,14 +4036,12 @@ if (!window.skyLoaded) {
 
 createPlanetMarkers();
 
-planetMarkerLoop();
+requestAnimationFrame(globalSkyAnimationLoop);
 
 setInterval(
     dynamicInfoLoop,
     1000
 );
-
-  updatePlanetLabelPositions();
 
   window.skyLoaded = true;
 });
@@ -5011,8 +5154,14 @@ document
 
     }
 
-});
 
+});
+compassScale =
+document.getElementById(
+"compassScale"
+);
+
+buildCompass();
 
 }); // 🔥 DOMContentLoaded END
 
@@ -7418,9 +7567,23 @@ document.getElementById("reset-settings-btn").onclick=()=>{
 if(!confirm("Reset all settings?"))
 return;
 
-localStorage.removeItem("astroSettings");
+localStorage.removeItem("astro_settings_consolidated");
+localStorage.removeItem("fontSize");
+localStorage.removeItem("accentColor");
+localStorage.removeItem("bubbleStyle");
+localStorage.removeItem("messageWidth");
+localStorage.removeItem("animations");
+localStorage.removeItem("responseLength");
+localStorage.removeItem("creativity");
+localStorage.removeItem("skySettings");
+
+AstroSettings.load();
+applyAppearanceSettings();
+applyAccentColor();
+applyAISettings();
 
 showToast("⚙ Settings Reset");
+setTimeout(() => location.reload(), 1000);
 
 };
 
@@ -8261,252 +8424,130 @@ if (found === 0) {
 const fontSizeSelect =
 document.getElementById("font-size-select");
 
-
-
 fontSizeSelect?.addEventListener("change",()=>{
-
-localStorage.setItem(
-
-"fontSize",
-
-fontSizeSelect.value
-
-);
-
-applyAppearanceSettings();
-
-showToast("🎨 Font size updated");
-
+    AstroSettings.set("fontSize", fontSizeSelect.value);
+    applyAppearanceSettings();
+    showToast("🎨 Font size updated");
 });
-
-
 
 function applyAppearanceSettings(){
+    const size = AstroSettings.get("fontSize");
+    document.documentElement.style.fontSize = size + "px";
 
-    // Font Size
-    const size =
-        localStorage.getItem("fontSize") || "16";
+    const bubble = AstroSettings.get("bubbleStyle");
+    const width = AstroSettings.get("messageWidth");
+    const animation = AstroSettings.get("animations");
 
-    document.documentElement.style.fontSize =
-        size + "px";
-
-    // Bubble Style
-    const bubble =
-        localStorage.getItem("bubbleStyle")
-        || "rounded";
-
-    // Message Width
-    const width =
-        localStorage.getItem("messageWidth")
-        || "85";
-
-    // Typing Animation
-    const animation =
-        JSON.parse(
-            localStorage.getItem("animations")
-            ?? "true"
-        );
-
-    // Existing Messages
-    document
-    .querySelectorAll(".message")
-    .forEach(msg=>{
-
-        msg.style.maxWidth =
-            width + "%";
-
-        msg.style.borderRadius =
-            bubble==="rounded"
-            ? "16px"
-            : "4px";
-
+    document.querySelectorAll(".message").forEach(msg=>{
+        msg.style.maxWidth = width + "%";
+        msg.style.borderRadius = bubble==="rounded" ? "16px" : "4px";
     });
 
-    // Controls
-    document.getElementById("font-size-select").value =
-        size;
+    const fsEl = document.getElementById("font-size-select");
+    if (fsEl) fsEl.value = size;
 
-    document.getElementById("bubble-style").value =
-        bubble;
+    const bsEl = document.getElementById("bubble-style");
+    if (bsEl) bsEl.value = bubble;
 
-    document.getElementById("message-width").value =
-        width;
+    const mwEl = document.getElementById("message-width");
+    if (mwEl) mwEl.value = width;
 
-    document.getElementById("animation-toggle").checked =
-        animation;
-
+    const atEl = document.getElementById("animation-toggle");
+    if (atEl) atEl.checked = animation;
 }
 
-const bubbleStyle =
-document.getElementById("bubble-style");
-
+const bubbleStyle = document.getElementById("bubble-style");
 bubbleStyle?.addEventListener("change",()=>{
-
-    localStorage.setItem(
-        "bubbleStyle",
-        bubbleStyle.value
-    );
-
+    AstroSettings.set("bubbleStyle", bubbleStyle.value);
     applyAppearanceSettings();
-
     showToast("💬 Bubble Style Updated");
-
 });
 
-const messageWidth =
-document.getElementById("message-width");
-
+const messageWidth = document.getElementById("message-width");
 messageWidth?.addEventListener("change",()=>{
-
-    localStorage.setItem(
-
-        "messageWidth",
-
-        messageWidth.value
-
-    );
-
+    AstroSettings.set("messageWidth", messageWidth.value);
     applyAppearanceSettings();
-
     showToast("📏 Message Width Updated");
-
 });
 
-const animationToggle =
-document.getElementById("animation-toggle");
-
+const animationToggle = document.getElementById("animation-toggle");
 animationToggle?.addEventListener("change",()=>{
-
-    localStorage.setItem(
-        "animations",
-        animationToggle.checked
-    );
-
+    AstroSettings.set("animations", animationToggle.checked);
     applyAppearanceSettings();
-
     showToast("✨ Typing Animation Updated");
-
 });
+
 function applyAccentColor(){
-
-const color =
-
-localStorage.getItem("accentColor")
-
-|| "#00f5ff";
-
-document.documentElement.style.setProperty(
-
-"--accent",
-
-color
-
-);
-
-const select =
-
-document.getElementById(
-
-"accent-color-select"
-
-);
-
-if(select){
-
-select.value=color;
-
+    const color = AstroSettings.get("accentColor");
+    document.documentElement.style.setProperty("--accent", color);
+    const select = document.getElementById("accent-color-select");
+    if(select){
+        select.value=color;
+    }
 }
 
-}
-
-const accentSelect =
-
-document.getElementById(
-
-"accent-color-select"
-
-);
-
-accentSelect?.addEventListener(
-
-"change",
-
-()=>{
-
-localStorage.setItem(
-
-"accentColor",
-
-accentSelect.value
-
-);
-
-applyAccentColor();
-
-showToast(
-
-"🎨 Accent Updated"
-
-);
-
+const accentSelect = document.getElementById("accent-color-select");
+accentSelect?.addEventListener("change", ()=>{
+    AstroSettings.set("accentColor", accentSelect.value);
+    applyAccentColor();
+    showToast("🎨 Accent Updated");
 });
 
 function applyAISettings(){
+    const responseLength = AstroSettings.get("responseLength");
+    const creativity = AstroSettings.get("creativity");
+    const aiModel = AstroSettings.get("aiModel");
+    const saveChatHistory = AstroSettings.get("saveChatHistory");
+    const cloudSync = AstroSettings.get("cloudSync");
 
-    const responseLength =
-        localStorage.getItem("responseLength") || "medium";
+    const responseSelect = document.getElementById("response-length");
+    const creativitySelect = document.getElementById("creativity-select");
+    const modelSelect = document.getElementById("ai-model");
+    const saveChatHistoryToggle = document.getElementById("toggle-save-chat-history");
+    const cloudSyncToggle = document.getElementById("toggle-cloud-sync");
 
-    const creativity =
-        localStorage.getItem("creativity") || "balanced";
-
-    const responseSelect =
-        document.getElementById("response-length");
-
-    const creativitySelect =
-        document.getElementById("creativity-select");
-
-    if(responseSelect){
-        responseSelect.value = responseLength;
-    }
-
-    if(creativitySelect){
-        creativitySelect.value = creativity;
-    }
-
+    if(responseSelect) responseSelect.value = responseLength;
+    if(creativitySelect) creativitySelect.value = creativity;
+    if(modelSelect) modelSelect.value = aiModel;
+    if(saveChatHistoryToggle) saveChatHistoryToggle.checked = saveChatHistory;
+    if(cloudSyncToggle) cloudSyncToggle.checked = cloudSync;
 }
 
-const responseLengthSelect =
-document.getElementById("response-length");
+const responseLengthSelect = document.getElementById("response-length");
+const creativitySelect = document.getElementById("creativity-select");
+const aiModelSelect = document.getElementById("ai-model");
+const saveChatHistoryToggle = document.getElementById("toggle-save-save-chat-history");
+const cloudSyncToggle = document.getElementById("toggle-cloud-sync");
 
-const creativitySelect =
-document.getElementById("creativity-select");
-
-// Response Length
 responseLengthSelect?.addEventListener("change", () => {
-
-    localStorage.setItem(
-        "responseLength",
-        responseLengthSelect.value
-    );
-
+    AstroSettings.set("responseLength", responseLengthSelect.value);
     applyAISettings();
-
     showToast("🤖 AI Settings Saved");
-
 });
 
-// Creativity
 creativitySelect?.addEventListener("change", () => {
-
-    localStorage.setItem(
-        "creativity",
-        creativitySelect.value
-    );
-
+    AstroSettings.set("creativity", creativitySelect.value);
     applyAISettings();
-
     showToast("🤖 AI Settings Saved");
+});
 
+aiModelSelect?.addEventListener("change", () => {
+    AstroSettings.set("aiModel", aiModelSelect.value);
+    applyAISettings();
+    showToast("🤖 AI Model Settings Saved");
+});
+
+const saveChatHistoryEl = document.getElementById("toggle-save-chat-history");
+saveChatHistoryEl?.addEventListener("change", () => {
+    AstroSettings.set("saveChatHistory", saveChatHistoryEl.checked);
+    applyAISettings();
+    showToast("🤖 AI Chat History Settings Saved");
+});
+
+cloudSyncToggle?.addEventListener("change", () => {
+    AstroSettings.set("cloudSync", cloudSyncToggle.checked);
+    applyAISettings();
+    showToast("🤖 Cloud Sync Settings Saved");
 });
 
 applyAISettings();
@@ -8858,7 +8899,8 @@ ${formatMemoryDate(memory.time)}
 </div>
 
 <div class="memory-actions">
-<div class="memory-actions">
+
+
 
 ${
 memory.type === "File"
@@ -9860,11 +9902,13 @@ smoothAnimations: true,
 timeSpeed: 1,
 
 starMagnitude: 4,
-dsoMagnitude: 6,
+dsoMagnitude: 4,
 
-...(JSON.parse(localStorage.getItem("skySettings")) || {})
+...AstroSettings.get("skySettings")
 
 };
+
+AstroSettings.load();
 
 
 
@@ -9893,15 +9937,26 @@ dsoMagnitude: 6,
     if (planets) planets.checked = skySettings.showPlanets;
     if (stars) stars.checked = skySettings.showStars;
     if (dsos) dsos.checked = skySettings.showDSOs;
-    const starMagnitude =
-document.getElementById("star-magnitude");
+    
+    const starMagnitude = document.getElementById("star-magnitude");
+    const dsoMagnitude = document.getElementById("dso-magnitude");
+    const zoom = document.getElementById("sky-zoom");
 
-const dsoMagnitude =
-document.getElementById("dso-magnitude");
-
-const zoom =
-document.getElementById("sky-zoom");
-
+    if (starMagnitude) {
+        starMagnitude.value = skySettings.starMagnitude;
+        const valEl = document.getElementById("star-magnitude-value");
+        if (valEl) valEl.textContent = skySettings.starMagnitude;
+    }
+    if (dsoMagnitude) {
+        dsoMagnitude.value = skySettings.dsoMagnitude;
+        const valEl = document.getElementById("dso-magnitude-value");
+        if (valEl) valEl.textContent = skySettings.dsoMagnitude;
+    }
+    if (zoom) {
+        zoom.value = skySettings.defaultZoom;
+        const valEl = document.getElementById("sky-zoom-value");
+        if (valEl) valEl.textContent = skySettings.defaultZoom;
+    }
 
         function bindToggle(toggle, callback) {
 
@@ -9913,7 +9968,7 @@ document.getElementById("sky-zoom");
 
       bindToggle(constellationLines, function () {
 
-    skySettings.showConstellationLines = this.checked;
+    AstroSettings.set("skySettings.showConstellationLines", this.checked);
 
     refreshSky();
 
@@ -9921,7 +9976,7 @@ document.getElementById("sky-zoom");
 
 bindToggle(constellationNames, function () {
 
-    skySettings.showConstellationNames = this.checked;
+    AstroSettings.set("skySettings.showConstellationNames", this.checked);
 
     refreshSky();
 
@@ -9929,25 +9984,25 @@ bindToggle(constellationNames, function () {
 
 bindToggle(stars, function () {
 
-    skySettings.showStars = this.checked;
+    AstroSettings.set("skySettings.showStars", this.checked);
 
     refreshSky();
 
 });
 
 bindToggle(dsos, function () {
-    skySettings.showDSOs = this.checked;
+    AstroSettings.set("skySettings.showDSOs", this.checked);
     refreshSky();
 });
 
 bindToggle(milkyWay, function () {
-    skySettings.showMilkyWay = this.checked;
+    AstroSettings.set("skySettings.showMilkyWay", this.checked);
     refreshSky();
 });
 
 bindToggle(planets, function () {
 
-    skySettings.showPlanets = this.checked;
+    AstroSettings.set("skySettings.showPlanets", this.checked);
 
     // 🔥 Update our HTML planets immediately
     updatePlanetMarkers();
@@ -9957,43 +10012,142 @@ bindToggle(planets, function () {
 
 });
 
-starMagnitude.oninput = function () {
+if (starMagnitude) {
+    starMagnitude.oninput = function () {
 
-    skySettings.starMagnitude =
-    Number(this.value);
+        AstroSettings.set("skySettings.starMagnitude", Number(this.value));
 
-    document.getElementById(
-        "star-magnitude-value"
-    ).textContent = this.value;
+        const valEl = document.getElementById("star-magnitude-value");
+        if (valEl) valEl.textContent = this.value;
 
-    refreshSky();
+        refreshSky();
 
-};
+    };
+}
 
-dsoMagnitude.oninput = function () {
+if (dsoMagnitude) {
+    dsoMagnitude.oninput = function () {
 
-    skySettings.dsoMagnitude =
-    Number(this.value);
+        AstroSettings.set("skySettings.dsoMagnitude", Number(this.value));
 
-    document.getElementById(
-        "dso-magnitude-value"
-    ).textContent = this.value;
+        const valEl = document.getElementById("dso-magnitude-value");
+        if (valEl) valEl.textContent = this.value;
 
-    refreshSky();
+        refreshSky();
 
-};
+    };
+}
 
-zoom.oninput = function () {
+if (zoom) {
+    zoom.oninput = function () {
 
-    skySettings.defaultZoom =
-    Number(this.value);
+        const value = Number(this.value);
 
-    document.getElementById(
-        "sky-zoom-value"
-    ).textContent = this.value;
+        AstroSettings.set("skySettings.defaultZoom", value);
 
-    refreshSky();
+        const valEl = document.getElementById("sky-zoom-value");
+        if (valEl) valEl.textContent = value;
 
-};
+        // ✅ Direct Celestial zoom
+        Celestial.zoomBy(value);
+
+    };
+}
 
 }
+
+function buildCompass(){
+
+let html="";
+
+for(
+
+let d=-720;
+
+d<=720;
+
+d+=5
+
+){
+
+let value=
+
+((d%360)+360)%360;
+
+let label="";
+
+switch(value){
+
+case 0:
+
+label="N";
+
+break;
+
+case 90:
+
+label="E";
+
+break;
+
+case 180:
+
+label="S";
+
+break;
+
+case 270:
+
+label="W";
+
+break;
+
+default:
+
+label=value+"°";
+
+}
+
+html+=`
+
+<div class="compassTick">
+
+${label}
+
+</div>
+
+`;
+
+}
+
+compassScale.innerHTML=html;
+
+}
+
+function updateCompassHUD() {
+
+    if (!compassScale)
+        return;
+
+    const target = window.skyHeading || 0;
+
+    let diff = target - compassHeading;
+
+    // 359° → 0° jump fix
+    if (diff > 180) diff -= 360;
+    if (diff < -180) diff += 360;
+
+    // Smooth movement
+    let speed = 0.20;
+
+if (Math.abs(diff) > 20) speed = 0.30;
+if (Math.abs(diff) > 60) speed = 0.40;
+
+compassHeading += diff * speed;
+
+    const offset = -compassHeading * 8;
+
+    compassScale.style.transform =
+        `translateX(${offset}px)`;
+}
+
