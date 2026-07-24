@@ -1,12 +1,12 @@
 
 const LOCAL_API_KEY =
-localStorage.getItem("OPENROUTER_API_KEY") || "";
+  localStorage.getItem("OPENROUTER_API_KEY") || "";
 const isLocal =
   location.hostname === "localhost" ||
   location.hostname === "127.0.0.1" ||
   location.protocol === "file:";
 
-  const apiKey = localStorage.getItem("OPENROUTER_API_KEY");
+const apiKey = localStorage.getItem("OPENROUTER_API_KEY");
 
 const useCloud = !apiKey;
 
@@ -23,6 +23,8 @@ let starLabel = null;
 let planetLabel = null;
 let isRotating = false;
 let skyTime = new Date(); // 🔥 main simulation time
+let simPaused = false;    // ⏸ pause simulation
+let simSpeed = 1;        // ⚡ seconds of sim time per real second
 let lastSelectedPlanet = null;
 let lastUpdateTime = 0;
 let allObjects = [];
@@ -31,12 +33,7 @@ let planetLabels = [];
 let dsoSearchLabel = null;
 let searchedObjectName = "";
 let selectedObject = null;
-window.compassHeading = 0;
-let followObject = false;
-let lastFollowRA = null;
-let lastFollowDEC = null;
-let smoothFollowRA = null;
-let smoothFollowDEC = null;
+let isUserDragging = false;
 let currentAIObject = null;
 let researchMode = false;
 let attachments = [];
@@ -65,27 +62,68 @@ const AstroSettings = {
     animations: true,
     responseLength: "medium",
     creativity: "Balanced",
-    aiModel: "GPT-5",
+    aiModel: "openai/gpt-4o-mini",
     saveChatHistory: true,
     cloudSync: true,
     skySettings: {
-      showConstellationLines: true,
-      showConstellationNames: true,
       showStars: true,
-      showDSOs: true,
       showMilkyWay: true,
+      showSun: true,
+      showMoon: true,
       showPlanets: true,
+      showHorizon: true,
+      showHorizonLine: true,
+      showAtmosphere: false,
+      showTwilight: false,
+      horizonGlow: false,
+      showHorizonGlow: false,
+      showAsterisms: true,
+      showConstellationLines: true,
+      showConstellationNames: false,
+      showConstellationLabels: false,
+      showConstellationArt: false,
+      showConstellationArtwork: false,
+      showComets: true,
+      showAsteroids: true,
+      showSatellites: false,
+      showSpacecraft: false,
+      showMeteors: false,
+      showMeteorShowers: false,
+      showDSOs: true,
+      showFOV: false,
+      showTelescopeFOV: false,
+      showEquatorialGrid: false,
+      showEqGrid: false,
+      showAltAzGrid: false,
+      showAzGrid: false,
+      showCardinalPoints: true,
+      showCardinals: true,
       showStarLabels: true,
       showPlanetLabels: true,
       showDSOLabels: true,
       showMarker: true,
       showCoordinates: true,
       defaultZoom: 1,
-      followObject: true,
       smoothAnimations: true,
       timeSpeed: 1,
       starMagnitude: 4,
-      dsoMagnitude: 4
+      dsoMagnitude: 4,
+      enableRefraction: true,
+      skyBrightness: 0.5,
+      moonlightBrightness: 0.5,
+      lightPollution: 9,
+      airTransparency: 0.8,
+      enableTwinkling: true,
+      twinklingSpeed: 0.5,
+      twinklingIntensity: 0.5,
+      starColorSaturation: 1.0,
+      enableDeepSkyGlow: true,
+      deepSkyGlowIntensity: 0.5,
+      mwBrightness: 1.0,
+      showAsterismNames: true,
+      asterismColor: "#ffaa00",
+      asterismWidth: 1.2,
+      asterismOpacity: 0.7
     }
   },
   data: {},
@@ -107,7 +145,8 @@ const AstroSettings = {
         messageWidth: "messageWidth",
         animations: "animations",
         responseLength: "responseLength",
-        creativity: "creativity"
+        creativity: "creativity",
+        aiModel: "aiModel"
       };
       for (const [settingsKey, localStorageKey] of Object.entries(legacyKeys)) {
         const val = localStorage.getItem(localStorageKey);
@@ -124,7 +163,7 @@ const AstroSettings = {
         if (savedSky && typeof savedSky === "object") {
           this.merge(this.data.skySettings, savedSky);
         }
-      } catch (e) {}
+      } catch (e) { }
     }
     this.syncToGlobals();
   },
@@ -171,6 +210,7 @@ const AstroSettings = {
     const lastPart = parts[parts.length - 1];
     if (current[lastPart] !== value) {
       current[lastPart] = value;
+      try { localStorage.setItem(lastPart, value); } catch (e) { }
       this.syncToGlobals();
       this.save();
     }
@@ -186,10 +226,10 @@ const COMPASS_MARGIN = 28;
 
 const compassDirs = {
 
-    N: 0,
-    E: 90,
-    S: 180,
-    W: 270
+  N: 0,
+  E: 90,
+  S: 180,
+  W: 270
 
 };
 
@@ -197,20 +237,109 @@ const compassDirs = {
 
 let nasaCache =
 
-JSON.parse(
+  JSON.parse(
 
-localStorage.getItem("NASA_CACHE")
+    localStorage.getItem("NASA_CACHE")
 
-|| "{}"
+    || "{}"
 
-);
-
-let observer =
-  new Astronomy.Observer(
-    23,
-    77,
-    0
   );
+
+// Load saved location or default to Bhopal, India
+const _savedLoc = (() => { try { return JSON.parse(localStorage.getItem("astro_observer_location")); } catch (_) { return null; } })();
+const _initLat = _savedLoc ? _savedLoc.lat : 23;
+const _initLon = _savedLoc ? _savedLoc.lon : 77;
+const _initElev = _savedLoc ? _savedLoc.elev : 0;
+let observer = new Astronomy.Observer(_initLat, _initLon, _initElev);
+
+// ================= 📍 OBSERVER LOCATION MANAGER =================
+
+function _updateObserverDisplay(lat, lon, label) {
+  const disp = document.getElementById("obs-location-display");
+  const latStr = (lat >= 0 ? lat.toFixed(4) + "°N" : Math.abs(lat).toFixed(4) + "°S");
+  const lonStr = (lon >= 0 ? lon.toFixed(4) + "°E" : Math.abs(lon).toFixed(4) + "°W");
+  if (disp) disp.innerHTML = `📍 ${label ? label + "<br>" : ""}<span style="font-size:11px;opacity:0.7">${latStr}, ${lonStr}</span>`;
+}
+
+function detectGPSLocation() {
+  const btn = document.getElementById("gps-detect-btn");
+  if (!navigator.geolocation) {
+    alert("Geolocation is not supported by your browser.");
+    return;
+  }
+  if (btn) { btn.innerHTML = "🛰️ Detecting..."; btn.style.opacity = "0.6"; }
+
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      const lat = parseFloat(pos.coords.latitude.toFixed(6));
+      const lon = parseFloat(pos.coords.longitude.toFixed(6));
+      const elev = pos.coords.altitude ? parseFloat(pos.coords.altitude.toFixed(1)) : 0;
+
+      document.getElementById("obs-lat-input").value = lat;
+      document.getElementById("obs-lon-input").value = lon;
+      document.getElementById("obs-elev-input").value = elev;
+
+      if (btn) { btn.innerHTML = "🛰️ Auto-Detect My Location (GPS)"; btn.style.opacity = "1"; }
+
+      // Reverse geocode for city name
+      fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`)
+        .then(r => r.json())
+        .then(data => {
+          const city = data.address?.city || data.address?.town || data.address?.village || data.address?.county || "";
+          const country = data.address?.country || "";
+          const label = [city, country].filter(Boolean).join(", ");
+          _updateObserverDisplay(lat, lon, label);
+          applyObserverLocation(lat, lon, elev, label);
+        })
+        .catch(() => {
+          _updateObserverDisplay(lat, lon, "");
+          applyObserverLocation(lat, lon, elev, "");
+        });
+    },
+    (err) => {
+      if (btn) { btn.innerHTML = "🛰️ Auto-Detect My Location (GPS)"; btn.style.opacity = "1"; }
+      alert("GPS detection failed: " + err.message);
+    },
+    { timeout: 10000 }
+  );
+}
+
+function applyObserverLocation(lat, lon, elev, label) {
+  // If called from button (no args), read inputs
+  if (lat === undefined) {
+    lat = parseFloat(document.getElementById("obs-lat-input").value);
+    lon = parseFloat(document.getElementById("obs-lon-input").value);
+    elev = parseFloat(document.getElementById("obs-elev-input").value) || 0;
+    label = "";
+  }
+  if (isNaN(lat) || isNaN(lon)) { alert("Enter valid latitude and longitude."); return; }
+  lat = Math.max(-90, Math.min(90, lat));
+  lon = Math.max(-180, Math.min(180, lon));
+  elev = Math.max(0, Math.min(8848, elev));
+
+  observer = new Astronomy.Observer(lat, lon, elev);
+  localStorage.setItem("astro_observer_location", JSON.stringify({ lat, lon, elev, label }));
+  _updateObserverDisplay(lat, lon, label);
+
+  // Refresh info panel if an object is selected
+  if (typeof updateDynamicInfo === "function" && selectedObject) updateDynamicInfo();
+}
+
+function initObserverLocation() {
+  const saved = (() => { try { return JSON.parse(localStorage.getItem("astro_observer_location")); } catch (_) { return null; } })();
+  const lat = saved ? saved.lat : 23;
+  const lon = saved ? saved.lon : 77;
+  const elev = saved ? saved.elev : 0;
+  const label = saved ? (saved.label || "") : "Bhopal, India";
+
+  const latEl = document.getElementById("obs-lat-input");
+  const lonEl = document.getElementById("obs-lon-input");
+  const elevEl = document.getElementById("obs-elev-input");
+  if (latEl) latEl.value = lat;
+  if (lonEl) lonEl.value = lon;
+  if (elevEl) elevEl.value = elev;
+  _updateObserverDisplay(lat, lon, label);
+}
 
 
 const starNameMap = {
@@ -265,116 +394,94 @@ const reversePlanetMap = {
   ura: "uranus",
   nep: "neptune",
   plu: "pluto",
-
-  cer: "ceres",
-  ves: "vesta",
-  pal: "pallas",
-
-  eri: "eris",
-  mak: "makemake",
-  hau: "haumea",
-
-  sol: "sun",
-  lun: "moon"
 };
 
 const PLANETS = [
-    "sun",
-    "moon",
-    "mercury",
-    "venus",
-    "mars",
-    "jupiter",
-    "saturn",
-    "uranus",
-    "neptune",
-    "pluto"
+  "sun",
+  "moon",
+  "mercury",
+  "venus",
+  "mars",
+  "jupiter",
+  "saturn",
+  "uranus",
+  "neptune",
+  "pluto"
 ];
 
-const planetSymbols={
+const planetSymbols = {
 
-sun:"☉",
+  sun: "☉",
 
-moon:"☾",
+  moon: "☾",
 
-mercury:"☿",
+  mercury: "☿",
 
-venus:"♀",
+  venus: "♀",
 
-mars:"♂",
+  mars: "♂",
 
-jupiter:"♃",
+  jupiter: "♃",
 
-saturn:"♄",
+  saturn: "♄",
 
-uranus:"♅",
+  uranus: "♅",
 
-neptune:"♆",
+  neptune: "♆",
 
-pluto:"♇"
+  pluto: "♇"
 
 };
 
 const planetLabelColors = {
-    sun: "#fff200",      // Bright Yellow
-    mercury: "#d8d8d8", // Light Gray
-    venus: "#fff200",   // Yellow
-    moon: "#fff200",    // Yellow
-    mars: "#ff9800",    // Orange
-    jupiter: "#f5b642", // Golden Orange
-    saturn: "#f4c542",  // Gold
-    uranus: "#4dd9ff",  // Cyan
-    neptune: "#5b5bff", // Blue
-    pluto: "#d8d8d8"    // Light Gray
+  sun: "#fff200",      // Bright Yellow
+  mercury: "#d8d8d8", // Light Gray
+  venus: "#fff200",   // Yellow
+  moon: "#fff200",    // Yellow
+  mars: "#ff9800",    // Orange
+  jupiter: "#f5b642", // Golden Orange
+  saturn: "#f4c542",  // Gold
+  uranus: "#4dd9ff",  // Cyan
+  neptune: "#5b5bff", // Blue
+  pluto: "#d8d8d8"    // Light Gray
 };
 
 let planetMarkers = {};
 
-function createPlanetMarkers(){
+function createPlanetMarkers() {
 
-    const overlay =
-        document.getElementById("planetOverlay");
+  const overlay = document.getElementById("planetOverlay");
 
-    PLANETS.forEach(name=>{
+  PLANETS.forEach(name => {
 
-        const div =
-            document.createElement("div");
+    const div = document.createElement("div");
+    div.className = "planet-marker";
+    div.style.color = planetLabelColors[name.toLowerCase()] || "#ffffff";
+    div.style.display = "flex";
+    div.style.flexDirection = "column";
+    div.style.alignItems = "center";
+    div.style.lineHeight = "1";
 
-        div.className = "planet-marker";
+    // Symbol span only — planet text names are handled by planetLabels system
+    const symSpan = document.createElement("span");
+    symSpan.className = "planet-symbol";
+    symSpan.textContent = planetSymbols[name] || "●";
 
-        div.innerHTML = planetSymbols[name];
+    // 🌟 Glow by planet
+    let glow = "0 0 2px currentColor,0 0 5px currentColor";
+    const n = name.toLowerCase();
+    if (n === "sun" || n === "moon") glow = "0 0 4px currentColor,0 0 8px currentColor,0 0 14px currentColor";
+    else if (n === "venus") glow = "0 0 3px currentColor,0 0 7px currentColor,0 0 12px currentColor";
+    div.style.textShadow = glow;
 
-        // ✅ Planet-wise colour
-        div.style.color =
-            planetLabelColors[name.toLowerCase()] || "#ffffff";
+    // Apply initial symbol visibility from settings
+    symSpan.style.display = skySettings.showPlanetSymbols ? "" : "none";
 
-            // 🌟 Glow strength by planet
-switch(name.toLowerCase()){
+    div.appendChild(symSpan);
+    overlay.appendChild(div);
 
-    case "sun":
-        div.style.textShadow =
-        "0 0 4px currentColor,0 0 8px currentColor,0 0 14px currentColor";
-        break;
-
-    case "moon":
-        div.style.textShadow =
-        "0 0 4px currentColor,0 0 8px currentColor,0 0 14px currentColor";
-        break;
-
-    case "venus":
-        div.style.textShadow =
-        "0 0 3px currentColor,0 0 7px currentColor,0 0 12px currentColor";
-        break;
-
-    default:
-        div.style.textShadow =
-        "0 0 2px currentColor,0 0 5px currentColor";
-}
-
-        overlay.appendChild(div);
-
-        planetMarkers[name] = div;
-    });
+    planetMarkers[name] = div;
+  });
 
 }
 
@@ -384,50 +491,48 @@ let lastSkyTime = null;
 
 function updatePlanetMarkers(projChanged) {
 
-   if (!skySettings.showPlanets) {
+  if (!skySettings.showPlanets) {
+    Object.values(planetMarkers).forEach(div => { div.style.display = "none"; });
+    // Also hide labels
+    planetLabels.forEach(p => { p.el.style.display = "none"; });
+    return;
+  }
 
-        Object.values(planetMarkers).forEach(div => {
-            div.style.display = "none";
-        });
+  // Sync symbol span visibility
+  Object.values(planetMarkers).forEach(div => {
+    div.style.display = "flex";
+    const sym = div.querySelector(".planet-symbol");
+    if (sym) sym.style.display = skySettings.showPlanetSymbols ? "" : "none";
+  });
 
-        return;
-    }
+  // Sync text label visibility (controlled by showPlanetNames)
+  planetLabels.forEach(p => {
+    p.el.style.display = skySettings.showPlanetNames ? "" : "none";
+  });
 
-    Object.values(planetMarkers).forEach(div => {
-        div.style.display = "block";
-    });
+  PLANETS.forEach(name => {
 
-    if (!projChanged) return;
+    const pos = getPlanetPosition(name, skyTime);
+    if (!pos) return;
 
-    PLANETS.forEach(name => {
 
-        const pos = getPlanetPosition(
-            name,
-            skyTime
-        );
 
-        if (!pos) return;
+    let pt = null;
+    try {
+      pt = Celestial.mapProjection([pos[0] * 15, pos[1]]);
+    } catch (e) { }
 
-        let pt = null;
-        try {
-            pt = Celestial.mapProjection([
-                pos[0] * 15,
-                pos[1]
-            ]);
-        } catch(e) {}
+    if (!pt) return;
 
-        if (!pt) return;
+    const div = planetMarkers[name];
+    if (!div) return;
 
-        const div = planetMarkers[name];
-
-        if (!div) return;
-
-        div.style.left = pt[0] + "px";
-        div.style.top = pt[1] + "px";
-
-    });
+    div.style.left = pt[0] + "px";
+    div.style.top = pt[1] + "px";
+  });
 
 }
+
 
 
 
@@ -493,61 +598,61 @@ const objectMorphology = {
 
 let astroMemory = JSON.parse(
 
-localStorage.getItem("astroMemory")
+  localStorage.getItem("astroMemory")
 
 ) || {
 
-    memories: [],
-    theories: [],
-    observations: [],
-    telescopeSessions: [],
+  memories: [],
+  theories: [],
+  observations: [],
+  telescopeSessions: [],
 
-    files: []
+  files: []
 
 };
 
-async function refreshNASA(date){
+async function refreshNASA(date) {
 
-try{
+  try {
 
-const url=
+    const url =
 
-`https://api.nasa.gov/planetary/apod?api_key=7jYgA8NDOyNHfLpSbuEP2uncSWByYecDXKkYa6bJ&date=${date}`;
+      `https://api.nasa.gov/planetary/apod?api_key=7jYgA8NDOyNHfLpSbuEP2uncSWByYecDXKkYa6bJ&date=${date}`;
 
-const res=
+    const res =
 
-await fetchWithRetry(url);
+      await fetchWithRetry(url);
 
-const data=
+    const data =
 
-await res.json();
+      await res.json();
 
-nasaMemoryCache[date]=data;
+    nasaMemoryCache[date] = data;
 
-nasaCache[date]=data;
+    nasaCache[date] = data;
 
-localStorage.setItem(
+    localStorage.setItem(
 
-"NASA_CACHE",
+      "NASA_CACHE",
 
-JSON.stringify(nasaCache)
+      JSON.stringify(nasaCache)
 
-);
+    );
+
+  }
+  catch (e) {
+
+    console.log(e);
+
+  }
 
 }
-catch(e){
 
-console.log(e);
+function extractStructuredMemory(text) {
 
-}
+  const t = text.trim();
 
-}
-
-function extractStructuredMemory(text){
-
-    const t = text.trim();
-
-    const memory = {
+  const memory = {
 
     type: "Memory",
 
@@ -557,15 +662,15 @@ function extractStructuredMemory(text){
 
     value: t
 
-};
+  };
 
-    const rules = [
+  const rules = [
 
-      // 📚 Theory
-{
-    category: "Theory",
-    key: "Theory",
-    patterns: [
+    // 📚 Theory
+    {
+      category: "Theory",
+      key: "Theory",
+      patterns: [
         /remember theory:\s*(.+)/i,
         /theory:\s*(.+)/i,
         /i have a theory (.+)/i,
@@ -576,14 +681,14 @@ function extractStructuredMemory(text){
 
         /meri theory (.+)/i,
         /mera maanna hai (.+)/i
-    ]
-},
+      ]
+    },
 
-// 🔭 Observation
-{
-    category: "Observation",
-    key: "Observation",
-    patterns: [
+    // 🔭 Observation
+    {
+      category: "Observation",
+      key: "Observation",
+      patterns: [
 
         /remember observation:\s*(.+)/i,
         /observation:\s*(.+)/i,
@@ -602,138 +707,138 @@ function extractStructuredMemory(text){
         /aaj maine dekha (.+)/i,
         /i photographed (.+)/i,
 
-      
-
-    ]
-},
-
-// 🔭 Telescope Session
 
 
-        // 👤 Name
-        {
-            category:"profile",
-            key:"name",
-            patterns:[
-                /my name is (.+)/i,
-                /i am (.+)/i,
-                /mera naam (.+)/i,
-                /my nickname is (.+)/i,
-/people call me (.+)/i,
-/everyone calls me (.+)/i,
-/i'm called (.+)/i,
-/mujhe (.+) bulate hain/i
-            ]
-        },
+      ]
+    },
 
-        // 🌍 Language
-        {
-            category:"profile",
-            key:"language",
-            patterns:[
-                /i speak (.+)/i,
-                /my language is (.+)/i,
-                /meri language (.+)/i,
-                /main (.+) bolta/i,
-                /main (.+) bolti/i,
-                /i usually speak (.+)/i,
-/i mostly speak (.+)/i,
-/i prefer (.+) language/i,
-/meri preferred language (.+)/i
-                
-            ]
-        },
+    // 🔭 Telescope Session
 
-        // ❤️ Favourite Planet
-        {
-            category:"preference",
-            key:"favourite_planet",
-            patterns:[
-                /favorite planet is (.+)/i,
-                /favourite planet is (.+)/i,
-                /my favourite planet is (.+)/i,
-                /my favorite planet is (.+)/i,
-                /mera favourite planet (.+)/i,
-                /mera favorite planet (.+)/i,
-                /i love (.+)/i,
-/i really like (.+)/i,
-/(.+) is my favourite planet/i,
-/(.+) is my favorite planet/i,
-/saturn is my favourite/i,
-/saturn is my favorite/i
-            ]
-        },
 
-        // 🌙 Favourite Satellite
-        {
-            category:"preference",
-            key:"favourite_satellite",
-            patterns:[
-                /favorite satellite is (.+)/i,
-                /favourite satellite is (.+)/i,
-                /my favourite satellite is (.+)/i,
-                /my favorite satellite is (.+)/i,
-                /mera favourite satellite (.+)/i,
-                /(\w+) is my favourite satellite/i,
-/i love (.+) satellite/i
-            ]
-        },
+    // 👤 Name
+    {
+      category: "profile",
+      key: "name",
+      patterns: [
+        /my name is (.+)/i,
+        /i am (.+)/i,
+        /mera naam (.+)/i,
+        /my nickname is (.+)/i,
+        /people call me (.+)/i,
+        /everyone calls me (.+)/i,
+        /i'm called (.+)/i,
+        /mujhe (.+) bulate hain/i
+      ]
+    },
 
-        // 🌌 Favourite Galaxy
-        {
-            category:"preference",
-            key:"favourite_galaxy",
-            patterns:[
-                /favorite galaxy is (.+)/i,
-                /favourite galaxy is (.+)/i,
-                /my favourite galaxy is (.+)/i,
-                /mera favourite galaxy (.+)/i,
-                /(\w+) is my favourite galaxy/i,
-/i love (.+) galaxy/i
-            ]
-        },
+    // 🌍 Language
+    {
+      category: "profile",
+      key: "language",
+      patterns: [
+        /i speak (.+)/i,
+        /my language is (.+)/i,
+        /meri language (.+)/i,
+        /main (.+) bolta/i,
+        /main (.+) bolti/i,
+        /i usually speak (.+)/i,
+        /i mostly speak (.+)/i,
+        /i prefer (.+) language/i,
+        /meri preferred language (.+)/i
 
-        // ⭐ Favourite Star
-        {
-            category:"preference",
-            key:"favourite_star",
-            patterns:[
-                /favorite star is (.+)/i,
-                /favourite star is (.+)/i,
-                /my favourite star is (.+)/i,
-                /mera favourite star (.+)/i,
-                /(\w+) is my favourite star/i,
-/i love (.+) star/i
-            ]
-        },
+      ]
+    },
 
-        // ☄️ Favourite Comet
-        {
-            category:"preference",
-            key:"favourite_comet",
-            patterns:[
-                /favorite comet is (.+)/i,
-                /favourite comet is (.+)/i,
-                /my favourite comet is (.+)/i
-            ]
-        },
+    // ❤️ Favourite Planet
+    {
+      category: "preference",
+      key: "favourite_planet",
+      patterns: [
+        /favorite planet is (.+)/i,
+        /favourite planet is (.+)/i,
+        /my favourite planet is (.+)/i,
+        /my favorite planet is (.+)/i,
+        /mera favourite planet (.+)/i,
+        /mera favorite planet (.+)/i,
+        /i love (.+)/i,
+        /i really like (.+)/i,
+        /(.+) is my favourite planet/i,
+        /(.+) is my favorite planet/i,
+        /saturn is my favourite/i,
+        /saturn is my favorite/i
+      ]
+    },
 
-        // 🛰 Favourite Mission
-        {
-            category:"preference",
-            key:"favourite_mission",
-            patterns:[
-                /favorite mission is (.+)/i,
-                /favourite mission is (.+)/i,
-                /my favourite mission is (.+)/i
-            ]
-        },
+    // 🌙 Favourite Satellite
+    {
+      category: "preference",
+      key: "favourite_satellite",
+      patterns: [
+        /favorite satellite is (.+)/i,
+        /favourite satellite is (.+)/i,
+        /my favourite satellite is (.+)/i,
+        /my favorite satellite is (.+)/i,
+        /mera favourite satellite (.+)/i,
+        /(\w+) is my favourite satellite/i,
+        /i love (.+) satellite/i
+      ]
+    },
 
-        // 🔭 Telescope
-        {
-    category: "equipment",
-    key: "telescope",
-    patterns: [
+    // 🌌 Favourite Galaxy
+    {
+      category: "preference",
+      key: "favourite_galaxy",
+      patterns: [
+        /favorite galaxy is (.+)/i,
+        /favourite galaxy is (.+)/i,
+        /my favourite galaxy is (.+)/i,
+        /mera favourite galaxy (.+)/i,
+        /(\w+) is my favourite galaxy/i,
+        /i love (.+) galaxy/i
+      ]
+    },
+
+    // ⭐ Favourite Star
+    {
+      category: "preference",
+      key: "favourite_star",
+      patterns: [
+        /favorite star is (.+)/i,
+        /favourite star is (.+)/i,
+        /my favourite star is (.+)/i,
+        /mera favourite star (.+)/i,
+        /(\w+) is my favourite star/i,
+        /i love (.+) star/i
+      ]
+    },
+
+    // ☄️ Favourite Comet
+    {
+      category: "preference",
+      key: "favourite_comet",
+      patterns: [
+        /favorite comet is (.+)/i,
+        /favourite comet is (.+)/i,
+        /my favourite comet is (.+)/i
+      ]
+    },
+
+    // 🛰 Favourite Mission
+    {
+      category: "preference",
+      key: "favourite_mission",
+      patterns: [
+        /favorite mission is (.+)/i,
+        /favourite mission is (.+)/i,
+        /my favourite mission is (.+)/i
+      ]
+    },
+
+    // 🔭 Telescope
+    {
+      category: "equipment",
+      key: "telescope",
+      patterns: [
 
         /my telescope is (.+)/i,
 
@@ -753,14 +858,14 @@ function extractStructuredMemory(text){
         /main (.+?) telescope use karti/i,
         /remember telescope:\s*(.+)/i,
 
-    ]
-},
+      ]
+    },
 
-        // 📷 Camera
-        {
-    category: "equipment",
-    key: "camera",
-    patterns: [
+    // 📷 Camera
+    {
+      category: "equipment",
+      key: "camera",
+      patterns: [
 
         /my camera is (.+)/i,
 
@@ -781,15 +886,15 @@ function extractStructuredMemory(text){
         /main (.+?) camera use karta/i,
         /main (.+?) camera use karti/i
 
-    ]
+      ]
 
-    
-},
 
-{
-    category: "equipment",
-    key: "binoculars",
-    patterns: [
+    },
+
+    {
+      category: "equipment",
+      key: "binoculars",
+      patterns: [
 
         /remember binoculars:\s*(.+)/i,
 
@@ -811,13 +916,13 @@ function extractStructuredMemory(text){
         /main (.+?) binoculars? use karta/i,
         /main (.+?) binoculars? use karti/i
 
-    ]
-},
+      ]
+    },
 
-{
-    category: "equipment",
-    key: "eyepiece",
-    patterns: [
+    {
+      category: "equipment",
+      key: "eyepiece",
+      patterns: [
 
         /remember eyepiece:\s*(.+)/i,
 
@@ -838,114 +943,114 @@ function extractStructuredMemory(text){
         /main (.+?) eyepiece use karta/i,
         /main (.+?) eyepiece use karti/i
 
-    ]
-},
+      ]
+    },
 
-{
-    category: "Telescope",
-    key: "Telescope",
-    patterns: [
+    {
+      category: "Telescope",
+      key: "Telescope",
+      patterns: [
 
-        
+
         /remember telescope session:\s*(.+)/i,
         /telescope session:\s*(.+)/i
-    ]
-},
-    ];
+      ]
+    },
+  ];
 
-    for(const rule of rules){
+  for (const rule of rules) {
 
-        for(const pattern of rule.patterns){
+    for (const pattern of rule.patterns) {
 
-            const match = t.match(pattern);
+      const match = t.match(pattern);
 
-            if(match){
+      if (match) {
 
-              memory.type = rule.category;
+        memory.type = rule.category;
 
-                memory.category = rule.category;
-                memory.key = rule.key;
-                memory.value = match[1].trim();
+        memory.category = rule.category;
+        memory.key = rule.key;
+        memory.value = match[1].trim();
 
-                return memory;
+        return memory;
 
-            }
-
-        }
+      }
 
     }
 
-    return memory;
+  }
+
+  return memory;
 
 }
 
-function findDuplicateMemory(memory){
+function findDuplicateMemory(memory) {
 
   console.log("Checking:", memory);
-console.table(getAllMemoryItems());
+  console.table(getAllMemoryItems());
 
-    return getAllMemoryItems().find(m => {
+  return getAllMemoryItems().find(m => {
 
-        if(!m.key || !memory.key)
-            return false;
+    if (!m.key || !memory.key)
+      return false;
 
-        return (
+    return (
 
-            m.key.trim().toLowerCase() ===
-            memory.key.trim().toLowerCase()
-
-        );
-
-    });
-
-}
-
-function findDuplicateInArray(array, text){
-
-    return (array || []).find(item =>
-
-        item.text.trim().toLowerCase() ===
-        text.trim().toLowerCase()
+      m.key.trim().toLowerCase() ===
+      memory.key.trim().toLowerCase()
 
     );
 
+  });
+
 }
 
-function saveMemory(memory, importance = 1){
+function findDuplicateInArray(array, text) {
 
-    if(!astroMemory.memories)
-        astroMemory.memories=[];
+  return (array || []).find(item =>
 
-    const structured =
-        typeof memory==="object"
-        ? memory
-        : extractStructuredMemory(memory);
-        console.log("Input:", memory);
-console.log("Structured:", structured);
+    item.text.trim().toLowerCase() ===
+    text.trim().toLowerCase()
 
-    const duplicate =
-        findDuplicateMemory(structured);
+  );
 
-    if(duplicate){
+}
 
-        duplicate.value = structured.value;
-        duplicate.text  = structured.value;
-        duplicate.updatedAt =
-            new Date().toISOString();
+function saveMemory(memory, importance = 1) {
 
-        localStorage.setItem(
-            "astroMemory",
-            JSON.stringify(astroMemory)
-        );
+  if (!astroMemory.memories)
+    astroMemory.memories = [];
 
-        saveCloudMemory();
-        updateMemorySettings();
-        renderMemoryList();
+  const structured =
+    typeof memory === "object"
+      ? memory
+      : extractStructuredMemory(memory);
+  console.log("Input:", memory);
+  console.log("Structured:", structured);
 
-        return;
-    }
+  const duplicate =
+    findDuplicateMemory(structured);
 
-   const item = {
+  if (duplicate) {
+
+    duplicate.value = structured.value;
+    duplicate.text = structured.value;
+    duplicate.updatedAt =
+      new Date().toISOString();
+
+    localStorage.setItem(
+      "astroMemory",
+      JSON.stringify(astroMemory)
+    );
+
+    saveCloudMemory();
+    updateMemorySettings();
+    renderMemoryList();
+
+    return;
+  }
+
+  const item = {
 
     id: Date.now(),
 
@@ -967,42 +1072,42 @@ console.log("Structured:", structured);
 
     updatedAt: new Date().toISOString()
 
-};
+  };
 
-if (structured.category === "Theory") {
+  if (structured.category === "Theory") {
 
     astroMemory.theories ??= [];
     astroMemory.theories.push(item);
 
-}
+  }
 
-else if (structured.category === "Observation") {
+  else if (structured.category === "Observation") {
 
     astroMemory.observations ??= [];
     astroMemory.observations.push(item);
 
-}
+  }
 
-else if (structured.category === "Telescope") {
+  else if (structured.category === "Telescope") {
 
     astroMemory.telescopeSessions ??= [];
     astroMemory.telescopeSessions.push(item);
 
-}
-else {
+  }
+  else {
 
     astroMemory.memories.push(item);
 
-}
+  }
 
-    localStorage.setItem(
-        "astroMemory",
-        JSON.stringify(astroMemory)
-    );
+  localStorage.setItem(
+    "astroMemory",
+    JSON.stringify(astroMemory)
+  );
 
-    saveCloudMemory();
-    updateMemorySettings();
-    renderMemoryList();
+  saveCloudMemory();
+  updateMemorySettings();
+  renderMemoryList();
 }
 
 
@@ -1017,21 +1122,21 @@ function saveTheory(text, skipDuplicate = false) {
   const duplicate = (astroMemory.theories || []).find(item =>
     item.text.trim().toLowerCase() ===
     text.trim().toLowerCase()
-);
+  );
 
-if (duplicate && !skipDuplicate) {
+  if (duplicate && !skipDuplicate) {
 
     showMemorySuggestion({
 
-        type: "Theory",
-        category: "Theory",
-        key: "Theory",
-        value: text
+      type: "Theory",
+      category: "Theory",
+      key: "Theory",
+      value: text
 
     });
 
     return;
-}
+  }
   astroMemory.theories.push({
 
     id: Date.now(),
@@ -1046,10 +1151,10 @@ if (duplicate && !skipDuplicate) {
 
     updatedAt: new Date().toISOString()
 
-});
+  });
 
-console.log("Theory Count:", astroMemory.theories.length);
-console.log(astroMemory.theories);
+  console.log("Theory Count:", astroMemory.theories.length);
+  console.log(astroMemory.theories);
 
   localStorage.setItem(
 
@@ -1059,11 +1164,11 @@ console.log(astroMemory.theories);
   );
   updateGeneralSettings();
   updateMemorySettings();
-renderMemoryList();
+  renderMemoryList();
 }
 
 
-function saveObservation(text, skipDuplicate = false){
+function saveObservation(text, skipDuplicate = false) {
 
   if (!astroMemory.observations) {
     astroMemory.observations = [];
@@ -1072,25 +1177,25 @@ function saveObservation(text, skipDuplicate = false){
   const duplicate = findDuplicateInArray(
     astroMemory.observations,
     text
-);
+  );
 
-if (duplicate && !skipDuplicate) {
+  if (duplicate && !skipDuplicate) {
 
     showMemorySuggestion({
 
-    type: "Observation",
+      type: "Observation",
 
-    category: "Observation",
+      category: "Observation",
 
-    key: "Observation",
+      key: "Observation",
 
-    value: text
+      value: text
 
-});
+    });
 
     return;
 
-}
+  }
 
   astroMemory.observations.push({
 
@@ -1106,7 +1211,7 @@ if (duplicate && !skipDuplicate) {
 
     updatedAt: new Date().toISOString()
 
-});
+  });
 
   localStorage.setItem(
 
@@ -1116,11 +1221,11 @@ if (duplicate && !skipDuplicate) {
   );
   updateGeneralSettings();
   updateMemorySettings();
-renderMemoryList();
+  renderMemoryList();
 }
 
 
-function saveTelescopeSession(text, skipDuplicate = false){
+function saveTelescopeSession(text, skipDuplicate = false) {
 
   if (!astroMemory.telescopeSessions) {
     astroMemory.telescopeSessions = [];
@@ -1129,25 +1234,25 @@ function saveTelescopeSession(text, skipDuplicate = false){
   const duplicate = findDuplicateInArray(
     astroMemory.telescopeSessions,
     text
-);
+  );
 
-if (duplicate && !skipDuplicate) {
+  if (duplicate && !skipDuplicate) {
 
     showMemorySuggestion({
 
-    type: "Telescope",
+      type: "Telescope",
 
-    category: "Telescope",
+      category: "Telescope",
 
-    key: "Telescope",
+      key: "Telescope",
 
-    value: text
+      value: text
 
-});
+    });
 
     return;
 
-}
+  }
 
   astroMemory.telescopeSessions.push({
 
@@ -1163,7 +1268,7 @@ if (duplicate && !skipDuplicate) {
 
     updatedAt: new Date().toISOString()
 
-});
+  });
 
   localStorage.setItem(
 
@@ -1173,50 +1278,40 @@ if (duplicate && !skipDuplicate) {
   );
   updateGeneralSettings();
   updateMemorySettings();
-renderMemoryList();
+  renderMemoryList();
 }
 
 function loadAllMemories() {
+  const getUniqueList = (arr, fn) => {
+    if (!Array.isArray(arr)) return "None";
+    const set = new Set();
+    const result = [];
+    for (const item of arr) {
+      const val = fn(item);
+      if (val && !set.has(val.toLowerCase())) {
+        set.add(val.toLowerCase());
+        result.push("- " + val);
+      }
+    }
+    return result.length > 0 ? result.join("\n") : "None";
+  };
 
   return `
-
 General Memories:
-${
-  astroMemory.memories
-    ?.map(m => "- " + m.text)
-    .join("\n") || "None"
-}
+${getUniqueList(astroMemory.memories, m => m.text || m.value)}
 
 Theories:
-${
-  astroMemory.theories
-    ?.map(t => "- " + t.text)
-    .join("\n") || "None"
-}
+${getUniqueList(astroMemory.theories, t => t.text)}
 
 Observations:
-${
-  astroMemory.observations
-    ?.map(o => "- " + o.text)
-    .join("\n") || "None"
-}
+${getUniqueList(astroMemory.observations, o => o.text)}
 
 Telescope Sessions:
-${
-  astroMemory.telescopeSessions
-    ?.map(s => "- " + s.text)
-    .join("\n") || "None"
-}
+${getUniqueList(astroMemory.telescopeSessions, s => s.text)}
 
 Files:
-${
-  astroMemory.files
-    ?.map(f => "- " + f.name)
-    .join("\n") || "None"
-}
+${getUniqueList(astroMemory.files, f => f.name)}
 `;
-
-
 }
 function deleteMemory() {
 
@@ -1277,7 +1372,7 @@ let lastTopic = "";
 let conversationObjects = [];
 const astroKnowledgeGraph = {
 
-  
+
 
   "black hole": [
 
@@ -1308,7 +1403,7 @@ const astroKnowledgeGraph = {
     "stellar evolution"
   ]
 
-  
+
 };
 const telescopeProfiles = {
 
@@ -1332,13 +1427,13 @@ const telescopeProfiles = {
 
 function raToDeg(ra) {
   const [h, m, s] = ra.split(":").map(Number);
-  return (h + m/60 + s/3600) * 15;
+  return (h + m / 60 + s / 3600) * 15;
 }
 
 function decToDeg(dec) {
   const sign = dec.startsWith("-") ? -1 : 1;
   const [d, m, s] = dec.replace("-", "").split(":").map(Number);
-  return sign * (d + m/60 + s/3600);
+  return sign * (d + m / 60 + s / 3600);
 }
 
 
@@ -1394,55 +1489,64 @@ function showTab(tabId, el) {
 
     initSkySettings();
 
+    if (!TelescopeManager.initialized) {
+      TelescopeManager.init();
+      TelescopeManager.initialized = true;
+    }
+    if (!SearchManager.initialized) {
+      SearchManager.init();
+      SearchManager.initialized = true;
+    }
+
     if (!window.skyLoaded) {
 
-        initSky();
-        window.skyLoaded = true;
+      initSky();
+      window.skyLoaded = true;
 
-        // First load ke baad resize
-        setTimeout(() => {
+      // First load ke baad resize
+      setTimeout(() => {
 
-    const sky = document.getElementById("skyContainer");
+        const sky = document.getElementById("skyContainer");
 
-    sky.style.top = "50px";
-    sky.style.height = "calc(100% - 50px)";
+        sky.style.top = "50px";
+        sky.style.height = "calc(100% - 50px)";
 
-    Celestial.resize();
+        Celestial.resize();
 
-},300);
+      }, 300);
 
     } else {
 
-        // Tab dubara open hua
-        Celestial.resize();
+      // Tab dubara open hua
+      Celestial.resize();
 
-        console.log(
-            "After reopen:",
-            document.getElementById("skyContainer").getBoundingClientRect()
-        );
+      console.log(
+        "After reopen:",
+        document.getElementById("skyContainer").getBoundingClientRect()
+      );
 
     }
 
-}
+  }
 }
 function createAsteroidCard(asteroid, isNewest = false) {
-    const isHazardous = asteroid.is_potentially_hazardous_asteroid;
-    const approachData = asteroid.close_approach_data[0];
-    if (!approachData) return null;
+  const isHazardous = asteroid.is_potentially_hazardous_asteroid;
+  const approachData = asteroid.close_approach_data[0];
+  if (!approachData) return null;
 
-    const speed = Math.round(approachData.relative_velocity.kilometers_per_hour);
-    const missDistance = Math.round(approachData.miss_distance.kilometers);
-    const size = Math.round(asteroid.estimated_diameter.meters.estimated_diameter_max);
+  const speed = Math.round(approachData.relative_velocity.kilometers_per_hour);
+  const missDistance = Math.round(approachData.miss_distance.kilometers);
+  const size = Math.round(asteroid.estimated_diameter.meters.estimated_diameter_max);
 
-    // ✅ USE STORED SCORE
-    const finalScore = asteroid.dangerScore;
+  // ✅ USE STORED SCORE
+  const finalScore = asteroid.dangerScore;
 
-    const approachDate = approachData.close_approach_date;
+  const approachDate = approachData.close_approach_date;
 
-    const card = document.createElement("div");
-    card.className = "asteroid-card";
+  const card = document.createElement("div");
+  card.className = "asteroid-card";
 
-    card.innerHTML = `
+  card.innerHTML = `
       <div class="asteroid-badge ${isHazardous ? 'hazard' : isNewest ? 'new' : ''}">
           ${isHazardous ? 'Hazardous' : isNewest ? 'New' : ''}
       </div>
@@ -1455,24 +1559,24 @@ function createAsteroidCard(asteroid, isNewest = false) {
       <p>🔥 Danger Score: ${finalScore}</p>
     `;
 
-    // 🎨 COLOR SYSTEM
-    if (finalScore > 120) {
-      card.style.background = "linear-gradient(135deg, #2b0000, #ff1a1a)";
-      card.style.boxShadow = "0 0 15px red";
-      card.style.color = "white";
-    }
-    else if (finalScore > 70) {
-      card.style.background = "linear-gradient(135deg, #1a0033, #8000ff)";
-      card.style.boxShadow = "0 0 15px violet";
-      card.style.color = "white";
-    }
-    else {
-      card.style.background = "linear-gradient(135deg, #002b1a, #00cc66)";
-      card.style.boxShadow = "0 0 15px green";
-      card.style.color = "white";
-    }
+  // 🎨 COLOR SYSTEM
+  if (finalScore > 120) {
+    card.style.background = "linear-gradient(135deg, #2b0000, #ff1a1a)";
+    card.style.boxShadow = "0 0 15px red";
+    card.style.color = "white";
+  }
+  else if (finalScore > 70) {
+    card.style.background = "linear-gradient(135deg, #1a0033, #8000ff)";
+    card.style.boxShadow = "0 0 15px violet";
+    card.style.color = "white";
+  }
+  else {
+    card.style.background = "linear-gradient(135deg, #002b1a, #00cc66)";
+    card.style.boxShadow = "0 0 15px green";
+    card.style.color = "white";
+  }
 
-    return card;
+  return card;
 }
 
 // 🔥 helper
@@ -1526,7 +1630,7 @@ function prefetchAPOD(date) {
         img.src = data.url;
       }
     })
-    .catch(() => {});
+    .catch(() => { });
 }
 
 async function fetchWithRetry(url, options = {}, retries = 3) {
@@ -1550,24 +1654,24 @@ async function fetchWithRetry(url, options = {}, retries = 3) {
 
   throw new Error("NASA API unavailable");
 }
-function cleanNASAOldCache(){
+function cleanNASAOldCache() {
 
-const keys = Object.keys(nasaCache);
+  const keys = Object.keys(nasaCache);
 
-if(keys.length <= 30) return;
+  if (keys.length <= 30) return;
 
-keys.sort();
+  keys.sort();
 
-while(keys.length > 30){
+  while (keys.length > 30) {
 
-delete nasaCache[keys.shift()];
+    delete nasaCache[keys.shift()];
 
-}
+  }
 
-localStorage.setItem(
-"NASA_CACHE",
-JSON.stringify(nasaCache)
-);
+  localStorage.setItem(
+    "NASA_CACHE",
+    JSON.stringify(nasaCache)
+  );
 
 }
 
@@ -1587,32 +1691,32 @@ function loadNASA() {
     return;
   }
 
-  if(selectedDate && nasaMemoryCache[selectedDate]){
+  if (selectedDate && nasaMemoryCache[selectedDate]) {
 
-renderNASA(
-nasaMemoryCache[selectedDate]
-);
+    renderNASA(
+      nasaMemoryCache[selectedDate]
+    );
 
-setTimeout(()=>{
+    setTimeout(() => {
 
-refreshNASA(selectedDate);
+      refreshNASA(selectedDate);
 
-},100);
+    }, 100);
 
-const { prev, next } = getAdjacentDates(selectedDate);
+    const { prev, next } = getAdjacentDates(selectedDate);
 
-Promise.all([
+    Promise.all([
 
-prefetchAPOD(prev),
+      prefetchAPOD(prev),
 
-!isFuture(next)
-? prefetchAPOD(next)
-: Promise.resolve()
+      !isFuture(next)
+        ? prefetchAPOD(next)
+        : Promise.resolve()
 
-]);
-return;
+    ]);
+    return;
 
-}
+  }
 
   if (selectedDate && nasaCache[selectedDate]) {
     const cached = nasaCache[selectedDate];
@@ -1650,16 +1754,16 @@ return;
 
         localStorage.setItem(
 
-"NASA_CACHE",
+          "NASA_CACHE",
 
-JSON.stringify(nasaCache)
+          JSON.stringify(nasaCache)
 
-);
+        );
 
-cleanNASAOldCache();
+        cleanNASAOldCache();
         const preload = new Image();
 
-preload.src = data.hdurl || data.url;
+        preload.src = data.hdurl || data.url;
         renderNASA(data);
         showToast("📦 Loaded from cache");
 
@@ -1731,131 +1835,131 @@ preload.src = data.hdurl || data.url;
       if (desc) desc.innerText = data.explanation;
     }
   }
-  
+
 
   // ☄️ ASTEROIDS (FIXED 🔥)
   fetchWithRetry("https://api.nasa.gov/neo/rest/v1/feed?api_key=7jYgA8NDOyNHfLpSbuEP2uncSWByYecDXKkYa6bJ")
-  .then(res => res.json())
-  .then(data => {
+    .then(res => res.json())
+    .then(data => {
 
-    const container = document.getElementById("asteroid-container");
-    container.innerHTML = "";
+      const container = document.getElementById("asteroid-container");
+      container.innerHTML = "";
 
-    // 🔥 FLATTEN
-    let asteroids = Object.values(data.near_earth_objects).flat();
+      // 🔥 FLATTEN
+      let asteroids = Object.values(data.near_earth_objects).flat();
 
-    // 🔥 CLEAN (remove invalid)
-    asteroids = asteroids.filter(a => a.close_approach_data.length > 0);
+      // 🔥 CLEAN (remove invalid)
+      asteroids = asteroids.filter(a => a.close_approach_data.length > 0);
 
-    // 🔍 SEARCH
-    if (searchQuery) {
-      asteroids = asteroids.filter(obj =>
-        obj.name.toLowerCase().includes(searchQuery)
-      );
-    }
-
-    // ⚠️ HAZARD
-    if (showHazardOnly) {
-      asteroids = asteroids.filter(a => a.is_potentially_hazardous_asteroid);
-    }
-
-    asteroids.forEach(a => {
-  const approachData = a.close_approach_data[0];
-
-  const speed = Number(approachData.relative_velocity.kilometers_per_hour);
-  const missDistance = Number(approachData.miss_distance.kilometers);
-  const size = a.estimated_diameter.meters.estimated_diameter_max;
-  const distanceFactor = missDistance / 1000000;
-
-  const dangerScore = Math.round(
-    (speed / 1000) +
-    (size * 0.2) -
-    (distanceFactor * 2)
-  );
-
-  a.dangerScore = Math.max(0, dangerScore);
-});
-
-// 🔥 STEP 2: sort
-asteroids.sort((a, b) => b.dangerScore - a.dangerScore);
-
-// 🌍 CLOSEST
-    if (showNewestOnly) {
-      asteroids = asteroids.slice(0, 10);
-    }
-
-
-    // 🔥 FIND CLOSEST
-    let closest = asteroids[0];
-
-    asteroids.forEach(obj => {
-      const dist = Number(obj.close_approach_data[0].miss_distance.kilometers);
-      const minDist = Number(closest.close_approach_data[0].miss_distance.kilometers);
-
-      if (dist < minDist) {
-        closest = obj;
+      // 🔍 SEARCH
+      if (searchQuery) {
+        asteroids = asteroids.filter(obj =>
+          obj.name.toLowerCase().includes(searchQuery)
+        );
       }
-    });
 
-    // 🔥 CREATE CARDS
-    asteroids.forEach((obj, index) => {
+      // ⚠️ HAZARD
+      if (showHazardOnly) {
+        asteroids = asteroids.filter(a => a.is_potentially_hazardous_asteroid);
+      }
 
-      const isNewest = index < 5;
-      const isHazard = obj.is_potentially_hazardous_asteroid;
+      asteroids.forEach(a => {
+        const approachData = a.close_approach_data[0];
 
-      const card = createAsteroidCard(obj, isNewest);
+        const speed = Number(approachData.relative_velocity.kilometers_per_hour);
+        const missDistance = Number(approachData.miss_distance.kilometers);
+        const size = a.estimated_diameter.meters.estimated_diameter_max;
+        const distanceFactor = missDistance / 1000000;
 
-      if (!card) return;
+        const dangerScore = Math.round(
+          (speed / 1000) +
+          (size * 0.2) -
+          (distanceFactor * 2)
+        );
 
-      // 🥇 TOP 3
-if (index === 0) {
-  const text = showHazardOnly
-    ? "🔥 TOP HAZARD"
-    : "🔥 MOST DANGEROUS";
+        a.dangerScore = Math.max(0, dangerScore);
+      });
 
-  card.innerHTML += `<p style="color: yellow; font-weight: bold;">
+      // 🔥 STEP 2: sort
+      asteroids.sort((a, b) => b.dangerScore - a.dangerScore);
+
+      // 🌍 CLOSEST
+      if (showNewestOnly) {
+        asteroids = asteroids.slice(0, 10);
+      }
+
+
+      // 🔥 FIND CLOSEST
+      let closest = asteroids[0];
+
+      asteroids.forEach(obj => {
+        const dist = Number(obj.close_approach_data[0].miss_distance.kilometers);
+        const minDist = Number(closest.close_approach_data[0].miss_distance.kilometers);
+
+        if (dist < minDist) {
+          closest = obj;
+        }
+      });
+
+      // 🔥 CREATE CARDS
+      asteroids.forEach((obj, index) => {
+
+        const isNewest = index < 5;
+        const isHazard = obj.is_potentially_hazardous_asteroid;
+
+        const card = createAsteroidCard(obj, isNewest);
+
+        if (!card) return;
+
+        // 🥇 TOP 3
+        if (index === 0) {
+          const text = showHazardOnly
+            ? "🔥 TOP HAZARD"
+            : "🔥 MOST DANGEROUS";
+
+          card.innerHTML += `<p style="color: yellow; font-weight: bold;">
     ${text}
   </p>`;
-}
-else if (index === 1) {
-  const text = showHazardOnly
-    ? "⚠️ HIGH HAZARD"
-    : "⚡ HIGH THREAT";
+        }
+        else if (index === 1) {
+          const text = showHazardOnly
+            ? "⚠️ HIGH HAZARD"
+            : "⚡ HIGH THREAT";
 
-  card.innerHTML += `<p style="color: orange; font-weight: bold;">
+          card.innerHTML += `<p style="color: orange; font-weight: bold;">
     ${text}
   </p>`;
-}
-else if (index === 2) {
-  const text = showHazardOnly
-    ? "⚠️ MODERATE HAZARD"
-    : "⚠️ ELEVATED RISK";
+        }
+        else if (index === 2) {
+          const text = showHazardOnly
+            ? "⚠️ MODERATE HAZARD"
+            : "⚠️ ELEVATED RISK";
 
-  card.innerHTML += `<p style="color: lightgreen; font-weight: bold;">
+          card.innerHTML += `<p style="color: lightgreen; font-weight: bold;">
     ${text}
   </p>`;
-}
+        }
 
-      // 🎯 highlight
-      if (obj.name === closest.name) card.classList.add("closest-card");
-      if (isHazard) card.classList.add("hazard-card");
+        // 🎯 highlight
+        if (obj.name === closest.name) card.classList.add("closest-card");
+        if (isHazard) card.classList.add("hazard-card");
 
-      // 🔥 YAHAN LAGANA HAI (TEST)
+        // 🔥 YAHAN LAGANA HAI (TEST)
 
-      // 🟩 MODAL
-      card.addEventListener("click", () => {
+        // 🟩 MODAL
+        card.addEventListener("click", () => {
 
-         const modal = document.getElementById("asteroid-modal");
-    const modalBody = document.getElementById("modal-body");
+          const modal = document.getElementById("asteroid-modal");
+          const modalBody = document.getElementById("modal-body");
 
-        const approachData = obj.close_approach_data[0];
-        if (!approachData) return;
+          const approachData = obj.close_approach_data[0];
+          if (!approachData) return;
 
-        const speed = Math.round(approachData.relative_velocity.kilometers_per_hour);
-        const missDistance = Math.round(approachData.miss_distance.kilometers);
-        const approachDate = approachData.close_approach_date;
+          const speed = Math.round(approachData.relative_velocity.kilometers_per_hour);
+          const missDistance = Math.round(approachData.miss_distance.kilometers);
+          const approachDate = approachData.close_approach_date;
 
-        modalBody.innerHTML = `
+          modalBody.innerHTML = `
           <h2>${obj.name}</h2>
           <p>🚀 Speed: ${speed} km/h</p>
           <p>📏 Diameter: ${Math.round(obj.estimated_diameter.meters.estimated_diameter_max)} m</p>
@@ -1864,87 +1968,148 @@ else if (index === 2) {
           <p>⚠️ Hazard: ${isHazard ? "Yes" : "No"}</p>
         `;
 
-        modal.classList.add("show");
+          modal.classList.add("show");
 
-      }); // 🔵 event end
+        }); // 🔵 event end
 
-      container.appendChild(card);
+        container.appendChild(card);
 
-    }); // 🔵 forEach end
-    
+      }); // 🔵 forEach end
+
 
     });
-  }
-  function buildSkyConfig() {
-
-    console.log("showConstellationNames =", skySettings.showConstellationNames);
-
-    console.log(
-        "Value:",
-        skySettings.showConstellationLines,
-        "Type:",
-        typeof skySettings.showConstellationLines
-    );
-
-    return {
-        container: "skyContainer",
-        width: document.getElementById("skyContainer").clientWidth,
-        height: document.getElementById("skyContainer").clientHeight,
-        projection: "equirectangular",
-        datapath: "data/",
-        zoomlevel: skySettings.defaultZoom,
-
-        stars:{
-            show: skySettings.showStars,
-            limit: skySettings.starMagnitude,
-            names: skySettings.showStarLabels,
-            proper:true
-        },
-
-        constellations:{
-            show: skySettings.showConstellationNames,
-            names: skySettings.showConstellationNames,
-            lines: skySettings.showConstellationLines
-        },
-
-        dsos:{
-            show: skySettings.showDSOs,
-            names: skySettings.showDSOLabels,
-            limit: skySettings.dsoMagnitude,
-            name:"id"
-        },
-
-        planets:{
-            show:false
-        },
-
-        mw:{
-            show: skySettings.showMilkyWay,
-            opacity:0.5
-        }
-    };
-
-    console.log(config);
-
-    return config;
 }
- 
+function buildSkyConfig() {
+
+
+  return {
+    container: "skyContainer",
+    width: document.getElementById("skyContainer").clientWidth,
+    height: document.getElementById("skyContainer").clientHeight,
+    projection: "equirectangular",
+    follow: "center",
+    datapath: "data/",
+    zoomlevel: skySettings.defaultZoom,
+
+    stars: {
+      show: skySettings.showStars,
+      limit: skySettings.starMagnitude,
+      names: skySettings.showStarLabels,
+      proper: true
+    },
+
+    constellations: {
+      show: skySettings.showConstellationNames,
+      names: skySettings.showConstellationNames,
+      lines: skySettings.showConstellationLines
+    },
+
+    asterisms: {
+      show: skySettings.showAsterisms !== undefined ? skySettings.showAsterisms : true,
+      names: skySettings.showAsterismNames !== undefined ? skySettings.showAsterismNames : true,
+      style: {
+        stroke: skySettings.asterismColor || "#ffaa00",
+        width: skySettings.asterismWidth || 1.2,
+        opacity: skySettings.asterismOpacity || 0.7
+      },
+      nameStyle: {
+        fill: skySettings.asterismColor || "#ffaa00",
+        font: "11px 'Space Grotesk', sans-serif",
+        align: "center",
+        baseline: "middle",
+        opacity: 0.8
+      },
+      data: "asterisms.json"
+    },
+
+    dsos: {
+      show: skySettings.showDSOs,
+      names: skySettings.showDSOLabels,
+      limit: skySettings.dsoMagnitude,
+      name: "id"
+    },
+
+    planets: {
+      show: false
+    },
+
+    mw: {
+      show: skySettings.showMilkyWay,
+      opacity: 0.5
+    },
+
+    // Grid / Reference Lines
+    lines: {
+      graticule: {
+        show: skySettings.showEquatorialGrid,
+        stroke: "rgba(100,160,255,0.35)",
+        width: 0.5,
+        opacity: 0.7
+      },
+      equatorial: {
+        show: skySettings.showCelestialEquator,
+        stroke: "#4488ff",
+        width: 1.2,
+        opacity: 0.75
+      },
+      ecliptic: {
+        show: skySettings.showEcliptic,
+        stroke: "#44cc88",
+        width: 1.2,
+        opacity: 0.75
+      },
+      galactic: {
+        show: skySettings.showGalacticPlane,
+        stroke: "#cc6644",
+        width: 1.2,
+        opacity: 0.7
+      },
+      supergalactic: { show: false }
+    },
+
+    horizon: {
+      show: skySettings.showHorizonLine,
+      stroke: "#88aaff",
+      width: 1.2,
+      fill: "#000000",
+      opacity: 0.35
+    }
+  };
+
+
+
+  return config;
+}
+
 
 function refreshSky() {
-
-    Celestial.apply(buildSkyConfig());
-
+  if (typeof updateAtmosphereState === "function") {
+    updateAtmosphereState();
+  }
+  if (typeof Celestial !== "undefined") {
+    if (typeof Celestial.apply === "function") {
+      Celestial.apply(buildSkyConfig());
+    }
+    if (typeof Celestial.redraw === "function") {
+      Celestial.redraw();
+    }
+  }
 }
-  
+
 
 function initSky() {
+  Celestial.display(buildSkyConfig());
+  celestialSettings = Celestial.settings();
 
-    Celestial.display(buildSkyConfig());
-
-    //Celestial.add("lg.json");
-
-    celestialSettings = Celestial.settings();
-
+  Celestial.add({
+    type: "raw",
+    callback: function () { },
+    redraw: function () {
+      try { drawTrajectoryPaths(); } catch (e) { }
+      try { drawTelescopeHelper(); } catch (e) { }
+      try { drawAdvancedLayers(); } catch (e) { }
+    }
+  });
 }
 
 
@@ -1956,37 +2121,37 @@ let currentTarget = null;
 
 function createMarker() {
 
-    const container = document.getElementById("skyContainer");
+  const container = document.getElementById("skyContainer");
 
-    if (!marker) {
+  if (!marker) {
 
-        marker = document.createElement("div");
+    marker = document.createElement("div");
 
-        marker.className = "sky-crosshair";
+    marker.className = "sky-crosshair";
 
-        marker.innerHTML = `
+    marker.innerHTML = `
     <div class="cross-top"></div>
     <div class="cross-right"></div>
     <div class="cross-bottom"></div>
     <div class="cross-left"></div>
 `;
 
-        container.appendChild(marker);
+    container.appendChild(marker);
+
+  }
+
+  if (currentTarget) {
+
+    const pt = Celestial.mapProjection(currentTarget);
+
+    if (pt) {
+
+      marker.style.left = pt[0] + "px";
+      marker.style.top = pt[1] + "px";
 
     }
 
-    if (currentTarget) {
-
-        const pt = Celestial.mapProjection(currentTarget);
-
-        if (pt) {
-
-            marker.style.left = pt[0] + "px";
-            marker.style.top  = pt[1] + "px";
-
-        }
-
-    }
+  }
 
 }
 
@@ -2012,6 +2177,11 @@ function trackMarker() {
   smoothX = null;
   smoothY = null;
   tracking = true;
+  if (typeof _syncNavButtons === "function") _syncNavButtons();
+
+  if (typeof smoothRotate === "function" && Array.isArray(currentTarget)) {
+    smoothRotate([currentTarget[0], currentTarget[1]], 1000);
+  }
 }
 
 function globalSkyAnimationLoop() {
@@ -2025,13 +2195,13 @@ function globalSkyAnimationLoop() {
     let currentProj = null;
     try {
       currentProj = Celestial.mapProjection([0, 0]);
-    } catch(e) {}
+    } catch (e) { }
 
-    const projChanged = !currentProj || 
-                        lastProjX !== currentProj[0] || 
-                        lastProjY !== currentProj[1] || 
-                        !lastSkyTime || 
-                        Math.abs(skyTime - lastSkyTime) >= 1000;
+    const projChanged = !currentProj ||
+      lastProjX !== currentProj[0] ||
+      lastProjY !== currentProj[1] ||
+      !lastSkyTime ||
+      Math.abs(skyTime - lastSkyTime) >= 1000;
 
     if (projChanged) {
       if (currentProj) {
@@ -2041,20 +2211,36 @@ function globalSkyAnimationLoop() {
       lastSkyTime = new Date(skyTime);
     }
 
+    // Update dynamic atmosphere calculation state
+    updateAtmosphereState();
+
+    // Update dynamic object coordinates and info panel
+    if (selectedObject) {
+      updateDynamicInfo();
+    }
+
     // 2. Update Planet Markers & Labels
     updatePlanetMarkers(projChanged);
     updatePlanetLabelPositions(projChanged);
 
-    // 3. Update Tracking Marker if tracking is active
-    if (tracking && marker && currentTarget) {
+    if (skySettings.enableTwinkling) {
+      Celestial.redraw();
+    }
+
+    if (TelescopeManager.enabled) {
+      TelescopeManager.updateRings();
+    }
+
+    // 3. Update Tracking Marker if target selected
+    if (marker && currentTarget) {
       let pt = null;
       if (Array.isArray(currentTarget)) {
         try {
           pt = Celestial.mapProjection(currentTarget);
-        } catch(err) {
+        } catch (err) {
           pt = null;
         }
-        
+
         if (pt && !isNaN(pt[0]) && !isNaN(pt[1])) {
           if (smoothX === null) {
             smoothX = pt[0];
@@ -2065,11 +2251,11 @@ function globalSkyAnimationLoop() {
           smoothY += (pt[1] - smoothY) * 0.2;
 
           marker.style.left = smoothX + "px";
-          marker.style.top  = smoothY + "px";
+          marker.style.top = smoothY + "px";
 
           if (searchHighlight) {
             searchHighlight.style.left = smoothX + "px";
-            searchHighlight.style.top  = smoothY + "px";
+            searchHighlight.style.top = smoothY + "px";
           }
 
           if (searchedObjectName) {
@@ -2077,7 +2263,7 @@ function globalSkyAnimationLoop() {
               createDSOSearchLabel(searchedObjectName, smoothX, smoothY);
             } else {
               dsoSearchLabel.style.left = smoothX + "px";
-              dsoSearchLabel.style.top  = smoothY + "px";
+              dsoSearchLabel.style.top = smoothY + "px";
             }
           }
 
@@ -2088,7 +2274,7 @@ function globalSkyAnimationLoop() {
 
           if (starLabel) {
             starLabel.style.left = smoothX + "px";
-            starLabel.style.top  = smoothY + "px";
+            starLabel.style.top = smoothY + "px";
           }
         }
       }
@@ -2104,9 +2290,159 @@ function globalSkyAnimationLoop() {
 }
 
 
+// ================= 🪐 SHARED KEPLERIAN ORBITAL SOLVER & FRAME CACHE =================
+let keplerianFrameCache = new Map();
+let lastKeplerianFrameTime = null;
+
+function getKeplerianPosition(bodyData, date, obs) {
+  if (!bodyData || !bodyData.orbitalElements) return null;
+
+  const targetDate = date || skyTime || new Date();
+  const timeMs = targetDate.getTime();
+  const bodyId = bodyData.id || bodyData.name || "small_body";
+  const activeObs = obs || observer;
+  const obsKey = activeObs ? `${activeObs.latitude.toFixed(2)}_${activeObs.longitude.toFixed(2)}` : "default_obs";
+  const cacheKey = `${bodyId}_${timeMs}_${obsKey}`;
+
+  if (lastKeplerianFrameTime !== timeMs) {
+    keplerianFrameCache.clear();
+    lastKeplerianFrameTime = timeMs;
+  } else if (keplerianFrameCache.has(cacheKey)) {
+    return keplerianFrameCache.get(cacheKey);
+  }
+
+  const elem = bodyData.orbitalElements;
+  const k = 0.01720209895; // Gaussian gravitational constant (AU, days, solar mass)
+  const q = elem.q;
+  const e = elem.e;
+  const iRad = (elem.i || 0) * Math.PI / 180;
+  const omRad = (elem.om || 0) * Math.PI / 180;
+  const wRad = (elem.w || 0) * Math.PI / 180;
+
+  // Determine time delta dtDays from perihelion passage Tp or Epoch / M0
+  let dtDays = 0;
+  if (elem.perihelionDate) {
+    const Tp = new Date(elem.perihelionDate);
+    if (!isNaN(Tp.getTime())) {
+      dtDays = (targetDate.getTime() - Tp.getTime()) / 86400000;
+    }
+  } else if (elem.epoch) {
+    const epochDate = new Date(elem.epoch);
+    const M0_rad = ((elem.M0 || elem.M || 0) * Math.PI / 180);
+    const a = elem.a || (q / Math.abs(1.0 - e));
+    const n = k / Math.pow(a, 1.5);
+    const dtFromEpoch = (targetDate.getTime() - epochDate.getTime()) / 86400000;
+    const M_total = M0_rad + n * dtFromEpoch;
+    dtDays = M_total / n;
+  }
+
+  let xPrime = 0, yPrime = 0, rHelio = 0;
+
+  if (e < 1.0) {
+    // Elliptical Orbit (Asteroids, Comets, KBOs, Centaurs, Dwarf Planets, TNOs)
+    const a = elem.a || (q / (1.0 - e));
+    const n = k / Math.pow(a, 1.5);
+    let M = (n * dtDays) % (2 * Math.PI);
+    if (M < -Math.PI) M += 2 * Math.PI;
+    if (M > Math.PI) M -= 2 * Math.PI;
+
+    // Solve Kepler's equation for Eccentric Anomaly E: E - e*sin(E) = M
+    let E = M + e * Math.sin(M);
+    for (let iter = 0; iter < 25; iter++) {
+      const f = E - e * Math.sin(E) - M;
+      const fPrime = 1.0 - e * Math.cos(E);
+      const deltaE = f / fPrime;
+      E -= deltaE;
+      if (Math.abs(deltaE) < 1e-11) break;
+    }
+
+    xPrime = a * (Math.cos(E) - e);
+    yPrime = a * Math.sqrt(1.0 - e * e) * Math.sin(E);
+    rHelio = Math.sqrt(xPrime * xPrime + yPrime * yPrime);
+  } else {
+    // Hyperbolic / Near-Parabolic Orbit (e >= 1.0)
+    const a = Math.abs(elem.a || (q / (e - 1.0)));
+    const n = k / Math.pow(a, 1.5);
+    const M = n * dtDays;
+
+    let H = Math.log(2.0 * Math.abs(M) / (e || 1.0001) + 1.8);
+    if (M < 0) H = -H;
+    for (let iter = 0; iter < 25; iter++) {
+      const f = e * Math.sinh(H) - H - M;
+      const fPrime = e * Math.cosh(H) - 1.0;
+      const deltaH = f / fPrime;
+      H -= deltaH;
+      if (Math.abs(deltaH) < 1e-11) break;
+    }
+
+    xPrime = a * (e - Math.cosh(H));
+    yPrime = a * Math.sqrt(e * e - 1.0) * Math.sinh(H);
+    rHelio = Math.sqrt(xPrime * xPrime + yPrime * yPrime);
+  }
+
+  const nu = Math.atan2(yPrime, xPrime);
+  const u = wRad + nu;
+
+  const xHelio = rHelio * (Math.cos(omRad) * Math.cos(u) - Math.sin(omRad) * Math.sin(u) * Math.cos(iRad));
+  const yHelio = rHelio * (Math.sin(omRad) * Math.cos(u) + Math.cos(omRad) * Math.sin(u) * Math.cos(iRad));
+  const zHelio = rHelio * (Math.sin(u) * Math.sin(iRad));
+
+  // Subtract Earth's heliocentric position vector using Astronomy Engine
+  let xGeo = xHelio;
+  let yGeo = yHelio;
+  let zGeo = zHelio;
+
+  if (typeof Astronomy !== "undefined") {
+    const time = Astronomy.MakeTime(targetDate);
+    const earthVec = Astronomy.HelioVector(Astronomy.Body.Earth, time);
+    if (earthVec) {
+      xGeo -= earthVec.x;
+      yGeo -= earthVec.y;
+      zGeo -= earthVec.z;
+    }
+  }
+
+  // Convert Geocentric Ecliptic J2000 to Geocentric Equatorial J2000
+  const eps = 23.4392911 * Math.PI / 180;
+  const xEq = xGeo;
+  const yEq = yGeo * Math.cos(eps) - zGeo * Math.sin(eps);
+  const zEq = yGeo * Math.sin(eps) + zGeo * Math.cos(eps);
+
+  const deltaAU = Math.sqrt(xEq * xEq + yEq * yEq + zEq * zEq);
+  let raDeg = Math.atan2(yEq, xEq) * 180 / Math.PI;
+  if (raDeg < 0) raDeg += 360;
+  const decDeg = Math.asin(Math.max(-1, Math.min(1, zEq / (deltaAU || 1)))) * 180 / Math.PI;
+
+  let alt = 0, az = 0;
+  if (typeof Astronomy !== "undefined" && activeObs) {
+    const time = Astronomy.MakeTime(targetDate);
+    const hor = Astronomy.Horizon(time, activeObs, raDeg / 15, decDeg, Astronomy.Refraction.None);
+    if (hor) {
+      alt = hor.altitude;
+      az = hor.azimuth;
+    }
+  }
+
+  const H_mag = bodyData.absoluteMagnitude || 5.5;
+  const K_param = bodyData.slopeParam || 4.0;
+  const appMag = H_mag + 5 * Math.log10(deltaAU || 1) + 2.5 * K_param * Math.log10(rHelio || 1);
+
+  const result = [raDeg / 15, decDeg, deltaAU, alt, az, Number(appMag.toFixed(1))];
+  keplerianFrameCache.set(cacheKey, result);
+  return result;
+}
+
+function getCometPosition(cometData, date, obs) {
+  return getKeplerianPosition(cometData, date, obs);
+}
+
+function getAsteroidPosition(asteroidData, date, obs) {
+  return getKeplerianPosition(asteroidData, date, obs);
+}
+
 async function loadObjects() {
 
-   starNames = await fetch("data/starnames.json")
+  starNames = await fetch("data/starnames.json")
     .then(r => r.json());
 
   console.log("Star names loaded:", Object.keys(starNames).length);
@@ -2119,142 +2455,54 @@ async function loadObjects() {
 
   const cleanCatalog = ngcData.map(o => {
 
-  if (!o.ra || !o.dec) return null;
+    if (!o.ra || !o.dec) return null;
 
-  return {
+    return {
 
-  name:
-(
-  o.messier ||
-  o.name ||
-  ""
-)
-.toLowerCase()
-.replace(/\s+/g, ""),
+      name:
+        (
+          o.messier ||
+          o.name ||
+          ""
+        )
+          .toLowerCase()
+          .replace(/\s+/g, ""),
 
-id:
-(
-  o.messier ||
-  o.name ||
-  ""
-)
-.toLowerCase()
-.replace(/\s+/g, ""),
+      id:
+        (
+          o.messier ||
+          o.name ||
+          ""
+        )
+          .toLowerCase()
+          .replace(/\s+/g, ""),
 
-    ra: raToDeg(o.ra),
+      ra: raToDeg(o.ra),
 
-    dec: decToDeg(o.dec),
+      dec: decToDeg(o.dec),
 
-    type: "dso",
+      type: "dso",
 
-    mag:
-      o.mag || "N/A",
+      mag:
+        o.mag || "N/A",
 
-    constellation:
-      o.const || "N/A",
+      constellation:
+        o.const || "N/A",
 
-    size:
-      o.dim || "N/A",
+      size:
+        o.dim || "N/A",
 
-    morph:
-  o.morph || "N/A"
-  };
+      morph:
+        o.morph || "N/A"
+    };
 
-}).filter(Boolean);
+  }).filter(Boolean);
 
   const cleanMessier = m.features.map(o => {
 
-  console.log(o.properties);
+    console.log(o.properties);
 
-  return {
-
-    name: o.id.toLowerCase(),
-
-    id: o.id.toLowerCase(),
-
-    ra: o.geometry.coordinates[0],
-
-    dec: o.geometry.coordinates[1],
-
-    type: "dso",
-
-    mag:
-      o.properties?.mag ||
-
-      "N/A",
-
-    constellation:
-      o.properties?.con ||
-
-      "N/A",
-
-    size:
-      o.properties?.dim ||
-
-      "N/A",
-
- morph:
-
-  o.properties?.morph ||
-
-  objectMorphology[
-    o.id.toLowerCase()
-  ] ||
-
-  "N/A"
-  };
-});
-
-  const cleanLG = lg.features.map(o => ({
-    name: o.id.toLowerCase(),
-    id: o.id.toLowerCase(),
-    ra: o.geometry.coordinates[0],
-    dec: o.geometry.coordinates[1],
-    type: "dso"
-  }));
-
-  const cleanExtra = dsoExtra.features.map(o => ({
-
-  name: (
-    o.id ||
-    o.properties?.name ||
-    o.properties?.desig ||
-    ""
-  ).toLowerCase(),
-
-  id: (
-    o.id ||
-    o.properties?.name ||
-    o.properties?.desig ||
-    ""
-  ).toLowerCase(),
-
-  ra: o.geometry.coordinates[0],
-  dec: o.geometry.coordinates[1],
-
-  type: "dso",
-
-  morph:
-    o.properties?.morph ||
-    "N/A",
-
-  mag:
-    o.properties?.mag ||
-    "N/A",
-
-  size:
-    o.properties?.dim ||
-    "N/A"
-}))
-.filter(o => o.name); // 🔥 filter out objects without any name/id
-const cleanBright = brightDSO.features.flatMap(o => {
-
-  const arr = [];
-
-  // 🔥 MAIN ID
-  if (o.id) {
-
-    arr.push({
+    return {
 
       name: o.id.toLowerCase(),
 
@@ -2266,63 +2514,151 @@ const cleanBright = brightDSO.features.flatMap(o => {
 
       type: "dso",
 
-      morph:
-        o.properties?.morph ||
-        "N/A",
-
       mag:
         o.properties?.mag ||
+
+        "N/A",
+
+      constellation:
+        o.properties?.con ||
+
         "N/A",
 
       size:
         o.properties?.dim ||
-        "N/A"
-    });
-  }
 
-  // 🔥 DESIGNATION
-  if (o.properties?.desig) {
-
-    arr.push({
-
-      name:
-        o.properties.desig.toLowerCase(),
-
-      id:
-        o.properties.desig.toLowerCase(),
-
-      ra:
-        o.geometry.coordinates[0],
-
-      dec:
-        o.geometry.coordinates[1],
-
-      type: "dso",
+        "N/A",
 
       morph:
+
         o.properties?.morph ||
-        "N/A",
 
-      mag:
-        o.properties?.mag ||
-        "N/A",
+        objectMorphology[
+        o.id.toLowerCase()
+        ] ||
 
-      size:
-        o.properties?.dim ||
         "N/A"
-    });
-  }
+    };
+  });
 
-  return arr;
-});
+  const cleanLG = lg.features.map(o => ({
+    name: o.id.toLowerCase(),
+    id: o.id.toLowerCase(),
+    ra: o.geometry.coordinates[0],
+    dec: o.geometry.coordinates[1],
+    type: "dso"
+  }));
 
- allObjects = [
-  ...cleanCatalog,
-  ...cleanMessier,
-  ...cleanLG,
-  ...cleanExtra,
-  ...cleanBright,
-];
+  const cleanExtra = dsoExtra.features.map(o => ({
+
+    name: (
+      o.id ||
+      o.properties?.name ||
+      o.properties?.desig ||
+      ""
+    ).toLowerCase(),
+
+    id: (
+      o.id ||
+      o.properties?.name ||
+      o.properties?.desig ||
+      ""
+    ).toLowerCase(),
+
+    ra: o.geometry.coordinates[0],
+    dec: o.geometry.coordinates[1],
+
+    type: "dso",
+
+    morph:
+      o.properties?.morph ||
+      "N/A",
+
+    mag:
+      o.properties?.mag ||
+      "N/A",
+
+    size:
+      o.properties?.dim ||
+      "N/A"
+  }))
+    .filter(o => o.name); // 🔥 filter out objects without any name/id
+  const cleanBright = brightDSO.features.flatMap(o => {
+
+    const arr = [];
+
+    // 🔥 MAIN ID
+    if (o.id) {
+
+      arr.push({
+
+        name: o.id.toLowerCase(),
+
+        id: o.id.toLowerCase(),
+
+        ra: o.geometry.coordinates[0],
+
+        dec: o.geometry.coordinates[1],
+
+        type: "dso",
+
+        morph:
+          o.properties?.morph ||
+          "N/A",
+
+        mag:
+          o.properties?.mag ||
+          "N/A",
+
+        size:
+          o.properties?.dim ||
+          "N/A"
+      });
+    }
+
+    // 🔥 DESIGNATION
+    if (o.properties?.desig) {
+
+      arr.push({
+
+        name:
+          o.properties.desig.toLowerCase(),
+
+        id:
+          o.properties.desig.toLowerCase(),
+
+        ra:
+          o.geometry.coordinates[0],
+
+        dec:
+          o.geometry.coordinates[1],
+
+        type: "dso",
+
+        morph:
+          o.properties?.morph ||
+          "N/A",
+
+        mag:
+          o.properties?.mag ||
+          "N/A",
+
+        size:
+          o.properties?.dim ||
+          "N/A"
+      });
+    }
+
+    return arr;
+  });
+
+  allObjects = [
+    ...cleanCatalog,
+    ...cleanMessier,
+    ...cleanLG,
+    ...cleanExtra,
+    ...cleanBright,
+  ];
 
   console.log("Messier loaded:", m.features.length);
 
@@ -2330,98 +2666,271 @@ const cleanBright = brightDSO.features.flatMap(o => {
   searchObjects = [...allObjects];
 
   console.log(
-  "IC Objects:",
-  searchObjects.filter(o => o.name.startsWith("ic"))
-);
+    "IC Objects:",
+    searchObjects.filter(o => o.name.startsWith("ic"))
+  );
 
   // ⭐ CONSTELLATIONS AUTO ADD
 
-const planetData = await fetch("data/planets.json").then(r => r.json());
+  const planetData = await fetch("data/planets.json").then(r => r.json());
 
-const cleanPlanets = Object.entries(planetData).map(([key, p]) => {
+  const cleanPlanets = Object.entries(planetData).map(([key, p]) => {
 
-  const fullName = p.name.toLowerCase(); // venus
-  const shortId  = p.id.toLowerCase();   // ven
-
-  return {
-    name: fullName,   // 🔥 for search + calc
-    id: shortId,      // 🔥 for Celestial
-    type: "planet"
-  };
-});
-searchObjects.push(...cleanPlanets);
-
-console.log("Planets added:", cleanPlanets.length);
-
-const constData = await fetch("data/constellations.json").then(r => r.json());
-console.log("CONST RAW:", constData);
-const constEntries = constData.features;
-
-searchObjects.push(...constEntries.map(c => ({
-  name: c.id.toLowerCase(),                 // "umi"
-  id: c.id.toLowerCase(),
-
-  fullName: c.properties.name.toLowerCase(), // "ursa minor"
-
-  ra: c.geometry.coordinates[0],
-  dec: c.geometry.coordinates[1],
-
-  type: "constellation"
-})));
-
-console.log("Constellations added:", constEntries.length);
-
-
-
-const starData = await fetch("data/stars.json").then(r => r.json());
-
-const cleanStars = starData.features
-  .filter(s => s.properties.mag < 5)
-
-  .map(s => {
-
-    const hip = s.id;
+    const fullName = p.name.toLowerCase(); // venus
+    const shortId = p.id.toLowerCase();   // ven
 
     return {
-
-      id: hip,
-
-      name:
-        starNames[hip]?.name?.toLowerCase()
-
-        || ("star-" + hip),
-
-      ra:
-        s.geometry.coordinates[0],
-
-      dec:
-        s.geometry.coordinates[1],
-
-      type: "star",
-
-      mag:
-        s.properties?.mag ||
-
-        "N/A",
-
-      constellation:
-        s.properties?.con ||
-
-        "N/A",
-
-      bv:
-        s.properties?.bv ||
-
-        null
+      name: fullName,   // 🔥 for search + calc
+      id: shortId,      // 🔥 for Celestial
+      type: "planet"
     };
-});
+  });
+  searchObjects.push(...cleanPlanets);
 
-searchObjects.push(...cleanStars);
+  console.log("Planets added:", cleanPlanets.length);
 
-console.log(
-  "Stars added:",
-  cleanStars.length
-);
+  const constData = await fetch("data/constellations.json").then(r => r.json());
+  console.log("CONST RAW:", constData);
+  const constEntries = constData.features;
+
+  searchObjects.push(...constEntries.map(c => ({
+    name: c.id.toLowerCase(),                 // "umi"
+    id: c.id.toLowerCase(),
+
+    fullName: c.properties.name.toLowerCase(), // "ursa minor"
+
+    ra: c.geometry.coordinates[0],
+    dec: c.geometry.coordinates[1],
+
+    type: "constellation"
+  })));
+
+  console.log("Constellations added:", constEntries.length);
+
+
+
+  const starData = await fetch("data/stars.json").then(r => r.json());
+
+  const cleanStars = starData.features
+    .filter(s => s.properties.mag < 5)
+
+    .map(s => {
+
+      const hip = s.id;
+
+      return {
+
+        id: hip,
+
+        name:
+          starNames[hip]?.name?.toLowerCase()
+
+          || ("star-" + hip),
+
+        ra:
+          s.geometry.coordinates[0],
+
+        dec:
+          s.geometry.coordinates[1],
+
+        type: "star",
+
+        mag:
+          s.properties?.mag ||
+
+          "N/A",
+
+        constellation:
+          s.properties?.con ||
+
+          "N/A",
+
+        bv:
+          s.properties?.bv ||
+
+          null
+      };
+    });
+
+  searchObjects.push(...cleanStars);
+
+  // 🛰️ Add Satellites to searchObjects
+  // 🛰️ Load Satellites
+  try {
+    const loadedSats = await fetch("data/satellites.json").then(r => r.json());
+    if (Array.isArray(loadedSats) && loadedSats.length > 0) {
+      SATELLITES_DATA = mergeSatellites(loadedSats);
+    }
+  } catch (e) {
+    console.warn("Could not load data/satellites.json, using fallback satellites:", e);
+    SATELLITES_DATA = [...FALLBACK_SATELLITES];
+  }
+
+  console.log("Total satellites loaded:", SATELLITES_DATA.length);
+
+  // 🛰️ Add prominent Satellites to searchObjects index
+  const cleanSatellites = SATELLITES_DATA
+    .filter(s => s && (s.name || s.OBJECT_NAME))
+    .slice(0, 100) // Keep primary search index clean & lightweight
+    .map(s => ({
+      name: String(s.name || s.OBJECT_NAME).toLowerCase(),
+      displayName: String(s.name || s.OBJECT_NAME),
+      id: String(s.NORAD_CAT_ID || s.id || s.name || s.OBJECT_NAME),
+      type: "satellite",
+      ra: 0,
+      dec: 0,
+      satData: s
+    }));
+
+  searchObjects.push(...cleanSatellites);
+  console.log("Satellites added to search:", cleanSatellites.length);
+
+  // 🚀 Load Spacecraft Database (215 items)
+  try {
+    const rawSpacecraft = await fetch("data/spacecraft.json").then(r => r.json());
+    if (Array.isArray(rawSpacecraft) && rawSpacecraft.length > 0) {
+      SPACECRAFT_DATA = rawSpacecraft;
+      const cleanSpacecraft = rawSpacecraft.map(sp => {
+        const pos = getSpacecraftPosition(sp, skyTime || new Date());
+        return {
+          name: String(sp.name || "").toLowerCase(),
+          shortName: String(sp.shortName || "").toLowerCase(),
+          displayName: String(sp.name || sp.shortName || sp.id),
+          id: String(sp.id).toLowerCase(),
+          type: "spacecraft",
+          category: sp.category || "Spacecraft",
+          primaryAgency: sp.primaryAgency || "N/A",
+          status: sp.status || "Active",
+          destination: sp.destination || "N/A",
+          searchAliases: Array.isArray(sp.searchAliases) ? sp.searchAliases.map(a => String(a).toLowerCase()) : [],
+          tags: Array.isArray(sp.tags) ? sp.tags.map(t => String(t).toLowerCase()) : [],
+          spData: sp,
+          ra: pos ? pos[0] : 0,
+          dec: pos ? pos[1] : 0
+        };
+      });
+      searchObjects.push(...cleanSpacecraft);
+      console.log("Spacecraft loaded:", cleanSpacecraft.length);
+    }
+  } catch (e) {
+    console.warn("Could not load data/spacecraft.json:", e);
+  }
+
+  // ☄️ Load Comets
+  try {
+    const rawComets = await fetch("data/comets.json").then(r => r.json());
+    if (Array.isArray(rawComets) && rawComets.length > 0) {
+      COMETS_DATA = rawComets.map(c => {
+        c.getCoords = function (time) {
+          const pos = getCometPosition(c, time, observer);
+          return pos ? [pos[0] * 15, pos[1]] : [0, 0];
+        };
+        return c;
+      });
+    }
+  } catch (e) {
+    console.warn("Could not load data/comets.json:", e);
+  }
+
+  const cleanComets = COMETS_DATA.map(c => ({
+    name: String(c.name || c.displayName || "").toLowerCase(),
+    displayName: String(c.displayName || c.name || ""),
+    id: String(c.id || c.name || ""),
+    type: "comet",
+    ra: 0,
+    dec: 0,
+    cometData: c
+  }));
+
+  searchObjects.push(...cleanComets);
+  console.log("Comets added:", cleanComets.length);
+
+  // 🪨 Load Asteroids
+  try {
+    const rawAsteroids = await fetch("data/asteroids.json").then(r => r.json());
+    if (Array.isArray(rawAsteroids) && rawAsteroids.length > 0) {
+      ASTEROIDS_DATA = rawAsteroids.map(a => {
+        a.getCoords = function (time) {
+          const pos = getAsteroidPosition(a, time, observer);
+          return pos ? [pos[0] * 15, pos[1]] : [0, 0];
+        };
+        return a;
+      });
+    }
+  } catch (e) {
+    console.warn("Could not load data/asteroids.json:", e);
+  }
+
+  const cleanAsteroids = ASTEROIDS_DATA.map(a => ({
+    name: String(a.name || a.displayName || "").toLowerCase(),
+    displayName: String(a.displayName || a.name || ""),
+    designation: String(a.designation || a.name || "").toLowerCase(),
+    number: String(a.number || a.asteroidNumber || "").toLowerCase(),
+    id: String(a.id || a.name || ""),
+    type: "asteroid",
+    ra: 0,
+    dec: 0,
+    asteroidData: a
+  }));
+
+  searchObjects.push(...cleanAsteroids);
+  console.log("Asteroids added:", cleanAsteroids.length);
+
+  // 🌌 Add Asterisms to searchObjects index
+  let ASTERISMS_DATA = [];
+  try {
+    const res = await fetch("data/asterisms.json");
+    const geo = await res.json();
+    if (geo && Array.isArray(geo.features)) {
+      ASTERISMS_DATA = geo.features;
+    }
+  } catch (e) {
+    console.warn("Could not load data/asterisms.json:", e);
+  }
+
+  const cleanAsterisms = ASTERISMS_DATA.map(ast => {
+    const props = ast.properties || {};
+    let raDeg = 0;
+    let decDeg = 0;
+
+    if (props.loc && Array.isArray(props.loc) && (props.loc[0] !== 0 || props.loc[1] !== 0)) {
+      raDeg = props.loc[0];
+      decDeg = props.loc[1];
+    } else if (ast.geometry && ast.geometry.coordinates) {
+      // Centroid calculation from GeoJSON coordinates
+      const coords = ast.geometry.coordinates.flat(2);
+      let sumRa = 0, sumDec = 0, count = 0;
+      for (let i = 0; i < coords.length; i += 2) {
+        sumRa += coords[i];
+        sumDec += coords[i + 1];
+        count++;
+      }
+      if (count > 0) {
+        raDeg = sumRa / count;
+        decDeg = sumDec / count;
+      }
+    }
+
+    const normalizedRaDeg = (raDeg < 0 ? raDeg + 360 : raDeg);
+
+    return {
+      name: String(name).toLowerCase(),
+      displayName: String(name),
+      id: String(ast.id || name),
+      type: "asterism",
+      ra: normalizedRaDeg,   // <-- degrees
+      dec: decDeg,
+      asterismData: ast
+    };
+  });
+
+  searchObjects.push(...cleanAsterisms);
+  console.log("Asterisms added:", cleanAsterisms.length);
+
+  console.log(
+    "Stars added:",
+    cleanStars.length
+  );
 }
 function detectLocation() {
 
@@ -2473,46 +2982,506 @@ function detectLocation() {
 
 
 
-function getPlanetPosition(name, date) {
+function horizontalToEquatorial(alt, az, date, obs) {
+  const latRad = obs.latitude * Math.PI / 180;
+  const altRad = alt * Math.PI / 180;
+  const azRad = az * Math.PI / 180;
 
+  const sinDec = Math.sin(altRad) * Math.sin(latRad) + Math.cos(altRad) * Math.cos(latRad) * Math.cos(azRad);
+  const decRad = Math.asin(Math.max(-1, Math.min(1, sinDec)));
+  const dec = decRad * 180 / Math.PI;
+
+  const cosDec = Math.cos(decRad);
+  let H = 0;
+  if (Math.abs(cosDec) > 1e-6) {
+    const sinH = -Math.sin(azRad) * Math.cos(altRad) / cosDec;
+    const cosH = (Math.sin(altRad) - Math.sin(latRad) * sinDec) / (Math.cos(latRad) * cosDec);
+    H = Math.atan2(sinH, cosH);
+  }
+
+  const time = Astronomy.MakeTime(date);
+  const lstHours = Astronomy.SiderealTime(time) + obs.longitude / 15;
+  const lstRad = lstHours * 15 * Math.PI / 180;
+
+  const raRad = lstRad - H;
+  let ra = (raRad * 180 / Math.PI) % 360;
+  if (ra < 0) ra += 360;
+
+  return [ra, dec];
+}
+function refractRAdec(ra, dec, date, obs) {
+  if (typeof skySettings !== "undefined" && skySettings.enableRefraction === false) {
+    return [ra, dec];
+  }
+  try {
+    const time = Astronomy.MakeTime(date);
+    const hor = Astronomy.Horizon(time, obs, ra / 15, dec, Astronomy.Refraction.None);
+    const alt = hor.altitude;
+    if (alt < -2) return [ra, dec]; // don't refract things far below horizon
+
+    // Saemundsson (1986) refraction formula
+    const rArcmin = 1.02 / Math.tan((alt + 10.3 / (alt + 5.11)) * Math.PI / 180);
+    const rDeg = rArcmin / 60;
+    const refractedAlt = alt + rDeg;
+
+    return horizontalToEquatorial(refractedAlt, hor.azimuth, date, obs);
+  } catch (e) {
+    console.error("Refraction error:", e);
+    return [ra, dec];
+  }
+}
+
+function updateAtmosphereState() {
+  if (typeof Astronomy === "undefined" || !observer) return;
+  try {
+    const time = Astronomy.MakeTime(skyTime);
+
+    // 1. Get Sun position & altitude
+    const sunEqu = Astronomy.Equator(Astronomy.Body.Sun, time, observer, true, true);
+    const sunHor = Astronomy.Horizon(time, observer, sunEqu.ra, sunEqu.dec, Astronomy.Refraction.None);
+    window.sunAltitude = sunHor.altitude;
+    window.sunPosition = [sunEqu.ra * 15, sunEqu.dec];
+
+    // 2. Get Moon position, altitude & phase
+    const moonEqu = Astronomy.Equator(Astronomy.Body.Moon, time, observer, true, true);
+    const moonHor = Astronomy.Horizon(time, observer, moonEqu.ra, moonEqu.dec, Astronomy.Refraction.None);
+    window.moonAltitude = moonHor.altitude;
+    window.moonPosition = [moonEqu.ra * 15, moonEqu.dec];
+    window.moonIllumination = Astronomy.Illumination(Astronomy.Body.Moon, time).phase;
+
+    // 3. Get Zenith and Nadir positions
+    const lstHours = Astronomy.SiderealTime(time) + observer.longitude / 15;
+    const lstDeg = (lstHours * 15) % 360;
+    window.zenithPosition = [lstDeg, observer.latitude];
+    window.nadirPosition = [(lstDeg + 180) % 360, -observer.latitude];
+
+    // 4. Set light pollution from settings
+    window.lightPollution = skySettings.lightPollution !== undefined ? skySettings.lightPollution : 9;
+  } catch (e) {
+    console.error("Failed to update atmosphere state:", e);
+  }
+}
+
+function getPlanetPosition(name, date) {
   const bodyMap = {
     sun: Astronomy.Body.Sun,
     moon: Astronomy.Body.Moon,
-
     mercury: Astronomy.Body.Mercury,
     venus: Astronomy.Body.Venus,
     earth: Astronomy.Body.Earth,
-
     mars: Astronomy.Body.Mars,
     jupiter: Astronomy.Body.Jupiter,
     saturn: Astronomy.Body.Saturn,
     uranus: Astronomy.Body.Uranus,
     neptune: Astronomy.Body.Neptune,
-
     pluto: Astronomy.Body.Pluto,
-
     ceres: Astronomy.Body.Ceres,
     vesta: Astronomy.Body.Vesta,
     pallas: Astronomy.Body.Pallas,
-
-  eris: Astronomy.Body.Eris,
-  makemake: Astronomy.Body.Makemake,
-  haumea: Astronomy.Body.Humea
-
+    eris: Astronomy.Body.Eris,
+    makemake: Astronomy.Body.Makemake,
+    haumea: Astronomy.Body.Humea
   };
 
   const body = bodyMap[name.toLowerCase()];
   if (!body) return null;
 
-  const observer = new Astronomy.Observer(23, 77, 0); // India
+  const obs = observer || new Astronomy.Observer(23, 77, 0);
+  const equ = Astronomy.Equator(body, date, obs, true, true);
 
-  const equ = Astronomy.Equator(body, date, observer, true, true);
+  const raDeg = equ.ra * 15;
+  const dec = equ.dec;
 
-  return [equ.ra, equ.dec];
+  const refracted = refractRAdec(raDeg, dec, date, obs);
+  return [refracted[0] / 15, refracted[1], equ.dist];
 }
+
+// ================= 🤖 SKY AI INTEGRATION =================
+
+function sendQueryToAstroAI(message) {
+  // 1. Open the Astro AI panel if closed
+  const aiPanel = document.getElementById("ai-panel");
+  const openAIBtn = document.getElementById("open-ai");
+  if (aiPanel) {
+    aiPanel.style.display = "flex";
+    if (openAIBtn) {
+      openAIBtn.style.display = "none";
+    }
+  }
+
+  // 2. Set the input value
+  const aiInput = document.getElementById("ai-input");
+  if (aiInput) {
+    aiInput.value = message;
+
+    // Dispatch input event to resize textarea automatically
+    aiInput.dispatchEvent(new Event("input", { bubbles: true }));
+
+    // 3. Trigger the send button click
+    const aiSend = document.getElementById("ai-send");
+    if (aiSend) {
+      aiSend.click();
+    }
+  }
+}
+
+function skyAIExplain() {
+  if (!currentAIObject) { alert("Select an object first."); return; }
+  sendQueryToAstroAI(`Explain this celestial object: ${currentAIObject.name}`);
+}
+
+function skyAIConstellation() {
+  if (!currentAIObject) { alert("Select an object first."); return; }
+  const con = currentAIObject.constellation || "its constellation";
+  sendQueryToAstroAI(`Tell me about the constellation "${con}" for the selected object "${currentAIObject.name}".`);
+}
+
+function skyAIRelated() {
+  if (!currentAIObject) { alert("Select an object first."); return; }
+  sendQueryToAstroAI(`Show related or nearby celestial objects to "${currentAIObject.name}".`);
+}
+
+function skyAIObserveTips() {
+  if (!currentAIObject) { alert("Select an object first."); return; }
+  sendQueryToAstroAI(`Give me intelligent observation suggestions for observing "${currentAIObject.name}".`);
+}
+
+// ================= ⏱️ TIME SIMULATION CONTROLS =================
+
+function toggleStellariumTimePanel() {
+  const panel = document.getElementById("stellarium-time-panel");
+  if (panel) {
+    const isHidden = panel.style.display === "none" || !panel.style.display;
+    panel.style.display = isHidden ? "block" : "none";
+  }
+}
+
+function _updateSimTimeUI() {
+  const pad = (n) => String(n).padStart(2, '0');
+
+  const spinY = document.getElementById("spin-year");
+  const spinM = document.getElementById("spin-month");
+  const spinD = document.getElementById("spin-day");
+  const spinH = document.getElementById("spin-hour");
+  const spinMin = document.getElementById("spin-minute");
+  const spinS = document.getElementById("spin-second");
+
+  if (spinY) spinY.innerText = skyTime.getFullYear();
+  if (spinM) spinM.innerText = pad(skyTime.getMonth() + 1);
+  if (spinD) spinD.innerText = pad(skyTime.getDate());
+  if (spinH) spinH.innerText = pad(skyTime.getHours());
+  if (spinMin) spinMin.innerText = pad(skyTime.getMinutes());
+  if (spinS) spinS.innerText = pad(skyTime.getSeconds());
+
+  const badgeT = document.getElementById("badge-time");
+  const badgeD = document.getElementById("badge-date");
+  if (badgeT) {
+    badgeT.innerText = skyTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+  }
+  if (badgeD) {
+    const yyyy = skyTime.getFullYear();
+    const mm = pad(skyTime.getMonth() + 1);
+    const dd = pad(skyTime.getDate());
+    badgeD.innerText = `${yyyy}-${mm}-${dd}`;
+  }
+
+  // Update Settings Page readout and input
+  const simDisplay = document.getElementById("sim-time-display");
+  if (simDisplay) {
+    simDisplay.innerText = skyTime.toLocaleString();
+  }
+  const skyDt = document.getElementById("sky-datetime");
+  if (skyDt && document.activeElement !== skyDt) {
+    const tzOffset = skyTime.getTimezoneOffset() * 60000;
+    const localISOTime = (new Date(skyTime.getTime() - tzOffset)).toISOString().slice(0, 16);
+    skyDt.value = localISOTime;
+  }
+
+  // Update dynamic atmosphere calculations synchronously before starmap redraw
+  updateAtmosphereState();
+
+  // Update starmap visual projection
+  try {
+    if (typeof Celestial !== "undefined") {
+      Celestial.skyview({ date: skyTime });
+    }
+  } catch (e) {
+    console.error("Celestial.skyview error:", e);
+  }
+}
+
+function adjustSimTime(unit, val) {
+  const date = new Date(skyTime);
+  if (unit === 'year') date.setFullYear(date.getFullYear() + val);
+  else if (unit === 'month') date.setMonth(date.getMonth() + val);
+  else if (unit === 'day') date.setDate(date.getDate() + val);
+  else if (unit === 'hour') date.setHours(date.getHours() + val);
+  else if (unit === 'minute') date.setMinutes(date.getMinutes() + val);
+  else if (unit === 'second') date.setSeconds(date.getSeconds() + val);
+  skyTime = date;
+
+  _updateSimTimeUI();
+  updateDynamicInfo();
+}
+
+function onSpeedSliderChange(val) {
+  const value = parseInt(val);
+  let multiplier = 1;
+  let label = "Realtime";
+
+  switch (value) {
+    case 0: multiplier = 1; label = "Realtime"; break;
+    case 1: multiplier = 10; label = "10x"; break;
+    case 2: multiplier = 60; label = "60x (1m/s)"; break;
+    case 3: multiplier = 600; label = "600x"; break;
+    case 4: multiplier = 3600; label = "3600x (1h/s)"; break;
+    case 5: multiplier = 86400; label = "86400x (1d/s)"; break;
+    case 6: multiplier = 864000; label = "864000x (10d/s)"; break;
+  }
+
+  simSpeed = multiplier;
+  const labelEl = document.getElementById("stellarium-speed-label");
+  if (labelEl) labelEl.textContent = "Speed: " + label;
+}
+
+function adjustSimSpeedMultiplier(factor) {
+  const slider = document.getElementById("stellarium-speed-slider");
+  if (slider) {
+    let currentVal = parseInt(slider.value);
+    if (factor > 1 && currentVal < 6) currentVal++;
+    else if (factor < 1 && currentVal > 0) currentVal--;
+    slider.value = currentVal;
+    onSpeedSliderChange(currentVal);
+  }
+}
+
+function toggleSimPlay() {
+  simPaused = !simPaused;
+  const btn = document.getElementById("stellarium-play-btn");
+  if (btn) {
+    btn.innerHTML = simPaused ? "▶ Play" : "⏸ Pause";
+    btn.style.color = simPaused ? "cyan" : "#00ff64";
+    btn.style.borderColor = simPaused ? "rgba(0,255,255,0.35)" : "rgba(0,255,100,0.35)";
+    btn.style.background = simPaused ? "rgba(0,255,255,0.1)" : "rgba(0,255,100,0.1)";
+  }
+  _updateSimTimeUI();
+}
+
+function simResetNow() {
+  skyTime = new Date();
+  simPaused = false;
+
+  const btn = document.getElementById("stellarium-play-btn");
+  if (btn) {
+    btn.innerHTML = "⏸ Pause";
+    btn.style.color = "#00ff64";
+    btn.style.borderColor = "rgba(0,255,100,0.35)";
+    btn.style.background = "rgba(0,255,100,0.1)";
+  }
+
+  // Reset speed presets to 1x
+  const oneXBtn = document.querySelector(".speed-btn[data-speed='1']");
+  setSimSpeed(1, oneXBtn);
+  _updateSimTimeUI();
+}
+
+function simStep(seconds) {
+  skyTime = new Date(skyTime.getTime() + seconds * 1000);
+  _updateSimTimeUI();
+  updateDynamicInfo();
+}
+
+function setSimSpeed(multiplier, btn) {
+  simSpeed = multiplier;
+  document.querySelectorAll(".speed-btn").forEach(b => {
+    b.classList.remove("active");
+    b.style.background = "rgba(255,255,255,0.05)";
+    b.style.borderColor = "rgba(255,255,255,0.1)";
+    b.style.color = "#bbb";
+    b.style.fontWeight = "normal";
+  });
+  if (btn) {
+    btn.classList.add("active");
+    btn.style.background = "rgba(0,255,255,0.15)";
+    btn.style.borderColor = "rgba(0,255,255,0.35)";
+    btn.style.color = "cyan";
+    btn.style.fontWeight = "bold";
+  }
+}
+
+// ================= 🧭 NAVIGATION TOOLS =================
+
+function _getNavTarget() {
+
+  if (!selectedObject) return currentTarget;
+
+  switch (selectedObject.type) {
+
+    case "planet": {
+      const pos = getPlanetPosition(selectedObject.name, skyTime);
+      if (pos) return [pos[0] * 15, pos[1]];
+      break;
+    }
+
+    case "star":
+    case "dso":
+    case "constellation":
+      return [selectedObject.ra, selectedObject.dec];
+
+    case "spacecraft": {
+      if (typeof getSpacecraftPosition === "function") {
+        const pos = getSpacecraftPosition(selectedObject, skyTime);
+        if (pos) return [pos[0], pos[1]];
+      }
+      if (selectedObject.ra !== undefined && selectedObject.dec !== undefined) {
+        return [selectedObject.ra, selectedObject.dec];
+      }
+      break;
+    }
+
+    case "comet":
+      if (selectedObject.getCoords) {
+        return selectedObject.getCoords(skyTime);
+      }
+      if (selectedObject.ra !== undefined && selectedObject.dec !== undefined) {
+        return [selectedObject.ra, selectedObject.dec];
+      }
+      break;
+
+    case "asteroid":
+      if (selectedObject.getCoords) {
+        return selectedObject.getCoords(skyTime);
+      }
+      if (selectedObject.ra !== undefined && selectedObject.dec !== undefined) {
+        return [selectedObject.ra, selectedObject.dec];
+      }
+      break;
+  }
+
+  return currentTarget;
+}
+function _syncNavButtons() {
+  const lockBtn = document.getElementById("nav-lock-btn");
+  if (lockBtn) {
+    const on = tracking;
+    lockBtn.innerHTML = on ? "🔒 Locked" : "🔓 Lock";
+    lockBtn.style.background = on ? "rgba(255,180,0,0.15)" : "rgba(255,255,255,0.05)";
+    lockBtn.style.borderColor = on ? "rgba(255,180,0,0.4)" : "rgba(255,255,255,0.15)";
+    lockBtn.style.color = on ? "#ffb400" : "#ccc";
+  }
+}
+
+function navCenter() {
+  const target = _getNavTarget();
+  if (!target) { alert("Select an object first."); return; }
+  currentTarget = [target[0], target[1]];
+
+  if (typeof smoothRotate === "function") {
+    smoothRotate([target[0], target[1]], 600);
+  } else {
+    Celestial.rotate({ center: [target[0], target[1], 0] });
+  }
+
+  if (!marker) createMarker();
+  if (marker) marker.style.display = "block";
+}
+
+// 🔒 Lock — toggle marker tracking lock (marker crosshair on screen)
+function navLock() {
+  if (!selectedObject && !currentTarget) {
+    alert("Select an object first.");
+    return;
+  }
+
+  tracking = !tracking;
+
+  if (tracking) {
+    const target = _getNavTarget();
+    if (target) {
+      currentTarget = [target[0], target[1]];
+    }
+
+    createMarker();
+
+    // 👇 Ye naya code add karo
+    if (marker) {
+      marker.style.display = "block";
+    }
+
+  } else {
+    if (marker) {
+      marker.style.display = "none";
+    }
+  }
+
+  _syncNavButtons();
+}
+
+// 🔭 GLOBAL TELESCOPE TOGGLE (works even before TelescopeManager.init)
+function toggleTelescopeMode() {
+  if (typeof TelescopeManager === "undefined") return;
+  TelescopeManager.enabled = !TelescopeManager.enabled;
+  const overlay = document.getElementById("telescope-overlay");
+  const hud = document.getElementById("telescope-hud");
+  const btn = document.getElementById("toggle-telescope-btn");
+  if (overlay) overlay.classList.toggle("hidden", !TelescopeManager.enabled);
+  if (hud) hud.classList.toggle("hidden", !TelescopeManager.enabled);
+  if (btn) {
+    btn.classList.toggle("active", TelescopeManager.enabled);
+    btn.innerHTML = TelescopeManager.enabled ? "🔭 Active" : "🔭 Telescope Mode";
+  }
+  if (TelescopeManager.enabled) {
+    let targetZoom = 3.0;
+    if (TelescopeManager.eyepieceFov === 1.0) targetZoom = 1.5;
+    else if (TelescopeManager.eyepieceFov === 0.25) targetZoom = 6.0;
+    const zoomInput = document.getElementById("sky-zoom");
+    if (zoomInput) {
+      zoomInput.value = targetZoom;
+      zoomInput.dispatchEvent(new Event("input"));
+    }
+  }
+  refreshSky();
+}
+
+function toggleNightVision() {
+  if (typeof TelescopeManager === "undefined") return;
+  TelescopeManager.nightVision = !TelescopeManager.nightVision;
+  document.body.classList.toggle("night-vision-active", TelescopeManager.nightVision);
+  const btn = document.getElementById("toggle-night-btn");
+  if (btn) {
+    btn.classList.toggle("active", TelescopeManager.nightVision);
+    btn.innerHTML = TelescopeManager.nightVision ? "🔴 Active" : "🔴 Night Vision";
+  }
+  refreshSky();
+}
+
+// 🔍 SEARCH CATEGORY SELECTOR
+function setSearchCategory(btn) {
+  // Update visual state of all buttons
+  document.querySelectorAll(".search-cat-btn").forEach(b => {
+    b.classList.remove("active");
+    b.style.background = "rgba(255,255,255,0.05)";
+    b.style.color = "#ccc";
+    b.style.borderColor = "rgba(255,255,255,0.1)";
+    b.style.fontWeight = "normal";
+  });
+  btn.classList.add("active");
+  btn.style.background = "rgba(0,255,255,0.15)";
+  btn.style.color = "cyan";
+  btn.style.borderColor = "rgba(0,255,255,0.3)";
+  btn.style.fontWeight = "bold";
+
+  // Set category on SearchManager if available, else use a fallback global
+  const cat = btn.getAttribute("data-cat");
+  if (typeof SearchManager !== "undefined") {
+    SearchManager.category = cat;
+    SearchManager.updateSuggestions();
+  } else {
+    window._searchCategory = cat;
+  }
+}
+
 // 🔍 SEARCH FUNCTION
-currentTarget = null;
-searchedObjectName = "";
 function searchObject() {
 
   // 🔥 RESET
@@ -2522,22 +3491,23 @@ function searchObject() {
   }
 
   if (marker) {
-  marker.remove();
-  marker = null; // 🔥 IMPORTANT
-}
+    marker.remove();
+    marker = null; // 🔥 IMPORTANT
+  }
 
 
-if (searchHighlight) {
+  if (searchHighlight) {
 
     searchHighlight.remove();
 
     searchHighlight = null;
 
-}
+  }
 
   document.getElementById("highlight-marker")?.remove();
 
   tracking = false;
+  _syncNavButtons();
   currentTarget = null;
 
   if (starLabel) {
@@ -2546,11 +3516,11 @@ if (searchHighlight) {
   }
 
   if (dsoSearchLabel) {
-  dsoSearchLabel.remove();
-  dsoSearchLabel = null;
-}
+    dsoSearchLabel.remove();
+    dsoSearchLabel = null;
+  }
 
-searchedObjectName = "";
+  searchedObjectName = "";
 
   // 🔍 INPUT
   let query = document.getElementById("searchBox").value;
@@ -2562,79 +3532,55 @@ searchedObjectName = "";
     searchTerm = constAlias[searchTerm];
   }
 
-  const cleanSearch = searchTerm.replace(/\s+/g, "");
-  const cleanQuery  = query.toLowerCase().replace(/\s+/g, "");
+  // Filter based on currently selected category
+  let candidates = searchObjects;
+  const activeCategory = (typeof SearchManager !== "undefined" && SearchManager.category)
+    ? SearchManager.category
+    : (window._searchCategory || "all");
+  if (activeCategory !== "all") {
+    candidates = searchObjects.filter(o => o.type === activeCategory);
+  }
 
-  console.log("Searching for:", cleanSearch);
+  // Rank the candidates using fuzzy search
+  const scored = candidates
+    .map(o => ({ obj: o, rank: (typeof SearchManager !== "undefined") ? SearchManager.getRank(searchTerm, o) : 50 }))
+    .filter(x => x.rank < 100)
+    .sort((a, b) => a.rank - b.rank || String(a.obj.name).localeCompare(String(b.obj.name)));
 
   let obj = null;
 
-  // ⭐ 1. CONSTELLATION
-  obj = searchObjects.find(o => {
-    if (o.type !== "constellation") return false;
+  const exactAsteroid = scored.find(
+    x => x.obj.type === "asteroid" &&
+      (x.obj.name || "").toLowerCase() === searchTerm.toLowerCase()
+  );
 
-    const short = o.name;
-    const full  = (o.fullName || "").replace(/\s+/g, "");
-
-    if (cleanSearch === short) return true;
-    if (cleanQuery === full) return true;
-
-    return false;
-  });
-
-  // ⭐ 2. STAR
-  if (!obj) {
-    obj = searchObjects.find(o => {
-      if (o.type !== "star") return false;
-
-      const name = o.name || "";
-      const id   = o.id?.toString() || "";
-
-      if (!isNaN(cleanSearch) && id === cleanSearch) return true;
-      if (name === cleanSearch) return true;
-
-      return false;
-    });
+  if (exactAsteroid) {
+    obj = exactAsteroid.obj;
+  } else if (scored.length > 0) {
+    obj = scored[0].obj;
   }
 
-  // 🌌 3. DSO
-if (!obj) {
+  // Fallback: check full SATELLITES_DATA if not found in primary searchObjects
+  if (!obj && typeof SATELLITES_DATA !== "undefined") {
+    const term = searchTerm.toLowerCase();
+    const sFound = SATELLITES_DATA.find(s => s && (
+      (s.name && s.name.toLowerCase().includes(term)) ||
+      (s.OBJECT_NAME && s.OBJECT_NAME.toLowerCase().includes(term)) ||
+      (s.NORAD_CAT_ID && String(s.NORAD_CAT_ID) === term)
+    ));
+    if (sFound) {
+      obj = {
+        name: String(sFound.name || sFound.OBJECT_NAME).toLowerCase(),
+        displayName: String(sFound.name || sFound.OBJECT_NAME),
+        id: String(sFound.NORAD_CAT_ID || sFound.id || sFound.name || sFound.OBJECT_NAME),
+        type: "satellite",
+        ra: 0,
+        dec: 0,
+        satData: sFound
+      };
+    }
+  }
 
-  obj = searchObjects.find(o => {
-
-    if (o.type !== "dso") return false;
-
-    // 🔥 NORMALIZED
-   const normalize = str =>
-  (str || "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, "");
-
-const name = normalize(o.name);
-const id   = normalize(o.id);
-
-const search = normalize(cleanSearch);
-
-    // 🔥 MATCHES
-    return (
-      name === search ||
-      id === search
-    );
-  });
-}
-
-  // 🪐 4. PLANET
-  if (!obj) {
-  obj = searchObjects.find(o => {
-    if (o.type !== "planet") return false;
-
-    return (
-      o.name === cleanSearch ||               // venus
-      planetMap[o.name] === cleanSearch ||   // ven
-      reversePlanetMap[cleanSearch] === o.name // ven → venus
-    );
-  });
-}
   // ❌ NOT FOUND
   if (!obj) {
     alert("Object not found ❌");
@@ -2643,148 +3589,296 @@ const search = normalize(cleanSearch);
 
   console.log("Found:", obj);
   selectedObject = obj;
+
   updateObjectInfo(obj);
   document.getElementById("object-info-panel").style.display = "block";
   updateDynamicInfo();
-  
+
+  // Add to Search History
+  SearchManager.addHistory(obj);
+
 
   // 🌌 DSO
-  // 🌌 DSO
-// 🌌 DSO
-// 🌌 DSO
-if (obj.type === "dso") {
-
+  if (obj.type === "dso") {
     lastSelectedPlanet = null;
-isRotating = true;
+    currentTarget = [obj.ra, obj.dec];
+    searchedObjectName = obj.name;
+    createMarker();
+    trackMarker();
+    return;
+  }
 
-currentTarget = [obj.ra, obj.dec];
-searchedObjectName = obj.name;
+  // 🚀 SPACECRAFT
+  if (obj.type === "spacecraft") {
+    lastSelectedPlanet = null;
+    const pos = getSpacecraftPosition(obj, skyTime);
+    const raDeg = pos ? pos[0] : 0;
+    const decDeg = pos ? pos[1] : 0;
 
-smoothRotate(currentTarget, 1000).then(() => {
+    obj.ra = raDeg;
+    obj.dec = decDeg;
 
-    isRotating = false;
+    currentTarget = [raDeg, decDeg];
+    selectedObject = obj;
+    searchedObjectName = obj.displayName || obj.name;
+
+    updateObjectInfo(obj);
+    document.getElementById("object-info-panel").style.display = "block";
+    updateDynamicInfo();
+
+    if (typeof SearchManager !== "undefined") SearchManager.addHistory(obj);
 
     createMarker();
-    
     trackMarker();
-
-});
-
     return;
-}
+  }
 
+  if (obj.type === "satellite" && typeof satellite !== "undefined") {
+    lastSelectedPlanet = null;
+    const satName = (obj.name || "").toLowerCase();
+    const sat = obj.satData || SATELLITES_DATA.find(
+      s => s && (
+        (s.name && s.name.toLowerCase().includes(satName)) ||
+        (s.OBJECT_NAME && s.OBJECT_NAME.toLowerCase().includes(satName)) ||
+        (s.NORAD_CAT_ID && String(s.NORAD_CAT_ID) === String(obj.id))
+      )
+    );
 
-// 🪐 PLANET
-// 🪐 PLANET
-if (obj.type === "planet") {
+    if (!sat) {
+      console.error("Satellite not found:", obj);
+      return;
+    }
 
-    isRotating = true;
-
+    const satrec = getSatRec(sat);
+    if (satrec) {
+      const posVel = satellite.propagate(satrec, skyTime);
+      const posEci = posVel ? posVel.position : null;
+      if (posEci && observer) {
+        const gmst = satellite.gstime(skyTime);
+        const observerGd = {
+          longitude: observer.longitude * Math.PI / 180,
+          latitude: observer.latitude * Math.PI / 180,
+          height: (observer.elevation || 0) / 1000
+        };
+        const lookAngles = satellite.ecfToLookAngles(observerGd, satellite.eciToEcf(posEci, gmst));
+        const alt = (lookAngles.elevation ?? lookAngles.altitude ?? lookAngles.alt) * 180 / Math.PI;
+        const az = (lookAngles.azimuth ?? lookAngles.az) * 180 / Math.PI;
+        const coords = horizontalToEquatorial(alt, az, skyTime, observer);
+        if (coords) {
+          currentTarget = [coords[0], coords[1]];
+          selectedObject = {
+            type: "satellite",
+            name: sat.name || sat.OBJECT_NAME,
+            id: String(sat.NORAD_CAT_ID || sat.id || sat.name || sat.OBJECT_NAME),
+            ra: coords[0],
+            dec: coords[1],
+            altitude: alt,
+            azimuth: az,
+            satData: sat
+          };
+          searchedObjectName = sat.name || sat.OBJECT_NAME;
+          updateDynamicInfo();
+          createMarker();
+          trackMarker();
+        }
+      }
+    }
+    return;
+  }
+  // 🪐 PLANET
+  if (obj.type === "planet") {
     const planetName = reversePlanetMap[obj.id] || obj.name;
-
     lastSelectedPlanet = planetName;
-    followObject = true;
-
     const pos = getPlanetPosition(planetName, skyTime);
-
     if (!pos) {
-        console.log("Planet calc failed:", planetName);
-        isRotating = false;
-        return;
+      console.log("Planet calc failed:", planetName);
+      return;
+    }
+    const raDeg = pos[0] * 15;
+    const dec = pos[1];
+    currentTarget = [raDeg, dec];
+    createMarker();
+    trackMarker();
+    return;
+  }
+
+  // ⭐ CONSTELLATION
+  if (obj.type === "constellation") {
+    lastSelectedPlanet = null;
+    currentTarget = [obj.ra, obj.dec];
+    createMarker();
+    trackMarker();
+    return;
+  }
+
+  if (obj.type === "asterism") {
+    lastSelectedPlanet = null;
+    currentTarget = [obj.ra, obj.dec];
+    createMarker();
+    trackMarker();
+    return;
+  }
+
+  // ⭐ STAR
+  if (obj.type === "star") {
+    lastSelectedPlanet = null;
+    currentTarget = [obj.ra, obj.dec];
+    createMarker();
+    trackMarker();
+    const pt = Celestial.mapProjection(currentTarget);
+    if (pt) {
+      createStarSearchLabel(obj.name, pt[0], pt[1]);
+    }
+    return;
+  }
+
+  // ☄️ COMET
+  if (obj.type === "comet") {
+    lastSelectedPlanet = null;
+    const term = (obj.name || "").toLowerCase();
+    const comet = obj.cometData || COMETS_DATA.find(c =>
+      (c.name && c.name.toLowerCase().includes(term)) ||
+      (c.displayName && c.displayName.toLowerCase().includes(term)) ||
+      (c.designation && c.designation.toLowerCase().includes(term)) ||
+      (c.id && c.id.toLowerCase() === term)
+    );
+
+    if (!comet) {
+      alert("Comet not found.");
+      return;
+    }
+
+    const pos = getCometPosition(comet, skyTime, observer);
+    if (!pos) {
+      alert("Unable to calculate comet position.");
+      return;
     }
 
     const raDeg = pos[0] * 15;
-    const dec   = pos[1];
+    const decDeg = pos[1];
+    const distAU = pos[2];
+    const altDeg = pos[3];
+    const azDeg = pos[4];
+    const magVal = pos[5];
 
-    // 🔥 SET TARGET FIRST
-    currentTarget = [raDeg, dec];
-
-    smoothRotate(currentTarget, 1000).then(() => {
-
-        isRotating = false;
-
-        createMarker();
-        
-        trackMarker();
-
-    });
-
+    currentTarget = [raDeg, decDeg];
+    selectedObject = {
+      type: "comet",
+      name: comet.displayName || comet.name,
+      displayName: comet.displayName || comet.name,
+      designation: comet.designation || comet.name,
+      id: comet.id || comet.name,
+      ra: raDeg,
+      dec: decDeg,
+      altitude: altDeg,
+      azimuth: azDeg,
+      distanceAU: distAU,
+      magnitude: magVal,
+      period: comet.period || "N/A",
+      nextPerihelion: comet.nextPerihelion || "N/A",
+      description: comet.description || "",
+      cometData: comet
+    };
+    searchedObjectName = comet.displayName || comet.name;
+    updateDynamicInfo();
+    createMarker();
+    trackMarker();
     return;
-}
+  }
 
-
-// ⭐ CONSTELLATION
-if (obj.type === "constellation") {
-
+  // 🪨 ASTEROID
+  if (obj.type === "asteroid") {
     lastSelectedPlanet = null;
-    isRotating = true;
+    const term = (obj.name || "").toLowerCase();
+    const numTerm = (obj.number || "").toLowerCase();
+    const desigTerm = (obj.designation || "").toLowerCase();
 
-    // 🔥 SET TARGET FIRST
-    currentTarget = [obj.ra, obj.dec];
+    // Priority search: Exact match > Designation > Number > Partial match
+    const asteroid = obj.asteroidData || ASTEROIDS_DATA.find(a =>
+      (a.name && a.name.toLowerCase() === term) ||
+      (a.displayName && a.displayName.toLowerCase() === term) ||
+      (a.designation && a.designation.toLowerCase() === desigTerm) ||
+      (a.number && String(a.number).toLowerCase() === numTerm) ||
+      (a.id && a.id.toLowerCase() === term)
+    ) || ASTEROIDS_DATA.find(a =>
+      (a.name && a.name.toLowerCase().includes(term)) ||
+      (a.displayName && a.displayName.toLowerCase().includes(term)) ||
+      (a.designation && a.designation.toLowerCase().includes(term))
+    );
 
-    smoothRotate(currentTarget, 1000).then(() => {
+    if (!asteroid) {
+      alert("Asteroid not found.");
+      return;
+    }
 
-        isRotating = false;
+    const pos = getAsteroidPosition(asteroid, skyTime, observer);
+    if (!pos) {
+      alert("Unable to calculate asteroid position.");
+      return;
+    }
 
-        createMarker();
-        
-        trackMarker();
+    const raDeg = pos[0] * 15;
+    const decDeg = pos[1];
+    const distAU = pos[2];
+    const altDeg = pos[3];
+    const azDeg = pos[4];
+    const magVal = pos[5];
 
-    });
-
+    currentTarget = [raDeg, decDeg];
+    selectedObject = {
+      type: "asteroid",
+      name: asteroid.displayName || asteroid.name,
+      displayName: asteroid.displayName || asteroid.name,
+      designation: asteroid.designation || "N/A",
+      number: asteroid.number || asteroid.asteroidNumber || "N/A",
+      id: asteroid.id || asteroid.name,
+      ra: raDeg,
+      dec: decDeg,
+      altitude: altDeg,
+      azimuth: azDeg,
+      distanceAU: distAU,
+      magnitude: magVal,
+      diameter: asteroid.diameter !== undefined ? asteroid.diameter : "N/A",
+      spectralType: asteroid.spectralType || "N/A",
+      rotationPeriod: asteroid.rotationPeriod || "N/A",
+      period: asteroid.orbitalPeriod || "N/A",
+      orbitClass: asteroid.orbitClass || "Main Belt",
+      discoveryDate: asteroid.discoveryDate || "N/A",
+      discoveredBy: asteroid.discoveredBy || "N/A",
+      description: asteroid.description || "",
+      asteroidData: asteroid
+    };
+    console.log("ASTEROID OBJECT:", selectedObject);
+    console.log("TYPE =", selectedObject.type);
+    searchedObjectName = asteroid.displayName || asteroid.name;
+    updateObjectInfo(selectedObject);
+    updateDynamicInfo();
+    createMarker();
+    trackMarker();
     return;
-}
-
-
-// ⭐ STAR
-if (obj.type === "star") {
-
-    lastSelectedPlanet = null;
-    isRotating = true;
-
-    // 🔥 SET TARGET FIRST
-    currentTarget = [obj.ra, obj.dec];
-
-    smoothRotate(currentTarget, 1000).then(() => {
-
-        isRotating = false;
-
-        createMarker();
-        
-        trackMarker();
-
-        const pt = Celestial.mapProjection(currentTarget);
-
-        if (pt) {
-
-            createStarSearchLabel(
-                obj.name,
-                pt[0],
-                pt[1]
-            );
-
-        }
-
-    });
-
-    return;
-}
+  }
 }
 function smoothRotate(target, duration = 1000) {
-    return new Promise(resolve => {
-        isRotating = true;
-        
-        // Utilize D3-celestial's native transition system for smooth, hardware-accelerated movement
-        Celestial.rotate({
-            center: target,
-            duration: duration
-        });
 
-        setTimeout(() => {
-            isRotating = false;
-            resolve();
-        }, duration + 50);
+  return new Promise(resolve => {
+    isRotating = true;
+
+    // Preserve the current camera roll (rotation heading)
+    const currentCenter = Celestial.rotate();
+    const roll = (currentCenter && currentCenter.length > 2) ? currentCenter[2] : 0;
+    const targetWithRoll = [target[0], target[1], roll];
+
+    // Utilize D3-celestial's native transition system for smooth, hardware-accelerated movement
+    Celestial.rotate({
+      center: targetWithRoll,
+      duration: duration
     });
+
+    setTimeout(() => {
+      isRotating = false;
+      resolve();
+    }, duration + 50);
+  });
 }
 
 
@@ -2799,9 +3893,10 @@ function applySkyTime() {
 
   skyTime = new Date(input.value);
 
-selectedObject = selectedObject;
+  selectedObject = selectedObject;
 
-updateDynamicInfo();
+  updateDynamicInfo();
+  _updateSimTimeUI();
 
   // 🔥 CLEAR LABELS
   if (starLabel) {
@@ -2815,10 +3910,10 @@ updateDynamicInfo();
   }
 
   // 🔥 REAL SKY DATE
- // 🔥 Update sky date only
-Celestial.skyview({
+  // 🔥 Update sky date only
+  Celestial.skyview({
     date: skyTime
-});
+  });
 
 }
 function createStarSearchLabel(name, x, y) {
@@ -2852,7 +3947,7 @@ function createStarSearchLabel(name, x, y) {
 
   // 🎯 POSITION
   label.style.left = x + "px";
-  label.style.top  = y + "px";
+  label.style.top = y + "px";
 
   label.style.transform =
     "translate(-50%, -120%)";
@@ -2866,17 +3961,15 @@ function createStarSearchLabel(name, x, y) {
 
 function updatePlanetLabelPositions(projChanged) {
 
-    if (!projChanged) return;
-
   planetLabels.forEach(p => {
 
-    const pos =
-      getPlanetPosition(p.name, skyTime);
-
+    const pos = getPlanetPosition(p.name, skyTime);
     if (!pos) return;
 
+
+
     const raDeg = pos[0] * 15;
-    const dec   = pos[1];
+    const dec = pos[1];
 
     let pt = null;
     try {
@@ -2884,15 +3977,12 @@ function updatePlanetLabelPositions(projChanged) {
         raDeg,
         dec
       ]);
-    } catch(e) {}
+    } catch (e) { }
 
     if (!pt) return;
 
-    p.el.style.left =
-      (pt[0] + 10) + "px";
-
-    p.el.style.top =
-      (pt[1] - 10) + "px";
+    p.el.style.left = (pt[0] + 3) + "px";
+    p.el.style.top = (pt[1] - 3) + "px";
   });
 }
 
@@ -2904,7 +3994,7 @@ function createPlanetLabel(name, pt) {
   }
 
   const container = document.getElementById("skyContainer");
-  
+
 
   const label = document.createElement("div");
   label.className = "planet-label";
@@ -2913,48 +4003,48 @@ function createPlanetLabel(name, pt) {
   label.style.color =
     planetLabelColors[name.toLowerCase()] || "#ffffff";
 
-    // 👇 YE ADD KARO
-label.style.fontSize = "18px";
-label.style.fontWeight = "700";
-label.style.whiteSpace = "nowrap";
+  // 👇 YE ADD KARO
+  label.style.fontSize = "18px";
+  label.style.fontWeight = "700";
+  label.style.whiteSpace = "nowrap";
 
-// 🌟 Glow strength by planet
-const glow =
-(
-    fullName || name
-).toLowerCase();
+  // 🌟 Glow strength by planet
+  const glow =
+    (
+      fullName || name
+    ).toLowerCase();
 
-if(
-    glow==="sun" ||
-    glow==="moon"
-){
-
-    label.style.textShadow =
-    "0 0 3px currentColor,0 0 6px currentColor,0 0 10px currentColor";
-
-}
-else if(glow==="venus"){
+  if (
+    glow === "sun" ||
+    glow === "moon"
+  ) {
 
     label.style.textShadow =
-    "0 0 3px currentColor,0 0 6px currentColor";
+      "0 0 3px currentColor,0 0 6px currentColor,0 0 10px currentColor";
 
-}
-else{
+  }
+  else if (glow === "venus") {
 
     label.style.textShadow =
-    "0 0 2px currentColor,0 0 4px currentColor";
+      "0 0 3px currentColor,0 0 6px currentColor";
 
-}
+  }
+  else {
 
-label.style.zIndex = "30"; 
+    label.style.textShadow =
+      "0 0 2px currentColor,0 0 4px currentColor";
+
+  }
+
+  label.style.zIndex = "30";
   label.style.position = "absolute";
   label.style.fontSize = "18px";
   label.style.fontWeight = "bold";
   label.style.zIndex = "9999";
 
   // 🔥 OFFSET FIX
- label.style.left = (pt[0] + 3) + "px";
-label.style.top  = (pt[1] - 3) + "px";
+  label.style.left = (pt[0] + 3) + "px";
+  label.style.top = (pt[1] - 3) + "px";
   document.getElementById("skyContainer").appendChild(label); // 🔥 CHANGE HERE
 
   planetLabel = label;
@@ -2982,52 +4072,52 @@ function createAllPlanetLabels() {
     const rect = document.getElementById("skyContainer").getBoundingClientRect();
 
     const label = document.createElement("div");
-    label.className = "planet-label"; 
+    label.className = "planet-label";
     label.innerText = fullName;
     label.className = "planet-label";
 
-label.style.whiteSpace = "nowrap";
-label.style.display = "inline-block";
+    label.style.whiteSpace = "nowrap";
+    label.style.display = "inline-block";
 
     label.style.position = "absolute";
     label.style.color =
-    planetLabelColors[fullName.toLowerCase()] || "#ffffff";
+      planetLabelColors[fullName.toLowerCase()] || "#ffffff";
     // 👇 YE ADD KARO
-label.style.fontSize = "18px";
-label.style.fontWeight = "700";
-label.style.whiteSpace = "nowrap";
+    label.style.fontSize = "18px";
+    label.style.fontWeight = "700";
+    label.style.whiteSpace = "nowrap";
 
-const glow =
-(
-    fullName || name
-).toLowerCase();
+    const glow =
+      (
+        fullName || name
+      ).toLowerCase();
 
-if(
-    glow==="sun" ||
-    glow==="moon"
-){
+    if (
+      glow === "sun" ||
+      glow === "moon"
+    ) {
 
-    label.style.textShadow =
-    "0 0 3px currentColor,0 0 6px currentColor,0 0 10px currentColor";
+      label.style.textShadow =
+        "0 0 3px currentColor,0 0 6px currentColor,0 0 10px currentColor";
 
-}
-else if(glow==="venus"){
+    }
+    else if (glow === "venus") {
 
-    label.style.textShadow =
-    "0 0 3px currentColor,0 0 6px currentColor";
+      label.style.textShadow =
+        "0 0 3px currentColor,0 0 6px currentColor";
 
-}
-else{
+    }
+    else {
 
-    label.style.textShadow =
-    "0 0 2px currentColor,0 0 4px currentColor";
+      label.style.textShadow =
+        "0 0 2px currentColor,0 0 4px currentColor";
 
-}
+    }
     label.style.fontSize = "18px";
     label.style.zIndex = "20";
 
     label.style.left = (pt[0] + 3) + "px";
-label.style.top  = (pt[1] - 3) + "px";
+    label.style.top = (pt[1] - 3) + "px";
 
     document.getElementById("skyContainer").appendChild(label);
 
@@ -3057,16 +4147,16 @@ function createDSOSearchLabel(name, x, y) {
 
   const alreadyVisible = svgTexts.some(el => {
 
-  const txt =
-    el.textContent
-      .toLowerCase()
-      .replace(/\s+/g, "");
+    const txt =
+      el.textContent
+        .toLowerCase()
+        .replace(/\s+/g, "");
 
-  return (
-    txt === cleanName ||
-    txt.startsWith(cleanName)
-  );
-});
+    return (
+      txt === cleanName ||
+      txt.startsWith(cleanName)
+    );
+  });
 
   // 🔥 ALREADY ON MAP
   if (alreadyVisible) return;
@@ -3087,7 +4177,7 @@ function createDSOSearchLabel(name, x, y) {
 
   // 🔥 PERFECT POSITION
   label.style.left = x + "px";
-  label.style.top  = y + "px";
+  label.style.top = y + "px";
 
   label.style.transform =
     "translate(-50%, -120%)";
@@ -3146,16 +4236,16 @@ async function fetchObjectInfo(objectName) {
 
   try {
 
+
+
     const response = await fetch(
       `https://en.wikipedia.org/api/rest_v1/page/summary/${objectName}`
     );
 
     console.log(response.status);
-console.log(await response.clone().text());
+    console.log(await response.clone().text());
 
     const data = await response.json();
-
-    
 
     document.getElementById(
       "info-ai"
@@ -3167,7 +4257,7 @@ console.log(await response.clone().text());
 
   }
 
-  catch(err) {
+  catch (err) {
 
     console.log(err);
 
@@ -3178,266 +4268,804 @@ console.log(await response.clone().text());
       "Information fetch failed.";
   }
 }
-function updateObjectInfo(obj) {
-  
-  currentAIObject = obj;
 
-  const cleanName =
-    obj.name.toLowerCase();
+// ================= 🔭 TELESCOPE MANAGER =================
+const TelescopeManager = {
+  enabled: false,
+  eyepieceFov: 0.5,
+  crosshairStyle: "standard",
+  showFinderRing: true,
+  nightVision: false,
+  initialized: false,
 
-  // 🔥 NAME
-  document.getElementById(
-    "info-name"
-  ).innerText =
-    obj.name.toUpperCase();
+  init() {
+    const toggleBtn = document.getElementById("toggle-telescope-btn");
+    const toggleNightBtn = document.getElementById("toggle-night-btn");
+    const hud = document.getElementById("telescope-hud");
+    const overlay = document.getElementById("telescope-overlay");
+    const closeHudBtn = document.getElementById("close-hud-btn");
 
-  // 🔥 TYPE
-  document.getElementById(
-    "info-type"
-  ).innerText =
-    "Type: " + obj.type;
+    const hudEyepiece = document.getElementById("hud-eyepiece-select");
+    const hudCrosshair = document.getElementById("hud-crosshair-select");
+    const hudFinder = document.getElementById("hud-finder-toggle");
 
-  // 🔥 RA/DEC NOW HANDLED
-  // BY updateDynamicInfo()
+    const settingsToggles = {
+      mode: document.getElementById("settings-telescope-toggle"),
+      eyepiece: document.getElementById("settings-eyepiece-select"),
+      crosshair: document.getElementById("settings-crosshair-select"),
+      finder: document.getElementById("settings-finder-toggle"),
+      night: document.getElementById("settings-night-toggle")
+    };
 
-  document.getElementById(
-    "info-ra"
-  ).innerText = "";
+    const syncUI = () => {
+      if (toggleBtn) {
+        toggleBtn.classList.toggle("active", this.enabled);
+        toggleBtn.innerHTML = this.enabled ? "🔭 Active" : "🔭 Telescope Mode";
+      }
+      if (toggleNightBtn) {
+        toggleNightBtn.innerHTML = this.nightVision ? "🔴 Active" : "🔴 Night Vision";
+      }
 
-  document.getElementById(
-    "info-dec"
-  ).innerText = "";
+      if (hud) hud.classList.toggle("hidden", !this.enabled);
+      if (overlay) overlay.classList.toggle("hidden", !this.enabled);
 
-  // 🔥 DESCRIPTION
+      if (hudEyepiece) hudEyepiece.value = this.eyepieceFov;
+      if (hudCrosshair) hudCrosshair.value = this.crosshairStyle;
+      if (hudFinder) hudFinder.checked = this.showFinderRing;
 
-  document.getElementById(
-  "info-mag"
-).innerText =
+      if (settingsToggles.mode) settingsToggles.mode.checked = this.enabled;
+      if (settingsToggles.eyepiece) settingsToggles.eyepiece.value = this.eyepieceFov;
+      if (settingsToggles.crosshair) settingsToggles.crosshair.value = this.crosshairStyle;
+      if (settingsToggles.finder) settingsToggles.finder.checked = this.showFinderRing;
+      if (settingsToggles.night) settingsToggles.night.checked = this.nightVision;
 
-  "Magnitude: " +
-  (obj.mag || "N/A");
+      document.body.classList.toggle("night-vision-active", this.nightVision);
 
-document.getElementById(
-  "info-constellation"
-).innerText =
+      const crosshairContainer = document.querySelector(".eyepiece-crosshair");
+      if (crosshairContainer) {
+        if (this.crosshairStyle === "off") {
+          crosshairContainer.style.display = "none";
+        } else {
+          crosshairContainer.style.display = "block";
+          const chCircle = crosshairContainer.querySelector(".ch-circle");
+          if (chCircle) {
+            chCircle.style.display = this.crosshairStyle === "reticle" ? "block" : "none";
+          }
+        }
+      }
 
-  "Constellation: " +
-  (obj.constellation || "N/A");
+      const outerRing = document.querySelector(".fov-ring-outer");
+      if (outerRing) {
+        outerRing.style.display = this.showFinderRing ? "block" : "none";
+      }
 
-document.getElementById(
-  "info-size"
-).innerText =
+      if (this.enabled) {
+        let targetZoom = 1;
+        if (this.eyepieceFov === 1.0) targetZoom = 1.5;
+        else if (this.eyepieceFov === 0.5) targetZoom = 3.0;
+        else if (this.eyepieceFov === 0.25) targetZoom = 6.0;
 
-  "Size: " +
-  (obj.size || "N/A");
+        const zoomInput = document.getElementById("sky-zoom");
+        if (zoomInput) {
+          zoomInput.value = targetZoom;
+          zoomInput.dispatchEvent(new Event("input"));
+        }
+      }
+    };
 
-let structure =
-  obj.morph || "N/A";
+    if (toggleBtn) {
+      toggleBtn.addEventListener("click", () => {
+        this.enabled = !this.enabled;
+        syncUI();
+      });
+    }
 
-const morphMap = {
+    if (toggleNightBtn) {
+      toggleNightBtn.addEventListener("click", () => {
+        this.nightVision = !this.nightVision;
+        syncUI();
+      });
+    }
 
-  // 🌌 SPIRAL
-  "SA(s)b":
-    "Spiral Galaxy",
+    if (closeHudBtn) {
+      closeHudBtn.addEventListener("click", () => {
+        this.enabled = false;
+        syncUI();
+      });
+    }
 
-  "SA(s)cd":
-    "Spiral Galaxy",
+    if (hudEyepiece) {
+      hudEyepiece.addEventListener("change", (e) => {
+        this.eyepieceFov = parseFloat(e.target.value);
+        syncUI();
+      });
+    }
 
-  "SA(s)c":
-    "Spiral Galaxy",
+    if (hudCrosshair) {
+      hudCrosshair.addEventListener("change", (e) => {
+        this.crosshairStyle = e.target.value;
+        syncUI();
+      });
+    }
 
-  "SA(s)a":
-    "Spiral Galaxy",
+    if (hudFinder) {
+      hudFinder.addEventListener("change", (e) => {
+        this.showFinderRing = e.target.checked;
+        syncUI();
+      });
+    }
 
-  "SBa":
-    "Barred Spiral Galaxy",
+    if (settingsToggles.mode) {
+      settingsToggles.mode.addEventListener("change", (e) => {
+        this.enabled = e.target.checked;
+        syncUI();
+      });
+    }
+    if (settingsToggles.eyepiece) {
+      settingsToggles.eyepiece.addEventListener("change", (e) => {
+        this.eyepieceFov = parseFloat(e.target.value);
+        syncUI();
+      });
+    }
+    if (settingsToggles.crosshair) {
+      settingsToggles.crosshair.addEventListener("change", (e) => {
+        this.crosshairStyle = e.target.value;
+        syncUI();
+      });
+    }
+    if (settingsToggles.finder) {
+      settingsToggles.finder.addEventListener("change", (e) => {
+        this.showFinderRing = e.target.checked;
+        syncUI();
+      });
+    }
+    if (settingsToggles.night) {
+      settingsToggles.night.addEventListener("change", (e) => {
+        this.nightVision = e.target.checked;
+        syncUI();
+      });
+    }
+  },
 
-  "SBb":
-    "Barred Spiral Galaxy",
+  updateRings() {
+    if (!this.enabled || !Celestial.mapProjection) return;
 
-  "SBc":
-    "Barred Spiral Galaxy",
+    const scale = Celestial.mapProjection.scale();
+    const pxPerDegree = scale * (Math.PI / 180);
 
-  "SB(s)m":
-    "Barred Spiral Galaxy",
+    const rings = {
+      "outer": 4.0,
+      "1.0": 1.0,
+      "0.5": 0.5,
+      "0.25": 0.25
+    };
 
-  "SB(s)c":
-    "Barred Spiral Galaxy",
+    for (const fov in rings) {
+      const ringEl = document.querySelector(`.fov-ring-` + fov.replace(".", "\\."));
+      if (ringEl) {
+        const diam = Math.round(2 * rings[fov] * pxPerDegree);
+        ringEl.style.width = diam + "px";
+        ringEl.style.height = diam + "px";
+      }
+    }
 
-  "SB(s)b":
-    "Barred Spiral Galaxy",
-
-  "SB(rs)b":
-    "Barred Spiral Galaxy",
-
-  "SAB":
-    "Intermediate Spiral Galaxy",
-
-  // 🌌 ELLIPTICAL
-  "E0":
-    "Elliptical Galaxy",
-
-  "E1":
-    "Elliptical Galaxy",
-
-  "E2":
-    "Elliptical Galaxy",
-
-  "E3":
-    "Elliptical Galaxy",
-
-  "E4":
-    "Elliptical Galaxy",
-
-  "E5":
-    "Elliptical Galaxy",
-
-  "E6":
-    "Elliptical Galaxy",
-
-  "E7":
-    "Elliptical Galaxy",
-
-  // 🌌 IRREGULAR
-  "Irr":
-    "Irregular Galaxy",
-
-  "dIrr":
-    "Dwarf Irregular Galaxy",
-
-  // 🌟 OPEN CLUSTERS
-  "I2m":
-    "Open Star Cluster",
-
-  "II2r":
-    "Open Star Cluster",
-
-  "III2p":
-    "Open Star Cluster",
-
-  "III1m":
-    "Open Star Cluster",
-
-  // 🌟 GLOBULAR
-  "III":
-    "Globular Cluster",
-
-  "IV":
-    "Globular Cluster",
-
-  "V":
-    "Globular Cluster",
-
-  // ☁️ NEBULAE
-  "HII":
-    "Emission Nebula",
-
-  "SNR":
-    "Supernova Remnant"
+    const maskEl = document.querySelector(".eyepiece-mask");
+    if (maskEl) {
+      maskEl.style.width = "450px";
+      maskEl.style.height = "450px";
+    }
+  }
 };
 
-if (
-  morphMap[structure]
-) {
+// ================= 🔍 ADVANCED SEARCH MANAGER =================
+const SearchManager = {
+  category: "all",
+  historyKey: "astro_search_history",
+  favoritesKey: "astro_favorites",
+  initialized: false,
 
-  structure =
-    morphMap[structure];
-}
+  init() {
+    const searchBox = document.getElementById("searchBox");
+    const suggestionsPanel = document.getElementById("search-suggestions");
+    const catButtons = document.querySelectorAll(".search-cat-btn");
+    const favBtn = document.getElementById("toggle-favorite-btn");
 
-document.getElementById(
-  "info-morph"
-).innerText =
+    if (!searchBox || !suggestionsPanel) return;
 
-  "Structure: " +
-  structure;
+    catButtons.forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        catButtons.forEach(b => {
+          b.classList.remove("active");
+          b.style.background = "rgba(255,255,255,0.05)";
+          b.style.color = "#ccc";
+          b.style.borderColor = "rgba(255,255,255,0.1)";
+          b.style.fontWeight = "normal";
+        });
+        btn.classList.add("active");
+        btn.style.background = "rgba(0,255,255,0.15)";
+        btn.style.color = "cyan";
+        btn.style.borderColor = "rgba(0,255,255,0.3)";
+        btn.style.fontWeight = "bold";
+        this.category = btn.getAttribute("data-cat");
+        this.updateSuggestions();
+      });
+    });
 
+    searchBox.addEventListener("focus", () => {
+      SearchManager.updateSuggestions();
+    });
 
-// 🪐 PLANETS
-let temperature = "N/A";
+    document.addEventListener("click", (e) => {
+      if (!searchBox.contains(e.target) && !suggestionsPanel.contains(e.target)) {
+        suggestionsPanel.classList.add("hidden");
+      }
+    });
 
-// 🪐 PLANETS
-const planetTemps = {
+    searchBox.addEventListener("input", () => {
+      SearchManager.updateSuggestions();
+    });
 
-  mercury: "440K",
+    if (favBtn) {
+      favBtn.addEventListener("click", () => {
+        if (selectedObject) {
+          SearchManager.toggleFavorite(selectedObject);
+          SearchManager.updateFavoriteButton();
+        }
+      });
+    }
+  },
 
-  venus: "737K",
+  getHistory() {
+    try {
+      let history = JSON.parse(localStorage.getItem(this.historyKey));
+      if (!history || history.length === 0) {
+        history = [
+          { name: "jupiter", type: "planet", fullName: "Jupiter" },
+          { name: "saturn", type: "planet", fullName: "Saturn" },
+          { name: "m31", type: "dso", fullName: "Andromeda Galaxy (M31)" }
+        ];
+      }
+      return history;
+    } catch (_) {
+      return [
+        { name: "jupiter", type: "planet", fullName: "Jupiter" },
+        { name: "saturn", type: "planet", fullName: "Saturn" },
+        { name: "m31", type: "dso", fullName: "Andromeda Galaxy (M31)" }
+      ];
+    }
+  },
 
-  earth: "288K",
+  addHistory(obj) {
+    try {
+      let history = this.getHistory();
+      history = history.filter(o => o.name.toLowerCase() !== obj.name.toLowerCase());
+      history.unshift({ name: obj.name, type: obj.type, fullName: obj.fullName || obj.name });
+      if (history.length > 5) history.pop();
+      localStorage.setItem(this.historyKey, JSON.stringify(history));
+    } catch (e) {
+      console.error("Failed to save search history:", e);
+    }
+  },
 
-  mars: "210K",
+  addHistory(obj) {
+    let history = this.getHistory();
+    history = history.filter(o => o.name !== obj.name);
+    history.unshift({ name: obj.name, type: obj.type, fullName: obj.fullName || obj.name });
+    if (history.length > 5) history.pop();
+    localStorage.setItem(this.historyKey, JSON.stringify(history));
+  },
 
-  jupiter: "165K",
+  getFavorites() {
+    try {
+      return JSON.parse(localStorage.getItem(this.favoritesKey)) || [];
+    } catch (_) {
+      return [];
+    }
+  },
 
-  saturn: "134K",
+  toggleFavorite(obj) {
+    let favorites = this.getFavorites();
+    const isFav = favorites.some(o => o.name === obj.name);
+    if (isFav) {
+      favorites = favorites.filter(o => o.name !== obj.name);
+    } else {
+      favorites.push({ name: obj.name, type: obj.type, fullName: obj.fullName || obj.name });
+    }
+    localStorage.setItem(this.favoritesKey, JSON.stringify(favorites));
+  },
 
-  uranus: "76K",
+  isFavorite(name) {
+    return this.getFavorites().some(o => o.name.toLowerCase() === name.toLowerCase());
+  },
 
-  neptune: "72K",
+  updateFavoriteButton() {
+    const favBtn = document.getElementById("toggle-favorite-btn");
+    if (!favBtn || !selectedObject) return;
+    const isFav = this.isFavorite(selectedObject.name);
+    favBtn.innerHTML = isFav ? "⭐ Favorite Object" : "☆ Add to Favorites";
+    favBtn.style.borderColor = isFav ? "rgba(255,215,0,0.5) !important" : "rgba(0, 255, 255, 0.3) !important";
+    favBtn.style.color = isFav ? "gold !important" : "cyan !important";
+    favBtn.style.background = isFav ? "rgba(255,215,0,0.1) !important" : "rgba(0, 255, 255, 0.1) !important";
+  },
 
-  pluto: "44K",
+  getRank(query, obj) {
+    const q = query.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const name = String(obj.name || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+    const id = String(obj.id || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+    const fullName = String(obj.fullName || "").toLowerCase().replace(/[^a-z0-9]/g, "");
 
-  moon: "220K",
+    // Check if query matches a starNameMap alias (e.g. "sirius" → "hd48915")
+    const aliasTarget = starNameMap[query.toLowerCase().trim()];
+    const aliasNorm = aliasTarget ? aliasTarget.toLowerCase().replace(/[^a-z0-9]/g, "") : null;
+    if (aliasNorm && (name === aliasNorm || id === aliasNorm)) return 1;
 
-  sun: "5778K"
+    if (name === q || id === q || fullName === q) return 1;
+    if (name.startsWith(q) || id.startsWith(q) || fullName.startsWith(q)) return 2;
+    if (name.includes(q) || id.includes(q) || fullName.includes(q)) return 3;
+
+    let i = 0, j = 0;
+    while (i < q.length && j < name.length) {
+      if (q[i] === name[j]) i++;
+      j++;
+    }
+    if (i === q.length) return 4;
+
+    return 100;
+  },
+
+  updateSuggestions() {
+    const searchBox = document.getElementById("searchBox");
+    const suggestionsPanel = document.getElementById("search-suggestions");
+    if (!searchBox || !suggestionsPanel) return;
+
+    const query = searchBox.value.trim().toLowerCase();
+    const history = this.getHistory(); // Array of { name, type, fullName }
+
+    // Filter history based on typed query (if any)
+    let filtered = history;
+    if (query) {
+      filtered = history.filter(h =>
+        h.name.toLowerCase().includes(query) ||
+        (h.fullName && h.fullName.toLowerCase().includes(query))
+      );
+    }
+
+    // Limit to only 2-3 previous searched objects
+    const displayList = filtered.slice(0, 3);
+
+    if (displayList.length === 0) {
+      suggestionsPanel.innerHTML = "";
+      suggestionsPanel.classList.add("hidden");
+      return;
+    }
+
+    let html = "";
+    displayList.forEach(h => {
+      html += `
+        <div class="suggestion-item" data-name="${h.name}">
+          <span>🕒 ${h.fullName || h.name}</span>
+          <span class="type">${h.type}</span>
+        </div>
+      `;
+    });
+
+    suggestionsPanel.innerHTML = html;
+    suggestionsPanel.classList.remove("hidden");
+
+    // Bind click events on suggestions
+    const items = suggestionsPanel.querySelectorAll(".suggestion-item");
+    items.forEach(item => {
+      item.addEventListener("click", () => {
+        const name = item.getAttribute("data-name");
+        searchBox.value = name;
+        suggestionsPanel.classList.add("hidden");
+        searchObject();
+      });
+    });
+  },
+
+  bindSuggestionClicks() {
+    const items = document.querySelectorAll(".suggestion-item");
+    const searchBox = document.getElementById("searchBox");
+    const suggestionsPanel = document.getElementById("search-suggestions");
+
+    items.forEach(item => {
+      item.addEventListener("click", () => {
+        const name = item.getAttribute("data-name");
+        if (searchBox) searchBox.value = name;
+        if (suggestionsPanel) suggestionsPanel.classList.add("hidden");
+        searchObject();
+      });
+    });
+  }
 };
 
-// 🪐 PLANETS
-if (
-  obj.type === "planet"
-) {
+// ================= 📚 RICH CELESTIAL OBJECT DATABASE =================
+const objectFacts = {
+  sun: { dist: "1.00 AU (~149.6 Million km)", desc: "The star at the center of the Solar System. It is a nearly perfect sphere of hot plasma, heated to incandescence by nuclear fusion reactions in its core." },
+  moon: { dist: "0.00257 AU (~384,400 km)", desc: "Earth's only natural satellite. It is the fifth-largest satellite in the Solar System and the largest relative to the size of its parent planet." },
+  mercury: { desc: "The smallest and closest planet to the Sun in the Solar System. It has no natural satellites and has an extremely thin atmosphere." },
+  venus: { desc: "The second planet from the Sun. It has the densest atmosphere of all the terrestrial planets, consisting of more than 96% carbon dioxide." },
+  earth: { dist: "0.00 AU (Observer)", desc: "Our home planet, and the only astronomical object known to harbor life. It is the densest of the eight planets in the Solar System." },
+  mars: { desc: "The fourth planet from the Sun, often referred to as the 'Red Planet' due to the iron oxide prevalent on its surface." },
+  jupiter: { desc: "The fifth planet from the Sun and the largest in the Solar System. It is a gas giant with a mass more than two and a half times that of all the other planets combined." },
+  saturn: { desc: "The sixth planet from the Sun and the second-largest in the Solar System. It is famous for its extensive and beautiful ring system." },
+  uranus: { desc: "The seventh planet from the Sun. It has the third-largest planetary radius and fourth-largest planetary mass in the Solar System." },
+  neptune: { desc: "The eighth and farthest-known Solar planet from the Sun. It is the densest giant planet and is slightly more massive than Uranus." },
+  pluto: { desc: "A dwarf planet in the Kuiper belt, a ring of bodies beyond the orbit of Neptune. It was the first Kuiper belt object to be discovered." },
+  sirius: { dist: "8.6 light-years", desc: "The brightest star in the night sky. Also known as the 'Dog Star', it is a binary star system in the constellation Canis Major." },
+  canopus: { dist: "310 light-years", desc: "The second-brightest star in the night sky. It is a giant star of spectral type F located in the constellation Carina." },
+  arcturus: { dist: "37 light-years", desc: "A red giant star in the Northern Hemisphere. It is the fourth-brightest star in the night sky and the brightest in the constellation Boötes." },
+  vega: { dist: "25 light-years", desc: "The fifth-brightest star in the night sky. It is a blue-white main-sequence star in the constellation Lyra." },
+  capella: { dist: "42.9 light-years", desc: "The brightest star in the constellation Auriga. It is a quadruple star system consisting of two bright yellow giant binary pairs." },
+  rigel: { dist: "860 light-years", desc: "A blue supergiant star in the constellation Orion. It is the seventh-brightest star in the night sky and is highly luminous." },
+  procyon: { dist: "11.4 light-years", desc: "The brightest star in the constellation Canis Minor. It is a binary star system consisting of a white main-sequence star and a white dwarf." },
+  betelgeuse: { dist: "640 light-years", desc: "A red supergiant star in the constellation Orion. It is one of the largest stars visible to the naked eye and is semiregular variable." },
+  altair: { dist: "16.7 light-years", desc: "The brightest star in the constellation Aquila. It is an A-type main-sequence star that rotates rapidly, flattening its poles." },
+  aldebaran: { dist: "65 light-years", desc: "A red giant star in the constellation Taurus. It is the fourteenth-brightest star in the night sky and is the 'eye' of the Bull." },
+  spica: { dist: "250 light-years", desc: "The brightest star in the constellation Virgo. It is a close binary star system whose components orbit each other every 4 days." },
+  antares: { dist: "550 light-years", desc: "A red supergiant star in the constellation Scorpius. It is the fifteenth-brightest star and is often called the 'heart of the scorpion'." },
+  pollux: { dist: "34 light-years", desc: "An orange-hued giant star in the constellation Gemini. It is the closest giant star to the Sun and has an orbiting extrasolar planet." },
+  castor: { dist: "51 light-years", desc: "The second-brightest object in the constellation Gemini. It is a sextuple star system composed of three visual binary pairs." },
+  fomalhaut: { dist: "25 light-years", desc: "The brightest star in the constellation Piscis Austrinus. It is a young main-sequence star surrounded by a prominent debris disk." },
+  deneb: { dist: "2,600 light-years", desc: "A blue supergiant star in the constellation Cygnus. It is the nineteenth-brightest star and marks the tail of the Swan." },
+  regulus: { dist: "79 light-years", desc: "The brightest star in the constellation Leo. It is a multiple star system consisting of four stars organized into two pairs." },
+  m31: { dist: "2.54 Million light-years", desc: "The Andromeda Galaxy. It is a barred spiral galaxy and the nearest major galaxy to the Milky Way, containing over 1 trillion stars." },
+  m42: { dist: "1,344 light-years", desc: "The Orion Nebula. It is a diffuse nebula situated in the Milky Way, south of Orion's Belt, and is one of the brightest stellar nurseries." },
+  m45: { dist: "444 light-years", desc: "The Pleiades open star cluster. Also known as the Seven Sisters, it is one of the nearest and most visually stunning star clusters to Earth." },
+  m1: { dist: "6,500 light-years", desc: "The Crab Nebula. It is a supernova remnant in the constellation Taurus, created by a stellar explosion documented by astronomers in 1054." },
+  m51: { dist: "23 Million light-years", desc: "The Whirlpool Galaxy. It is a classic spiral galaxy in the constellation Canes Venatici, interacting with a smaller companion dwarf galaxy." },
+  m13: { dist: "22,200 light-years", desc: "The Hercules Globular Cluster. It is a globular cluster of about 300,000 stars in the constellation of Hercules." },
+  m57: { dist: "2,300 light-years", desc: "The Ring Nebula. It is a planetary nebula in the northern constellation of Lyra, formed by a shell of ionized gas expelled into surrounding space." }
+};
 
-  temperature =
-
-    planetTemps[
-      obj.name.toLowerCase()
-    ] || "N/A";
+// Formatting helpers for proper astronomical notations
+function formatRA(raDeg) {
+  if (raDeg === undefined || raDeg === null || isNaN(raDeg)) return "00h 00m 00s";
+  const hDecimal = (raDeg + 360) % 360 / 15;
+  const hours = Math.floor(hDecimal);
+  const mDecimal = (hDecimal - hours) * 60;
+  const minutes = Math.floor(mDecimal);
+  const seconds = Math.round((mDecimal - minutes) * 60);
+  const pad = (num) => String(num).padStart(2, '0');
+  return `${pad(hours)}h ${pad(minutes)}m ${pad(seconds)}s`;
 }
 
-// 🌟 STARS
-else if (
-  obj.type === "star"
-) {
+function formatDEC(decDeg) {
+  if (decDeg === undefined || decDeg === null || isNaN(decDeg)) return "+00° 00' 00\"";
+  const sign = decDeg >= 0 ? "+" : "-";
+  const absDec = Math.abs(decDeg);
+  const degrees = Math.floor(absDec);
+  const mDecimal = (absDec - degrees) * 60;
+  const minutes = Math.floor(mDecimal);
+  const seconds = Math.round((mDecimal - minutes) * 60);
+  const pad = (num) => String(num).padStart(2, '0');
+  return `${sign}${pad(degrees)}° ${pad(minutes)}' ${pad(seconds)}"`;
+}
 
-  const bv =
-    parseFloat(obj.bv);
-
-  if (!isNaN(bv)) {
-
-    temperature =
-
-      Math.round(
-
-        4600 *
-
-        (
-          (1 / ((0.92 * bv) + 1.7)) +
-
-          (1 / ((0.92 * bv) + 0.62))
-        )
-
-      ) + "K";
+function getTransitTime(raHours, date, observer) {
+  try {
+    const lon = observer.longitude;
+    const transitLST = (raHours + 24) % 24;
+    const midnight = new Date(date);
+    midnight.setHours(0, 0, 0, 0);
+    const astroTimeMidnight = Astronomy.MakeTime(midnight);
+    const gmstMidnight = Astronomy.SiderealTime(astroTimeMidnight);
+    const lstMidnight = (gmstMidnight + lon / 15 + 24) % 24;
+    let diffHours = transitLST - lstMidnight;
+    if (diffHours < 0) diffHours += 24;
+    const solarHours = diffHours / 1.00273790935;
+    const result = new Date(midnight.getTime() + solarHours * 3600 * 1000);
+    return formatTime(result);
+  } catch (_) {
+    return "N/A";
   }
 }
 
-document.getElementById(
-  "info-temp"
-).innerText =
+function getFixedObjectRiseSetTransit(raHours, decDeg, date, observer) {
+  try {
+    const lat = observer.latitude;
+    const decRad = decDeg * Math.PI / 180;
+    const latRad = lat * Math.PI / 180;
+    const altRad = -0.567 * Math.PI / 180;
 
-  "Temperature: " +
-  temperature;
+    const cosH = (Math.sin(altRad) - Math.sin(latRad) * Math.sin(decRad)) / (Math.cos(latRad) * Math.cos(decRad));
 
+    const transitText = getTransitTime(raHours, date, observer);
+
+    if (cosH < -1) {
+      return { rise: "Circumpolar (Always up)", set: "Circumpolar (Always up)", transit: transitText };
+    } else if (cosH > 1) {
+      return { rise: "Never rises", set: "Never sets", transit: transitText };
+    }
+
+    const H = Math.acos(cosH) * 12 / Math.PI;
+    const riseLST = (raHours - H + 24) % 24;
+    const setLST = (raHours + H) % 24;
+
+    const lon = observer.longitude;
+    const midnight = new Date(date);
+    midnight.setHours(0, 0, 0, 0);
+    const astroTimeMidnight = Astronomy.MakeTime(midnight);
+    const gmstMidnight = Astronomy.SiderealTime(astroTimeMidnight);
+    const lstMidnight = (gmstMidnight + lon / 15 + 24) % 24;
+
+    const getLocalTimeForLST = (targetLST) => {
+      let diffHours = targetLST - lstMidnight;
+      if (diffHours < 0) diffHours += 24;
+      const solarHours = diffHours / 1.00273790935;
+      return new Date(midnight.getTime() + solarHours * 3600 * 1000);
+    };
+
+    return {
+      rise: formatTime(getLocalTimeForLST(riseLST)),
+      set: formatTime(getLocalTimeForLST(setLST)),
+      transit: transitText
+    };
+  } catch (_) {
+    return { rise: "N/A", set: "N/A", transit: "N/A" };
+  }
+}
+
+function hideEmptyFields() {
+
+  document.querySelectorAll("#object-info-panel p").forEach(el => {
+
+    const text = el.innerText.trim();
+
+    if (
+      text === "" ||
+      text.endsWith("N/A") ||
+      text.endsWith("--") ||
+      text === "N/A" ||
+      text === "--"
+    ) {
+      el.style.display = "none";
+    } else {
+      el.style.display = "";
+    }
+
+  });
+
+  document.querySelectorAll(".obs-row").forEach(row => {
+
+    const value = row.querySelector("span:last-child");
+
+    if (!value) return;
+
+    const text = value.innerText.trim();
+
+    if (
+      text === "" ||
+      text === "--" ||
+      text === "N/A" ||
+      text === "Unknown"
+    ) {
+      row.style.display = "none";
+    } else {
+      row.style.display = "flex";
+    }
+
+  });
+
+}
+function updateObjectInfo(obj) {
+  currentAIObject = obj;
+  displayRA = null;
+  displayDEC = null;
+  const cleanName = String(obj?.name || "").toLowerCase();
+
+  // 🔥 NAME
+  document.getElementById("info-name").innerText = (obj.displayName || obj.name || "").toUpperCase();
+
+  // 🔥 UPDATE FAVORITE BUTTON STATE
+  if (SearchManager.initialized) SearchManager.updateFavoriteButton();
+
+  // 🧭 SYNC NAV BUTTONS
+  _syncNavButtons();
+
+  // 🔥 TYPE
+  let displayType = obj.type;
+  if (obj.type === "spacecraft") displayType = "Spacecraft (" + (obj.category || obj.spData?.category || "Mission") + ")";
+  else if (obj.type === "dso") displayType = "Deep Sky Object";
+  else if (obj.type === "star") displayType = "Star";
+  else if (obj.type === "planet") displayType = "Planet";
+  else if (obj.type === "comet") displayType = "Comet";
+  else if (obj.type === "asterism") displayType = "Asterism Pattern";
+  else if (obj.type === "asteroid") {
+    const rawClass = obj.orbitClass || obj.asteroidData?.orbitClass || "Main Belt";
+    if (cleanName.includes("ceres")) {
+      displayType = "Dwarf Planet (Asteroid Belt)";
+    } else if (cleanName.includes("vesta")) {
+      displayType = "Asteroid (Main Belt)";
+    } else if (cleanName.includes("pallas")) {
+      displayType = "Asteroid (Main Belt)";
+    } else if (cleanName.includes("bennu")) {
+      displayType = "Near-Earth Asteroid (Apollo)";
+    } else if (cleanName.includes("ryugu")) {
+      displayType = "Near-Earth Asteroid (Apollo)";
+    } else if (cleanName.includes("apophis")) {
+      displayType = "Near-Earth Asteroid (Aten)";
+    } else if (cleanName.includes("didymos")) {
+      displayType = "Near-Earth Asteroid (Apollo)";
+    } else if (rawClass.toLowerCase().includes("apollo") || rawClass.toLowerCase().includes("aten") || rawClass.toLowerCase().includes("amor") || rawClass.toLowerCase().includes("near-earth")) {
+      const subGroup = rawClass.includes("Aten") ? "Aten" : (rawClass.includes("Amor") ? "Amor" : "Apollo");
+      displayType = `Near-Earth Asteroid (${subGroup})`;
+    } else {
+      displayType = `Asteroid (${rawClass})`;
+    }
+  }
+  document.getElementById("info-type").innerText = "Type: " + displayType;
+
+  // 🔥 RA/DEC (NOW HANDLED BY updateDynamicInfo())
+  document.getElementById("info-ra").innerText = "";
+  document.getElementById("info-dec").innerText = "";
+
+  // 🔥 MAGNITUDE / STATUS
+  if (obj.type === "spacecraft") {
+    const sp = obj.spData || obj;
+    document.getElementById("info-mag").innerText = "Status: " + (sp.status || "Active") + " | Launch: " + (sp.launchDate || "N/A");
+    document.getElementById("info-constellation").innerText = "Destination: " + (sp.destination || "N/A");
+    document.getElementById("info-size").innerText = "Vehicle: " + (sp.launchVehicle || "N/A");
+    document.getElementById("info-morph").innerText = "Agency: " + (sp.primaryAgency || "N/A") + " | Operator: " + (sp.operator || "N/A");
+    document.getElementById("info-temp").innerText = "Mass: " + (sp.spacecraft?.massKg ? sp.spacecraft.massKg + " kg" : "N/A");
+  } else {
+    const magVal = obj.magnitude !== undefined ? obj.magnitude : (obj.mag !== undefined ? obj.mag : "N/A");
+    document.getElementById("info-mag").innerText = "Magnitude: " + magVal;
+
+    // 🔥 CONSTELLATION
+    document.getElementById("info-constellation").innerText = "Constellation: " + (obj.constellation || "N/A");
+
+    // 🔥 SIZE
+    document.getElementById("info-size").innerText = "Size: " + (obj.size || "N/A");
+
+    // 🔥 STRUCTURE / MORPHOLOGY / ORBITAL PERIOD
+    let structure = obj.morph || "N/A";
+    if (obj.type === "comet" || obj.type === "asteroid") {
+      structure = "Period: " + (obj.period || obj.cometData?.period || obj.asteroidData?.orbitalPeriod || "N/A");
+    } else {
+      const morphMap = {
+        "SA(s)b": "Spiral Galaxy",
+        "SA(s)cd": "Spiral Galaxy",
+        "SA(s)c": "Spiral Galaxy",
+        "SA(s)a": "Spiral Galaxy",
+        "SBa": "Barred Spiral Galaxy",
+        "SBb": "Barred Spiral Galaxy",
+        "SBc": "Barred Spiral Galaxy",
+        "SB(s)m": "Barred Spiral Galaxy",
+        "SB(s)c": "Barred Spiral Galaxy",
+        "SB(s)b": "Barred Spiral Galaxy",
+        "SB(rs)b": "Barred Spiral Galaxy",
+        "SAB": "Intermediate Spiral Galaxy",
+        "E0": "Elliptical Galaxy",
+        "E1": "Elliptical Galaxy",
+        "E2": "Elliptical Galaxy",
+        "E3": "Elliptical Galaxy",
+        "E4": "Elliptical Galaxy",
+        "E5": "Elliptical Galaxy",
+        "E6": "Elliptical Galaxy",
+        "E7": "Elliptical Galaxy",
+        "Irr": "Irregular Galaxy",
+        "dIrr": "Dwarf Irregular Galaxy",
+        "I2m": "Open Star Cluster",
+        "II2r": "Open Star Cluster",
+        "III2p": "Open Star Cluster",
+        "III1m": "Open Star Cluster",
+        "III": "Globular Cluster",
+        "IV": "Globular Cluster",
+        "V": "Globular Cluster",
+        "HII": "Emission Nebula",
+        "SNR": "Supernova Remnant"
+      };
+      if (morphMap[structure]) {
+        structure = morphMap[structure];
+      }
+    }
+    document.getElementById("info-morph").innerText = (obj.type === "comet" || obj.type === "asteroid") ? structure : ("Structure: " + structure);
+
+    // 🔥 TEMPERATURE / NEXT PERIHELION / SPECTRAL TYPE & DIAMETER
+    let temperature = "N/A";
+    if (obj.type === "comet") {
+      temperature = "Next Perihelion: " + (obj.nextPerihelion || obj.cometData?.nextPerihelion || "N/A");
+    } else if (obj.type === "asteroid") {
+      const diamStr = obj.diameter !== undefined ? (typeof obj.diameter === "number" ? obj.diameter + " km" : obj.diameter) : "N/A";
+      const specStr = obj.spectralType || "N/A";
+      temperature = `Dia: ${diamStr} | Type: ${specStr}`;
+    } else {
+      const planetTemps = {
+        mercury: "440K",
+        venus: "737K",
+        earth: "288K",
+        mars: "210K",
+        jupiter: "165K",
+        saturn: "134K",
+        uranus: "76K",
+        neptune: "72K",
+        pluto: "44K",
+        moon: "220K",
+        sun: "5778K"
+      };
+      if (obj.type === "planet") {
+        temperature = planetTemps[obj.name.toLowerCase()] || "N/A";
+      } else if (obj.type === "star") {
+        const bv = parseFloat(obj.bv);
+        if (!isNaN(bv)) {
+          temperature = Math.round(4600 * ((1 / ((0.92 * bv) + 1.7)) + (1 / ((0.92 * bv) + 0.62)))) + "K";
+        }
+      }
+    }
+    document.getElementById("info-temp").innerText = (obj.type === "comet" || obj.type === "asteroid") ? temperature : ("Temperature: " + temperature);
+  }
+
+  // 🔥 STATIC FACTS / SHORT DESCRIPTION
+  const lookupKey = obj.name.toLowerCase().replace(/\s+/g, "");
+  const fact = objectFacts[lookupKey];
+  let descText = "";
+  if (obj.type === "spacecraft") {
+    const sp = obj.spData || obj;
+    const desc = sp.description || "Historical spacecraft mission in the Astro Explorer database.";
+    const btnHtml = `<button id="view-spacecraft-dossier" style="margin-top:10px; width:100%; padding:8px 12px; background:linear-gradient(135deg, rgba(0,245,255,0.25), rgba(0,100,255,0.35)); border:1px solid #00f5ff; border-radius:6px; color:#fff; font-weight:bold; cursor:pointer; font-size:12px; transition:all 0.2s; display:flex; align-items:center; justify-content:center; gap:6px;" onclick="openSpacecraftModal(selectedObject.spData || selectedObject)"><img src="assets/icons/spacecraft.svg" alt="spacecraft" style="width:18px; height:18px;"> View Full Mission Dossier</button>`;
+    const infoDescription = document.getElementById("info-description");
+    if (infoDescription) {
+      infoDescription.innerHTML = `<div style="font-size:12px; line-height:1.4;">${desc}</div>${btnHtml}`;
+    }
+    return;
+  }
+  if (fact && fact.desc) {
+    descText = fact.desc;
+  } else if (obj.description || obj.cometData?.description || obj.asteroidData?.description) {
+    const baseDesc = obj.description || obj.asteroidData?.description || obj.cometData?.description;
+    if (obj.type === "asteroid") {
+      const numStr = obj.number || obj.asteroidData?.number || "";
+      const desigStr = obj.designation || obj.asteroidData?.designation || "";
+      const discStr = obj.discoveredBy ? `Discovered by ${obj.discoveredBy} (${obj.discoveryDate || ""}).` : "";
+      descText = `[Asteroid #${numStr} | Desig: ${desigStr}] ${baseDesc} ${discStr}`.trim();
+    } else {
+      descText = baseDesc;
+    }
+  } else {
+    if (obj.type === "star") {
+      descText = `A star cataloged in the stellar database. Located in the constellation of ${obj.constellation || "N/A"}.`;
+    } else if (obj.type === "dso") {
+      descText = `A deep-sky object (galaxy, nebula, or star cluster) cataloged in the deep space database. Located in the constellation of ${obj.constellation || "N/A"}.`;
+    } else if (obj.type === "comet") {
+      descText = `A comet moving on a Keplerian orbit through the Solar System.`;
+    } else if (obj.type === "asteroid") {
+      descText = `An asteroid moving on a Keplerian orbit through the Solar System.`;
+    } else {
+      descText = `A celestial object in the sky map database.`;
+    }
+  }
+  const infoDescription = document.getElementById("info-description");
+  if (infoDescription) {
+    infoDescription.innerText = descText;
+  }
 }
 
 function updateDynamicInfo() {
-
   if (!selectedObject) return;
 
   let ra = selectedObject.ra;
   let dec = selectedObject.dec;
 
+  // 🚀 SPACECRAFT
+  if (selectedObject.type === "spacecraft") {
+    const pos = getSpacecraftPosition(selectedObject, skyTime);
+    if (pos) {
+      ra = pos[0];
+      dec = pos[1];
+      selectedObject.ra = ra;
+      selectedObject.dec = dec;
+      if (!currentTarget) {
+        currentTarget = [ra, dec];
+      } else {
+        currentTarget[0] = ra;
+        currentTarget[1] = dec;
+      }
+    }
+  }
   // 🪐 PLANETS
-  if (selectedObject.type === "planet") {
-
+  else if (selectedObject.type === "planet") {
     const pos = getPlanetPosition(
       selectedObject.name,
       skyTime
@@ -3448,172 +5076,268 @@ function updateDynamicInfo() {
     // 🔥 REAL UPDATED VALUES
     ra = pos[0] * 15;
     dec = pos[1];
+
+
     // 🔥 UPDATE LIVE MARKER TARGET
-currentTarget = [ra, dec];
+    if (!currentTarget) {
+      currentTarget = [ra, dec];
+    }
+
+    currentTarget[0] += (ra - currentTarget[0]) * 0.15;
+    currentTarget[1] += (dec - currentTarget[1]) * 0.15;
   }
 
-  // 🔥 NOW UPDATE PANEL
-  document.getElementById(
-    "info-ra"
-  ).innerText =
+  // 🛰️ SATELLITES
+  else if (selectedObject.type === "satellite" && typeof satellite !== "undefined") {
+    const sat = selectedObject.satData || SATELLITES_DATA.find(s => s && ((s.name && s.name.toLowerCase().includes(selectedObject.id.toLowerCase())) || (s.OBJECT_NAME && s.OBJECT_NAME.toLowerCase().includes(selectedObject.id.toLowerCase())) || (s.NORAD_CAT_ID && String(s.NORAD_CAT_ID) === String(selectedObject.id))));
+    if (sat) {
+      try {
+        const satrec = getSatRec(sat);
+        if (satrec) {
+          const posVel = satellite.propagate(satrec, skyTime);
+          const posEci = posVel ? posVel.position : null;
+          if (posEci) {
+            const gmst = satellite.gstime(skyTime);
+            const obsLat = observer ? observer.latitude : 0;
+            const obsLon = observer ? observer.longitude : 0;
+            const obsElev = observer ? (observer.elevation || 0) : 0;
+            const observerGd = {
+              longitude: obsLon * Math.PI / 180,
+              latitude: obsLat * Math.PI / 180,
+              height: obsElev / 1000
+            };
+            const lookAngles = satellite.ecfToLookAngles(observerGd, satellite.eciToEcf(posEci, gmst));
+            const alt = (lookAngles.elevation ?? lookAngles.altitude ?? lookAngles.alt) * 180 / Math.PI;
+            const az = (lookAngles.azimuth ?? lookAngles.az) * 180 / Math.PI;
 
-    "RA: " +
-    ra.toFixed(2);
+            const coords = horizontalToEquatorial(alt, az, skyTime, observer);
+            if (coords) {
+              ra = coords[0];
+              dec = coords[1];
 
-  document.getElementById(
-    "info-dec"
-  ).innerText =
+              selectedObject.ra = ra;
+              selectedObject.dec = dec;
+              selectedObject.azimuth = az;
+              selectedObject.altitude = alt;
 
-    "DEC: " +
-    dec.toFixed(2);
-
-  // 🌍 OBSERVER
-  
-
-    let riseText = "N/A";
-let setText  = "N/A";
-
-try {
-
-  const bodyMap = {
-
-    sun: Astronomy.Body.Sun,
-    moon: Astronomy.Body.Moon,
-
-    mercury: Astronomy.Body.Mercury,
-    venus: Astronomy.Body.Venus,
-
-    mars: Astronomy.Body.Mars,
-    jupiter: Astronomy.Body.Jupiter,
-    saturn: Astronomy.Body.Saturn,
-
-    uranus: Astronomy.Body.Uranus,
-    neptune: Astronomy.Body.Neptune,
-    pluto: Astronomy.Body.Pluto
-  };
-
-  const body =
-    bodyMap[
-      selectedObject.name.toLowerCase()
-    ];
-
-  if (body) {
-
-   const astroTime =
-  Astronomy.MakeTime(skyTime);
-
-const rise =
-  Astronomy.SearchRiseSet(
-    body,
-    observer,
-    +1,
-    astroTime,
-    2
-  );
-
-const set =
-  Astronomy.SearchRiseSet(
-    body,
-    observer,
-    -1,
-    astroTime,
-    2
-  );
-    if (rise) {
-
-  riseText = formatTime(
-
-    rise.date
-      ? rise.date
-      : rise
-  );
-}
-
-if (set) {
-
-  setText = formatTime(
-
-    set.date
-      ? set.date
-      : set
-  );
-}
+              if (!currentTarget) {
+                currentTarget = [ra, dec];
+              } else {
+                currentTarget[0] = ra;
+                currentTarget[1] = dec;
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.error("Satellite dynamic info error:", e);
+      }
+    }
   }
-
-}
-catch(err) {
-
-  console.log(
-    "Rise/Set error:",
-    err
-  );
-}
-
-  // 🔥 HORIZON CALC
-  const hor =
-    Astronomy.Horizon(
-      skyTime,
-      observer,
-      ra / 15,
-      dec,
-      "normal"
+  // ☄️ COMETS
+  else if (selectedObject.type === "comet") {
+    const term = (selectedObject.id || selectedObject.name || "").toLowerCase();
+    const comet = selectedObject.cometData || COMETS_DATA.find(c =>
+      (c.id && c.id.toLowerCase() === term) ||
+      (c.name && c.name.toLowerCase().includes(term)) ||
+      (c.displayName && c.displayName.toLowerCase().includes(term))
     );
+    if (comet) {
+      const pos = getCometPosition(comet, skyTime, observer);
+      if (pos) {
+        ra = pos[0] * 15;
+        dec = pos[1];
+        selectedObject.ra = ra;
+        selectedObject.dec = dec;
+        selectedObject.distanceAU = pos[2];
+        selectedObject.altitude = pos[3];
+        selectedObject.azimuth = pos[4];
+        selectedObject.magnitude = pos[5];
 
-    let facing = "";
+        if (!currentTarget) {
+          currentTarget = [ra, dec];
+        } else {
+          currentTarget[0] = ra;
+          currentTarget[1] = dec;
+        }
+      }
+    }
+  }
+  // 🪨 ASTEROIDS
+  else if (selectedObject.type === "asteroid") {
+    const term = (selectedObject.id || selectedObject.name || "").toLowerCase();
+    const asteroid = selectedObject.asteroidData || ASTEROIDS_DATA.find(a =>
+      (a.id && a.id.toLowerCase() === term) ||
+      (a.name && a.name.toLowerCase().includes(term)) ||
+      (a.displayName && a.displayName.toLowerCase().includes(term))
+    );
+    if (asteroid) {
+      const pos = getAsteroidPosition(asteroid, skyTime, observer);
+      if (pos) {
+        ra = pos[0] * 15;
+        dec = pos[1];
+        selectedObject.ra = ra;
+        selectedObject.dec = dec;
+        selectedObject.distanceAU = pos[2];
+        selectedObject.altitude = pos[3];
+        selectedObject.azimuth = pos[4];
+        selectedObject.magnitude = pos[5];
 
-const az = hor.azimuth;
-currentAzimuth = hor.azimuth;
+        if (!currentTarget) {
+          currentTarget = [ra, dec];
+        } else {
+          currentTarget[0] = ra;
+          currentTarget[1] = dec;
+        }
+      }
+    }
+  }
 
-if (az >= 337.5 || az < 22.5)
-    facing = "N";
-else if (az < 67.5)
-    facing = "NE";
-else if (az < 112.5)
-    facing = "E";
-else if (az < 157.5)
-    facing = "SE";
-else if (az < 202.5)
-    facing = "S";
-else if (az < 247.5)
-    facing = "SW";
-else if (az < 292.5)
-    facing = "W";
-else
-    facing = "NW";
+  // 🔥 NOW UPDATE PANEL COORDS
+  if (displayRA === null) {
+    displayRA = ra;
+    displayDEC = dec;
+  }
 
-document.getElementById("nav-direction").innerText = facing;
+  displayRA += (ra - displayRA) * 0.15;
+  displayDEC += (dec - displayDEC) * 0.15;
 
-  // 🔥 ALTITUDE
-  document.getElementById(
-    "info-alt"
-  ).innerText =
+  document.getElementById("info-ra").innerText =
+    "RA: " + formatRA(displayRA);
 
-    "Altitude: " +
-    hor.altitude.toFixed(2) +
-    "°";
+  document.getElementById("info-dec").innerText =
+    "DEC: " + formatDEC(displayDEC);
+  // 🌍 DISTANCE CALCULATION
+  let distanceText = "N/A";
+  if (selectedObject.type === "planet") {
+    const pos = getPlanetPosition(selectedObject.name, skyTime);
+    if (pos && pos[2] !== undefined) {
+      const au = pos[2];
+      if (selectedObject.name.toLowerCase() === "earth") {
+        distanceText = "0.00 AU (Observer)";
+      } else {
+        distanceText = `${au.toFixed(4)} AU (~${(au * 149.59787).toFixed(1)} Million km)`;
+      }
+    }
+  } else if ((selectedObject.type === "comet" || selectedObject.type === "asteroid") && selectedObject.distanceAU !== undefined) {
+    const au = selectedObject.distanceAU;
+    distanceText = `${au.toFixed(4)} AU (~${(au * 149.59787).toFixed(1)} Million km)`;
+  } else {
+    const lookupKey = selectedObject.name.toLowerCase().replace(/\s+/g, "");
+    const fact = objectFacts[lookupKey];
+    if (fact && fact.dist) {
+      distanceText = fact.dist;
+    }
+  }
+  const distEl = document.getElementById("info-distance");
+  if (distEl) distEl.innerText = "Distance: " + distanceText;
 
-  // 🔥 AZIMUTH
-  document.getElementById(
-    "info-az"
-  ).innerText =
+  // 🌍 OBSERVER RISE / SET / TRANSIT
+  let riseText = "N/A";
+  let setText = "N/A";
+  let transitText = "N/A";
 
-    "Azimuth: " +
-    hor.azimuth.toFixed(2) +
-    "°";
+  try {
+    const bodyMap = {
+      sun: Astronomy.Body.Sun,
+      moon: Astronomy.Body.Moon,
+      mercury: Astronomy.Body.Mercury,
+      venus: Astronomy.Body.Venus,
+      mars: Astronomy.Body.Mars,
+      jupiter: Astronomy.Body.Jupiter,
+      saturn: Astronomy.Body.Saturn,
+      uranus: Astronomy.Body.Uranus,
+      neptune: Astronomy.Body.Neptune,
+      pluto: Astronomy.Body.Pluto
+    };
 
-    document.getElementById(
-  "info-rise"
-).innerText =
+    const body = bodyMap[selectedObject.name.toLowerCase()];
 
-  "Rise: " + riseText;
+    if (body) {
+      const astroTime = Astronomy.MakeTime(skyTime);
+      const rise = Astronomy.SearchRiseSet(body, observer, +1, astroTime, 2);
+      const set = Astronomy.SearchRiseSet(body, observer, -1, astroTime, 2);
+      if (rise) riseText = formatTime(rise.date ? rise.date : rise);
+      if (set) setText = formatTime(set.date ? set.date : set);
 
-document.getElementById(
-  "info-set"
-).innerText =
+      const pos = getPlanetPosition(selectedObject.name, skyTime);
+      if (pos) {
+        transitText = getTransitTime(pos[0], skyTime, observer);
+      }
+    } else {
+      const result = getFixedObjectRiseSetTransit(selectedObject.ra / 15, selectedObject.dec, skyTime, observer);
+      riseText = result.rise;
+      setText = result.set;
+      transitText = result.transit;
+    }
+  } catch (err) {
+    console.log("Rise/Set error:", err);
+  }
 
-  "Set: " + setText;
-  // 🧭 Navigation HUD
+  // 🔥 HORIZON ALTITUDE / AZIMUTH
+  try {
+    let altVal = null;
+    let azVal = null;
 
+    if (selectedObject.type === "satellite" && selectedObject.altitude !== undefined && selectedObject.azimuth !== undefined) {
+      altVal = selectedObject.altitude;
+      azVal = selectedObject.azimuth;
+    } else if (ra !== undefined && ra !== null && dec !== undefined && dec !== null && Number.isFinite(ra) && Number.isFinite(dec)) {
+      const hor = Astronomy.Horizon(
+        skyTime,
+        observer,
+        ra / 15,
+        dec,
+        Astronomy.Refraction.Normal
+      );
+      if (hor) {
+        altVal = hor.altitude;
+        azVal = hor.azimuth;
+      }
+    }
+
+    if (altVal !== null && azVal !== null && Number.isFinite(altVal) && Number.isFinite(azVal)) {
+      let facing = "";
+      const az = azVal;
+      currentAzimuth = azVal;
+
+      if (az >= 337.5 || az < 22.5) facing = "N";
+      else if (az < 67.5) facing = "NE";
+      else if (az < 112.5) facing = "E";
+      else if (az < 157.5) facing = "SE";
+      else if (az < 202.5) facing = "S";
+      else if (az < 247.5) facing = "SW";
+      else if (az < 292.5) facing = "W";
+      else facing = "NW";
+
+      const navDir = document.getElementById("nav-direction");
+      if (navDir) navDir.innerText = facing;
+      const altEl = document.getElementById("info-alt");
+      if (altEl) altEl.innerText = "Altitude: " + altVal.toFixed(2) + "°";
+      const azEl = document.getElementById("info-az");
+      if (azEl) azEl.innerText = "Azimuth: " + azVal.toFixed(2) + "°";
+    }
+  } catch (err) {
+    console.log("Horizon error:", err);
+  }
+
+  const riseEl = document.getElementById("info-rise");
+  if (riseEl) riseEl.innerText = "Rise: " + riseText;
+  const setEl = document.getElementById("info-set");
+  if (setEl) setEl.innerText = "Set: " + setText;
+  const transitEl = document.getElementById("info-transit");
+  if (transitEl) transitEl.innerText = "Transit: " + transitText;
+  if (marker && currentTarget) {
+    const pt = Celestial.mapProjection(currentTarget);
+
+    if (pt) {
+      marker.style.left = pt[0] + "px";
+      marker.style.top = pt[1] + "px";
+    }
+  }
+
+  updateObservationAssistant();
+  hideEmptyFields();
 }
 
 function formatTime(date) {
@@ -3626,127 +5350,90 @@ function formatTime(date) {
     }
   );
 }
-function dynamicInfoLoop() {
+let objectTrailHistory = [];
+let lastTrailTarget = null;
+let displayRA = null;
+let displayDEC = null;
 
-  // 🔥 ADVANCE SIMULATION TIME
-  skyTime = new Date(
-    skyTime.getTime() + 1000
-  );
+let lastDynamicFrameTime = null;
+function dynamicInfoLoop(timestamp) {
+  if (typeof timestamp !== "number") timestamp = performance.now();
+  if (lastDynamicFrameTime === null) lastDynamicFrameTime = timestamp;
+  let deltaTime = timestamp - lastDynamicFrameTime;
+  lastDynamicFrameTime = timestamp;
+  if (deltaTime > 500) deltaTime = 500;
 
-  /*Celestial.skyview({
-       date: skyTime
-    });*/
+  const skyTab = document.getElementById("sky");
 
-    
+  if (skyTab && skyTab.style.display === "none") {
+    requestAnimationFrame(dynamicInfoLoop);
+    return;
+  }
+
+  // 🔥 ADVANCE SIMULATION TIME (respects speed + pause)
+  if (!simPaused) {
+    skyTime = new Date(skyTime.getTime() + (deltaTime * simSpeed));
+
+    // Record trail history for selected object
+    if (skySettings.showObjectTrails && selectedObject) {
+      const targetName = selectedObject.name;
+      if (lastTrailTarget !== targetName) {
+        objectTrailHistory = [];
+        lastTrailTarget = targetName;
+      }
+      const coords = _getNavTarget();
+      if (coords) {
+        const lastPt = objectTrailHistory[objectTrailHistory.length - 1];
+        if (!lastPt || Math.abs(skyTime - lastPt.time) >= 1000) {
+          objectTrailHistory.push({ ra: coords[0], dec: coords[1], time: new Date(skyTime) });
+          if (objectTrailHistory.length > 150) {
+            objectTrailHistory.shift();
+          }
+        }
+      }
+    } else {
+      objectTrailHistory = [];
+    }
+  }
+
+  // 🕐 Update live time display and map projection
+  _updateSimTimeUI();
 
   updateDynamicInfo();
 
-  
 
 
-  
-  if (
-  followObject &&
-  selectedObject &&
-  selectedObject.type === "planet"
-) {
 
-  const pos = getPlanetPosition(
-    selectedObject.name,
-    skyTime
-  );
 
-  if (pos) {
 
-    const raDeg = pos[0] * 15;
-    const dec   = pos[1];
 
-    // 🔥 FIRST TIME
-    if (
-      lastFollowRA === null ||
-      lastFollowDEC === null
-    ) {
-
-      lastFollowRA = raDeg;
-      lastFollowDEC = dec;
-    }
-
-    // 🔥 DRIFT CHECK
-    const raDiff =
-      Math.abs(raDeg - lastFollowRA);
-
-    const decDiff =
-      Math.abs(dec - lastFollowDEC);
-
-    // 🔥 ONLY ROTATE IF BIG ENOUGH
-    if (
-      raDiff > 0.05 ||
-      decDiff > 0.05
-    ) {
-
-      if (
-  smoothFollowRA === null ||
-  smoothFollowDEC === null
-) {
-
-  smoothFollowRA = raDeg;
-  smoothFollowDEC = dec;
-}
-
-// 🔥 SMOOTH INTERPOLATION
-smoothFollowRA +=
-  (raDeg - smoothFollowRA) * 0.1;
-
-smoothFollowDEC +=
-  (dec - smoothFollowDEC) * 0.1;
-
-// 🔥 ROTATE USING SMOOTHED VALUES
-
-console.trace("ROTATE");
-Celestial.rotate({
-
-  center: [
-    smoothFollowRA,
-    smoothFollowDEC
-  ],
-
-  duration: 100
-});
-
-lastFollowRA = raDeg;
-lastFollowDEC = dec;
-
-      lastFollowRA = raDeg;
-      lastFollowDEC = dec;
-    }
-  }
-}
+  requestAnimationFrame(dynamicInfoLoop);
 }
 
 function updateLastTopic(userInput) {
   lastTopic = userInput;
 }
 
-function renderAttachments(){
+function renderAttachments() {
 
-const container =
-document.getElementById(
-"attachment-preview"
-);
+  const container =
+    document.getElementById(
+      "attachment-preview"
+    );
 
-container.innerHTML="";
+  container.innerHTML = "";
 
-attachments.forEach((file,index)=>{
+  attachments.forEach((file, index) => {
 
-const chip =
-document.createElement("div");
+    const chip =
+      document.createElement("div");
 
-chip.className =
-"attachment-chip";
+    chip.className =
+      "attachment-chip";
 
-if(file.type==="image"){
+    if (file.type === "image") {
 
-chip.innerHTML=`
+      chip.innerHTML = `
 
 <div class="attachment-image">
 
@@ -3767,11 +5454,11 @@ data-index="${index}"
 
 `;
 
-}
+    }
 
-else{
+    else {
 
-chip.innerHTML=`
+      chip.innerHTML = `
 
 <div class="attachment-file">
 
@@ -3790,31 +5477,31 @@ data-index="${index}"
 
 `;
 
-}
+    }
 
-container.appendChild(chip);
+    container.appendChild(chip);
 
-});
+  });
 
-document
-.querySelectorAll(".remove-attachment")
-.forEach(btn=>{
+  document
+    .querySelectorAll(".remove-attachment")
+    .forEach(btn => {
 
-btn.onclick=()=>{
+      btn.onclick = () => {
 
-attachments.splice(
+        attachments.splice(
 
-btn.dataset.index,
+          btn.dataset.index,
 
-1
+          1
 
-);
+        );
 
-renderAttachments();
+        renderAttachments();
 
-};
+      };
 
-});
+    });
 
 }
 
@@ -3850,57 +5537,57 @@ ${userMessage}
 
 document.addEventListener("DOMContentLoaded", async () => {
 
-  
+
 
 
   const auth = window.auth;
-const provider = window.provider;
-const db = window.db;
+  const provider = window.provider;
+  const db = window.db;
 
-const doc = window.doc;
-const setDoc = window.setDoc;
-const getDoc = window.getDoc;
-const addDoc = window.addDoc;
-const getDocs = window.getDocs;
-const deleteDoc = window.deleteDoc;
+  const doc = window.doc;
+  const setDoc = window.setDoc;
+  const getDoc = window.getDoc;
+  const addDoc = window.addDoc;
+  const getDocs = window.getDocs;
+  const deleteDoc = window.deleteDoc;
 
-const signInWithPopup = window.signInWithPopup;
-const signOut = window.signOut;
-
-document
-.getElementById("save-api-key")
-.onclick=()=>{
-
-const key=
-document
-.getElementById("user-api-key")
-.value
-.trim();
-
-localStorage.setItem(
-"OPENROUTER_API_KEY",
-key
-);
-
-hideAPIKeyModal();
-
-alert("API Key saved.");
-
-};
-
-document
-.getElementById("remove-api-key")
-.onclick=()=>{
-
-  localStorage.removeItem("OPENROUTER_API_KEY");
+  const signInWithPopup = window.signInWithPopup;
+  const signOut = window.signOut;
 
   document
-  .getElementById("user-api-key")
-  .value="";
+    .getElementById("save-api-key")
+    .onclick = () => {
 
-  alert("API Key removed.");
+      const key =
+        document
+          .getElementById("user-api-key")
+          .value
+          .trim();
 
-};
+      localStorage.setItem(
+        "OPENROUTER_API_KEY",
+        key
+      );
+
+      hideAPIKeyModal();
+
+      alert("API Key saved.");
+
+    };
+
+  document
+    .getElementById("remove-api-key")
+    .onclick = () => {
+
+      localStorage.removeItem("OPENROUTER_API_KEY");
+
+      document
+        .getElementById("user-api-key")
+        .value = "";
+
+      alert("API Key removed.");
+
+    };
 
 
 
@@ -3909,8 +5596,8 @@ document
   applyAccentColor();
   applyAISettings();
   updateMemorySettings();
-renderMemoryList();
-applyAppearanceSettings();
+  renderMemoryList();
+  applyAppearanceSettings();
   const dateInput = document.getElementById("date-picker");
   const loadBtn = document.getElementById("load-btn");
   const prevBtn = document.getElementById("prev-btn");
@@ -3920,22 +5607,22 @@ applyAppearanceSettings();
   const filterBtn = document.getElementById("hazard-filter");
   const newestBtn = document.getElementById("newest-filter");
   const modal = document.getElementById("asteroid-modal");
-const modalBody = document.getElementById("modal-body");
-const modalContent = document.getElementById("modal-content");
-const searchInput = document.getElementById("search-input");
-const closeModalBtn = document.getElementById("close-modal");
+  const modalBody = document.getElementById("modal-body");
+  const modalContent = document.getElementById("modal-content");
+  const searchInput = document.getElementById("search-input");
+  const closeModalBtn = document.getElementById("close-modal");
 
-if (closeModalBtn && modal) {
+  if (closeModalBtn && modal) {
     closeModalBtn.onclick = () => {
-        modal.classList.remove("show");
+      modal.classList.remove("show");
     };
-}
+  }
 
-modal.addEventListener("click", (e) => {
+  modal.addEventListener("click", (e) => {
     if (e.target === modal) {
-        modal.classList.remove("show");
+      modal.classList.remove("show");
     }
-});
+  });
 
   if (searchInput) {
     searchInput.addEventListener("input", (e) => {
@@ -4015,289 +5702,286 @@ modal.addEventListener("click", (e) => {
   });
 
   if (nextBtn) prevBtn && nextBtn.addEventListener("click", () => {
-  let d = new Date(dateInput.value);
-  d.setDate(d.getDate() + 1);
-  const today = new Date().toISOString().split("T")[0];
-  if (d.toISOString().split("T")[0] > today) return;
-  dateInput.value = d.toISOString().split("T")[0];
+    let d = new Date(dateInput.value);
+    d.setDate(d.getDate() + 1);
+    const today = new Date().toISOString().split("T")[0];
+    if (d.toISOString().split("T")[0] > today) return;
+    dateInput.value = d.toISOString().split("T")[0];
+    loadNASA();
+  });
+
+  // 🔥 IMPORTANT
   loadNASA();
-});
 
-// 🔥 IMPORTANT
-loadNASA();
+  if (!window.skyLoaded) {
+    initSky();
 
-if (!window.skyLoaded) {
-  initSky();
-
-  // ✅ delay yahin lagana hai (DIRECT CALL hata)
+    // ✅ delay yahin lagana hai (DIRECT CALL hata)
     loadObjects().then(() => {
 
-  createAllPlanetLabels();
+      createAllPlanetLabels();
 
-createPlanetMarkers();
+      createPlanetMarkers();
 
-requestAnimationFrame(globalSkyAnimationLoop);
+      requestAnimationFrame(globalSkyAnimationLoop);
 
-setInterval(
-    dynamicInfoLoop,
-    1000
-);
+      requestAnimationFrame(dynamicInfoLoop);
 
-  window.skyLoaded = true;
-});
-}
+      window.skyLoaded = true;
+    });
+  }
 
-addAIMessage(
-  "Hello 🌌 I am Astro AI. Ask me anything about space.",
-  "Astro AI"
-);
+  addAIMessage(
+    "Hello 🌌 I am Astro AI. Ask me anything about space.",
+    "Astro AI"
+  );
 
-const input = document.getElementById("ai-input");
+  const input = document.getElementById("ai-input");
 
-input.addEventListener("input", () => {
+  input.addEventListener("input", () => {
 
     input.style.height = "auto";
 
     input.style.height = input.scrollHeight + "px";
 
-});
+  });
 
 
 
-document
-  .getElementById("ai-send")
-  .addEventListener("click", async () => {
+  document
+    .getElementById("ai-send")
+    .addEventListener("click", async () => {
 
-    const input =
-      document.getElementById("ai-input");
+      const input =
+        document.getElementById("ai-input");
 
-    const question =
-    
-      input.value.trim();
+      const question =
+
+        input.value.trim();
       // 🔥 REMEMBER COMMAND
 
       lastQuestion = question;
 
-// 🔥 REMEMBER COMMAND
+      // 🔥 REMEMBER COMMAND
 
-if (
-    question.toLowerCase().startsWith("remember:") ||
-    isMemoryRequest(question)
-) {
+      if (
+        question.toLowerCase().startsWith("remember:") ||
+        isMemoryRequest(question)
+      ) {
 
-    let memoryText = question;
+        let memoryText = question;
 
-    if (question.toLowerCase().startsWith("remember:")) {
+        if (question.toLowerCase().startsWith("remember:")) {
 
-        memoryText = question
+          memoryText = question
             .replace(/remember:/i, "")
             .trim();
 
-    }
+        }
 
-    memoryText = extractMemory(memoryText);
+        memoryText = extractMemory(memoryText);
 
-const structuredMemory =
-    extractStructuredMemory(memoryText);
+        const structuredMemory =
+          extractStructuredMemory(memoryText);
 
-saveMemory(structuredMemory);
+        saveMemory(structuredMemory);
 
-    addAIMessage(
-        "🧠 I've remembered that for future conversations.",
-        "Astro AI"
-    );
+        addAIMessage(
+          "🧠 I've remembered that for future conversations.",
+          "Astro AI"
+        );
 
-    return;
-}
-// 🔥 FORGET COMMAND
+        return;
+      }
+      // 🔥 FORGET COMMAND
 
-// 🔥 FORGET COMMAND
-// 🔥 THEORY MEMORY
+      // 🔥 FORGET COMMAND
+      // 🔥 THEORY MEMORY
 
-if (
-  question.toLowerCase().startsWith("remember theory:")
-) {
+      if (
+        question.toLowerCase().startsWith("remember theory:")
+      ) {
 
-  const text = question
-    .replace(/remember theory:/i, "")
-    .trim();
+        const text = question
+          .replace(/remember theory:/i, "")
+          .trim();
 
-  saveTheory(text);
+        saveTheory(text);
 
-  addAIMessage(
+        addAIMessage(
 
-    "Theory saved 😈🔥",
+          "Theory saved 😈🔥",
 
-    "Astro AI"
-  );
+          "Astro AI"
+        );
 
-  return;
-}
+        return;
+      }
 
 
-// 🔥 OBSERVATION LOG
+      // 🔥 OBSERVATION LOG
 
-if (
-  question.toLowerCase().startsWith("log observation:")
-) {
+      if (
+        question.toLowerCase().startsWith("log observation:")
+      ) {
 
-  const text = question
-    .replace(/log observation:/i, "")
-    .trim();
+        const text = question
+          .replace(/log observation:/i, "")
+          .trim();
 
-  saveObservation(text);
+        saveObservation(text);
 
-  addAIMessage(
+        addAIMessage(
 
-    "Observation logged 🔭😄🔥",
+          "Observation logged 🔭😄🔥",
 
-    "Astro AI"
-  );
+          "Astro AI"
+        );
 
-  return;
-}
+        return;
+      }
 
 
-// 🔥 TELESCOPE SESSION
+      // 🔥 TELESCOPE SESSION
 
-if (
-  question.toLowerCase().startsWith("start telescope session:")
-) {
+      if (
+        question.toLowerCase().startsWith("start telescope session:")
+      ) {
 
-  const text = question
-    .replace(/start telescope session:/i, "")
-    .trim();
+        const text = question
+          .replace(/start telescope session:/i, "")
+          .trim();
 
-  saveTelescopeSession(text);
+        saveTelescopeSession(text);
 
-  addAIMessage(
+        addAIMessage(
 
-    "Telescope session saved 🌌😮🔥",
+          "Telescope session saved 🌌😮🔥",
 
-    "Astro AI"
-  );
+          "Astro AI"
+        );
 
-  return;
-}
+        return;
+      }
 
-// 🔥 RESEARCH MODE ON
+      // 🔥 RESEARCH MODE ON
 
-if (
-  question.toLowerCase() ===
-  "enable research mode"
-) {
+      if (
+        question.toLowerCase() ===
+        "enable research mode"
+      ) {
 
-  researchMode = true;
+        researchMode = true;
 
-  addAIMessage(
+        addAIMessage(
 
-    "Research mode enabled 🧠😈🔥",
+          "Research mode enabled 🧠😈🔥",
 
-    "Astro AI"
-  );
+          "Astro AI"
+        );
 
-  return;
-}
+        return;
+      }
 
 
-// 🔥 RESEARCH MODE OFF
+      // 🔥 RESEARCH MODE OFF
 
-if (
-  question.toLowerCase() ===
-  "disable research mode"
-) {
+      if (
+        question.toLowerCase() ===
+        "disable research mode"
+      ) {
 
-  researchMode = false;
+        researchMode = false;
 
-  addAIMessage(
+        addAIMessage(
 
-    "Research mode disabled 😄🔥",
+          "Research mode disabled 😄🔥",
 
-    "Astro AI"
-  );
+          "Astro AI"
+        );
 
-  return;
-}
-// 🔥 OBSERVATION SUMMARY
+        return;
+      }
+      // 🔥 OBSERVATION SUMMARY
 
-if (
-  question.toLowerCase() ===
-  "summarize my observations"
-) {
+      if (
+        question.toLowerCase() ===
+        "summarize my observations"
+      ) {
 
-  const observations =
+        const observations =
 
-    astroMemory.observations
-      ?.map(o => "• " + o.text)
-      .join("\n");
+          astroMemory.observations
+            ?.map(o => "• " + o.text)
+            .join("\n");
 
-  addAIMessage(
+        addAIMessage(
 
-    observations ||
+          observations ||
 
-    "No observations logged 😮🔥",
+          "No observations logged 😮🔥",
 
-    "Astro AI"
-  );
+          "Astro AI"
+        );
 
-  return;
-}
+        return;
+      }
 
-if (
-  question.toLowerCase().startsWith("forget")
-) {
+      if (
+        question.toLowerCase().startsWith("forget")
+      ) {
 
-  deleteMemory();
+        deleteMemory();
 
-  addAIMessage(
+        addAIMessage(
 
-    "All memories deleted 😮🔥",
+          "All memories deleted 😮🔥",
 
-    "Astro AI"
-  );
+          "Astro AI"
+        );
 
-  return;
-}
+        return;
+      }
 
-    if (!question) return;
+      if (!question) return;
 
-    
 
-if (
-    !isMemoryRequest(question) &&
-    shouldSuggestMemory(question)
-) {
 
-    pendingMemory = question;
+      if (
+        !isMemoryRequest(question) &&
+        shouldSuggestMemory(question)
+      ) {
 
-}
+        pendingMemory = question;
 
-    addAIMessage(
-      question,
-      "You"
-    );
-    saveMessage(
-  "You",
-  question
-);
+      }
 
-    input.value = "";
-    input.style.height = "auto";
+      addAIMessage(
+        question,
+        "You"
+      );
+      saveMessage(
+        "You",
+        question
+      );
 
-    
+      input.value = "";
+      input.style.height = "auto";
 
-    try {
-      const uploadedAttachments = [...attachments];
 
-      if (attachments.length > 0) {
 
-    let attachmentHtml = "";
+      try {
+        const uploadedAttachments = [...attachments];
 
-    attachments.forEach(file => {
+        if (attachments.length > 0) {
 
-        if (file.type === "image") {
+          let attachmentHtml = "";
 
-            attachmentHtml += `
+          attachments.forEach(file => {
+
+            if (file.type === "image") {
+
+              attachmentHtml += `
 <img
 src="${file.data}"
 style="
@@ -4307,100 +5991,100 @@ margin-top:8px;
 ">
 `;
 
-        } else {
+            } else {
 
-            attachmentHtml += `
+              attachmentHtml += `
 📄 ${file.name}<br>
 `;
 
+            }
+
+          });
+
+          addAIMessage(
+            attachmentHtml,
+            "You"
+          );
+
+          const uploadedAttachments = [...attachments];
+
+          attachments = [];
+
+          renderAttachments();
+
+
         }
 
-    });
-
-    addAIMessage(
-attachmentHtml,
-"You"
-);
-
-const uploadedAttachments = [...attachments];
-
-attachments = [];
-
-renderAttachments();
 
 
-      }
+        const loader =
+          showThinkingLoader();
 
-    
+        const contextPrompt =
+          createConversationContext(
+            question
+          );
 
-      const loader =
-    showThinkingLoader();
+        const relatedMemories =
 
-     const contextPrompt =
-  createConversationContext(
-    question
-  );
+          astroMemory.memories
+            ?.map(memory => {
 
-const relatedMemories =
-
-    astroMemory.memories
-        ?.map(memory => {
-
-            if (memory.key && memory.value) {
+              if (memory.key && memory.value) {
 
                 return `${memory.key}: ${memory.value}`;
 
-            }
+              }
 
-            return memory.text;
+              return memory.text;
 
-        })
-        .join("\n") || "None";
+            })
+            .join("\n") || "None";
 
-    let userInterestProfile = "";
+        let userInterestProfile = "";
 
-if (
-  relatedMemories
-    .toLowerCase()
-    .includes("black hole")
-) {
+        if (
+          relatedMemories
+            .toLowerCase()
+            .includes("black hole")
+        ) {
 
-  userInterestProfile +=
+          userInterestProfile +=
 
-`
+            `
 User is highly interested in black holes.
 Focus more deeply on relativistic physics.
 `;
-}
+        }
 
-if (
-  relatedMemories
-    .toLowerCase()
-    .includes("neutron")
-) {
+        if (
+          relatedMemories
+            .toLowerCase()
+            .includes("neutron")
+        ) {
 
-  userInterestProfile +=
+          userInterestProfile +=
 
-`
+            `
 User is highly interested in neutron stars and compact objects.
 `;
-}
+        }
 
-const objectPrompt =
+        const objectPrompt =
 
 
-  buildAstroPrompt(
-    question,
-    currentAIObject
-  );
+          buildAstroPrompt(
+            question,
+            currentAIObject
+          );
 
-  let telescopeAdvice = "";
+        let telescopeAdvice = "";
 
-if (
-  currentAIObject
-) {
+        if (
+          currentAIObject
+        ) {
 
-  telescopeAdvice = `
+          telescopeAdvice = `
 
 Observation Assistance:
 
@@ -4415,42 +6099,42 @@ Suggest:
 - atmospheric seeing considerations
 - beginner observing advice
 `;
-}
+        }
 
 
-// 🌌 KNOWLEDGE GRAPH REASONING
-let relatedConcepts = "";
+        // 🌌 KNOWLEDGE GRAPH REASONING
+        let relatedConcepts = "";
 
-Object.keys(
-  astroKnowledgeGraph
-).forEach(key => {
+        Object.keys(
+          astroKnowledgeGraph
+        ).forEach(key => {
 
-  if (
-    question
-      .toLowerCase()
-      .includes(key)
-  ) {
+          if (
+            question
+              .toLowerCase()
+              .includes(key)
+          ) {
 
-    relatedConcepts +=
+            relatedConcepts +=
 
-`
+              `
 ${key} relates to:
 ${astroKnowledgeGraph[key]
-  .join(", ")}
+                .join(", ")}
 `;
 
-  }
-});
+          }
+        });
 
-let proactiveInsights = "";
+        let proactiveInsights = "";
 
-if (
-  question
-    .toLowerCase()
-    .includes("black hole")
-) {
+        if (
+          question
+            .toLowerCase()
+            .includes("black hole")
+        ) {
 
-  proactiveInsights += `
+          proactiveInsights += `
 
 Additional Insight:
 
@@ -4460,15 +6144,15 @@ You may also discuss:
 - gravitational lensing
 - spacetime curvature
 `;
-}
+        }
 
-if (
-  question
-    .toLowerCase()
-    .includes("galaxy")
-) {
+        if (
+          question
+            .toLowerCase()
+            .includes("galaxy")
+        ) {
 
-  proactiveInsights += `
+          proactiveInsights += `
 
 Additional Insight:
 
@@ -4478,36 +6162,36 @@ You may also discuss:
 - supermassive black holes
 - galactic collisions
 `;
-}
-const advancedTopics = [
+        }
+        const advancedTopics = [
 
-  "kerr",
-  "relativity",
-  "tensor",
-  "metric",
-  "quantum",
-  "singularity",
-  "hawking"
-];
+          "kerr",
+          "relativity",
+          "tensor",
+          "metric",
+          "quantum",
+          "singularity",
+          "hawking"
+        ];
 
-const autoResearchMode =
+        const autoResearchMode =
 
-  advancedTopics.some(topic =>
+          advancedTopics.some(topic =>
 
-    question
-      .toLowerCase()
-      .includes(topic)
-  );
+            question
+              .toLowerCase()
+              .includes(topic)
+          );
 
-  
 
-  let attachmentPrompt = "";
 
-uploadedAttachments.forEach(file => {
+        let attachmentPrompt = "";
 
-if(file.type === "file"){
+        uploadedAttachments.forEach(file => {
 
-attachmentPrompt += `
+          if (file.type === "file") {
+
+            attachmentPrompt += `
 
 File Name:
 ${file.name}
@@ -4518,10 +6202,10 @@ ${file.data.substring(0, 3000)}
 
 `;
 
-}
+          }
 
-});
-const attachmentSummary = `
+        });
+        const attachmentSummary = `
 
 The user may upload BOTH text files and images.
 
@@ -4543,152 +6227,42 @@ If BOTH images and files exist:
 
 `;
 
-const finalPrompt = `
+        const finalPrompt = [
+          attachmentSummary,
+          userInterestProfile,
+          contextPrompt,
+          objectPrompt,
+          telescopeAdvice,
+          relatedConcepts,
+          proactiveInsights,
+          (researchMode || autoResearchMode)
+            ? "Use advanced astrophysics, scientific terminology, equations, and deep theoretical explanations."
+            : ""
+        ].filter(Boolean).join("\n\n");
 
-${attachmentSummary}
 
-${
-uploadedAttachments.some(file => file.type === "image")
-? `
-One or more astronomical images were uploaded.
+        const responseLength =
+          (typeof AstroSettings !== "undefined" ? AstroSettings.get("responseLength") : null)
+          || localStorage.getItem("responseLength")
+          || "medium";
 
-Analyze EVERY uploaded image individually.
+        const defaultAISettings = {
+          responseLength: "medium",
+          creativity: "balanced"
+        };
 
-If text files are also uploaded:
+        const creativity =
+          (typeof AstroSettings !== "undefined" ? AstroSettings.get("creativity") : null)
+          || localStorage.getItem("creativity")
+          || "balanced";
 
-- Read every uploaded file.
-- Correlate every image with every uploaded file.
-- Never ignore uploaded images.
-- Never ignore uploaded files.
-- Produce one combined report.
+        let creativityInstruction = "";
 
-Also analyze:
+        switch (String(creativity).toLowerCase()) {
 
-- celestial objects
-- stars
-- galaxies
-- planets
-- nebulae
-- image quality
-- blur
-- noise
-- astrophotography quality
-- possible telescope capture details
-- image sharpness
-- exposure balance
-- contrast quality
-- possible atmospheric distortion
-- possible telescope or camera type
+          case "precise":
 
-Give a dedicated astrophotography analysis section.
-`
-: ""
-}
-
-Saved User Memory:
-
-${loadAllMemories()}
-
-Relevant Memories:
-
-${relatedMemories || "None"}
-
-${userInterestProfile}
-
-${astroSystemPrompt}
-
-${contextPrompt}
-
-${objectPrompt}
-
-${telescopeAdvice}
-
-${relatedConcepts}
-
-${proactiveInsights}
-
-${
-researchMode ||
-autoResearchMode
-? `
-Use advanced astrophysics,
-scientific terminology,
-equations,
-deep theoretical explanations,
-and research-level discussion.
-`
-: ""
-}
-
-Provide a scientifically accurate and well-structured response.
-
-The response length MUST follow the user's selected Response Length setting.
-
-If the setting is SHORT:
-- Keep the reply under 120 words.
-- Use no headings.
-- Use no bullet points unless absolutely necessary.
-
-If the setting is MEDIUM:
-- Keep the reply around 250-500 words.
-- Use headings only when useful.
-
-If the setting is DETAILED:
-- Provide a comprehensive explanation.
-- Use Markdown headings.
-- Use bullet points, tables, examples, and scientific reasoning where appropriate.
-
-If the user asks for comparisons:
-- Use comparison tables or structured bullet points.
-
-If images are uploaded:
-- Analyze each image carefully.
-- Mention notable astronomical objects, image quality, possible equipment, and observational details.
-
-If files are uploaded:
-- Read every uploaded file carefully.
-- Extract important information.
-- Summarize key findings.
-
-If both images and files are uploaded:
-- Correlate information from all uploaded content.
-- Produce one combined analysis.
-- Never ignore any uploaded content.
-
-When appropriate:
-- Expand into related astronomy concepts.
-- Suggest observational tips.
-- Mention telescope suitability.
-- Mention astrophotography advice.
-- Mention scientific implications.
-
-Use proper Markdown headings, bullet points, tables, and equations where useful.
-
-Avoid unnecessary repetition.
-
-Keep the response engaging, educational, scientifically accurate, and well structured.
-`;
-
-const responseLength =
-localStorage.getItem("responseLength")
-|| "medium";
-
-const defaultAISettings = {
-    responseLength: "medium",
-    creativity: "balanced"
-};
-
-const creativity =
-localStorage.getItem("creativity")
-|| "balanced";
-
-let creativityInstruction = "";
-
-switch (localStorage.getItem("creativity") || "balanced") {
-
-case "precise":
-
-creativityInstruction = `
+            creativityInstruction = `
 You are an expert astronomy scientist.
 
 Always:
@@ -4699,11 +6273,11 @@ Always:
 - Focus on accuracy over style.
 `;
 
-break;
+            break;
 
-case "balanced":
+          case "balanced":
 
-creativityInstruction = `
+            creativityInstruction = `
 You are a friendly astronomy educator.
 
 Always:
@@ -4714,11 +6288,11 @@ Always:
 - Maintain scientific accuracy.
 `;
 
-break;
+            break;
 
-case "creative":
+          case "creative":
 
-creativityInstruction = `
+            creativityInstruction = `
 You are an inspiring astronomy educator like Carl Sagan or Neil deGrasse Tyson.
 
 Instead of sounding like a textbook:
@@ -4742,17 +6316,17 @@ Instead of sounding like a textbook:
 - Keep every scientific fact accurate.
 `;
 
-break;
+            break;
 
-}
+        }
 
-let responseInstruction = "";
+        let responseInstruction = "";
 
-switch(responseLength){
+        switch (responseLength) {
 
-case "short":
+          case "short":
 
-responseInstruction = `
+            responseInstruction = `
 IMPORTANT:
 Reply in a maximum of 5 short sentences.
 Do NOT use headings.
@@ -4760,21 +6334,21 @@ Do NOT use bullet points.
 Keep the answer under 120 words.
 `;
 
-break;
+            break;
 
-case "medium":
+          case "medium":
 
-responseInstruction = `
+            responseInstruction = `
 Provide a balanced explanation.
 Keep the answer around 250-500 words.
 Use headings only if needed.
 `;
 
-break;
+            break;
 
-case "long":
+          case "long":
 
-responseInstruction = `
+            responseInstruction = `
 Provide a comprehensive explanation.
 Use Markdown headings.
 Use tables where appropriate.
@@ -4782,532 +6356,635 @@ Explain concepts step by step.
 Include scientific reasoning and examples.
 `;
 
-break;
+            break;
 
-}
+        }
 
-const memoryContext = buildMemoryContext(question);
+        const endpoint = useCloud
+          ? "https://astro-exp-seven.vercel.app/api/chat"
+          : "https://openrouter.ai/api/v1/chat/completions";
 
-const finalUserPrompt = `
+        const headers = useCloud
+          ? {
+            "Content-Type": "application/json"
+          }
+          : {
+            "Authorization":
+              "Bearer " +
+              localStorage.getItem("OPENROUTER_API_KEY"),
+            "Content-Type": "application/json",
+            "HTTP-Referer": location.origin,
+            "X-Title": "Astro AI"
+          };
 
-Relevant User Memory:
+        let temperature = 0.8;
 
-${memoryContext || "None"}
+        switch (String(creativity).toLowerCase()) {
+          case "precise":
+            temperature = 0.2;
+            break;
 
-${finalPrompt}
+          case "balanced":
+            temperature = 0.7;
+            break;
 
-`;
-      const endpoint = useCloud
-? "https://astro-exp-seven.vercel.app/api/chat"
-: "https://openrouter.ai/api/v1/chat/completions";
+          case "creative":
+            temperature = 1.0;
+            break;
+        }
 
-const headers = useCloud
+        const selectedModel =
+          (typeof AstroSettings !== "undefined" ? AstroSettings.get("aiModel") : null) ||
+          localStorage.getItem("aiModel") ||
+          "openai/gpt-4o-mini";
 
-?{
+        const isGPT5 = selectedModel === "openai/gpt-5";
 
-    "Content-Type":"application/json"
+        const memoryContext = buildMemoryContext(question);
 
-}
+        const finalUserPrompt = isGPT5
+          ? [
+            memoryContext ? `User Memory:\n${memoryContext}` : "",
+            currentAIObject ? `Target Object: ${currentAIObject.name}` : "",
+            `Question: ${question}`
+          ].filter(Boolean).join("\n\n")
+          : [
+            memoryContext ? `User Memory:\n${memoryContext}` : "",
+            finalPrompt ? finalPrompt : "",
+            `Question: ${question}`
+          ].filter(Boolean).join("\n\n");
 
-:{
+        const DEFAULT_TOKEN_PROFILE = {
+          short: 512,
+          medium: 2048,
+          detailed: 4096
+        };
 
-    "Authorization":
+        const MODEL_TOKEN_OVERRIDES = {
+          "google/gemini-3.5-flash": {
+            short: 512,
+            medium: 3072,
+            detailed: 6144
+          }
+        };
 
-    "Bearer " +
+        const profile = MODEL_TOKEN_OVERRIDES[selectedModel] || DEFAULT_TOKEN_PROFILE;
 
-    localStorage.getItem("OPENROUTER_API_KEY"),
+        let maxTokens = profile.medium;
 
-    "Content-Type":"application/json",
+        switch (String(responseLength).toLowerCase()) {
+          case "short":
+            maxTokens = profile.short;
+            break;
 
-    "HTTP-Referer":location.origin,
+          case "medium":
+            maxTokens = profile.medium;
+            break;
 
-    "X-Title":"Astro AI"
+          case "detailed":
+          case "long":
+            maxTokens = profile.detailed;
+            break;
 
-};
-let temperature = 0.8;
+          default:
+            maxTokens = profile.medium;
+        }
 
-switch(localStorage.getItem("creativity")){
 
-case "precise":
-temperature = 0.2;
-break;
+        console.log("🔍 [DEBUG] Sending AI Request:", {
+          endpoint: endpoint,
+          useCloud: useCloud,
+          apiKey: localStorage.getItem("OPENROUTER_API_KEY") ? "Present" : "Missing",
+          responseLengthSetting: (typeof AstroSettings !== "undefined" ? AstroSettings.get("responseLength") : null) || localStorage.getItem("responseLength"),
+          creativitySetting: (typeof AstroSettings !== "undefined" ? AstroSettings.get("creativity") : null) || localStorage.getItem("creativity"),
+          temperature: temperature,
+          maxTokens: maxTokens,
+          model: selectedModel,
+          systemPrompt: creativityInstruction + "\n" + responseInstruction,
+          userPrompt: finalUserPrompt
+        });
 
-case "balanced":
-temperature = 0.7;
-break;
+        const systemPromptText = isGPT5
+          ? "You are Astro AI. Give a concise, direct answer. Do not include internal reasoning."
+          : `${creativityInstruction}\n\n${responseInstruction}\n`;
 
-case "creative":
-temperature = 1.0;
-break;
+        const imageAttachments = uploadedAttachments.filter(f => f.type === "image");
+        const hasImages = imageAttachments.length > 0;
 
-}
-
-console.log("===== MAIN CHAT =====");
-console.log("Endpoint:", endpoint);
-console.log("useCloud:", useCloud);
-
-const response = await fetch(endpoint,{
-
-    method:"POST",
-
-    headers,
-
-    body:JSON.stringify({
-
-        model:"openai/gpt-4o-mini",
-
-       messages:[
-
-    {
-        role:"system",
-        content:`
-${creativityInstruction}
-
-${responseInstruction}
-`
-    },
-
-    {
-        role:"user",
-        content:[
-
+        const userContent = (isGPT5 || !hasImages)
+          ? (finalUserPrompt + (attachmentPrompt && String(attachmentPrompt).trim() !== "" ? "\n\n" + attachmentPrompt : ""))
+          : [
             {
-                type:"text",
-                text:finalUserPrompt
+              type: "text",
+              text: finalUserPrompt
             },
-
-            {
-                type:"text",
-                text:attachmentPrompt
-            },
-
-            ...uploadedAttachments
-            .filter(f=>f.type==="image")
-            .map(f=>({
-                type:"image_url",
-                image_url:{
-                    url:f.data
-                }
+            ...(attachmentPrompt && String(attachmentPrompt).trim() !== "" ? [{
+              type: "text",
+              text: attachmentPrompt
+            }] : []),
+            ...imageAttachments.map(f => ({
+              type: "image_url",
+              image_url: {
+                url: f.data
+              }
             }))
+          ];
 
-        ]
-    }
+        const requestBody = {
+          model: selectedModel,
+          messages: [
+            {
+              role: "system",
+              content: systemPromptText
+            },
+            {
+              role: "user",
+              content: userContent
+            }
+          ],
+          temperature
+        };
 
-],
+        // Only add max_tokens if a model explicitly requires it (has an override)
+        if (MODEL_TOKEN_OVERRIDES[selectedModel]) {
+          requestBody.max_tokens = maxTokens;
+        }
 
-        temperature,
-        max_tokens:3000
+        console.log("FINAL REQUEST BODY:", requestBody);
+        console.log("===== OPENROUTER BODY =====");
+        console.log(JSON.stringify(requestBody, null, 2));
 
-    })
+        const response = await fetch(endpoint, {
+          method: "POST",
+          headers,
+          body: JSON.stringify(requestBody)
+        });
 
-});
+        console.log("Status:", response.status);
+        console.log("OK:", response.ok);
 
-      console.log("Status:", response.status);
-console.log("OK:", response.ok);
+        const raw = await response.clone().text();
+        console.log("RAW RESPONSE:");
+        console.log(raw);
 
-const raw = await response.clone().text();
-console.log("RAW RESPONSE:");
-console.log(raw);
+        const dataRaw = await response.json();
+        let data = dataRaw;
 
-      const data =
-        await response.json();
+        console.log("FULL GPT-5 RESPONSE:", data);
 
-      
+        let reply = "No response.";
+
+        // 🔄 Automatic max_tokens fallback handler for afford errors
+        if (data && data.error) {
+          const errMsg = typeof data.error === "string"
+            ? data.error
+            : (data.error.message || JSON.stringify(data.error));
+
+          if (/afford/i.test(errMsg)) {
+            // Extract X from "You can only afford X completion tokens, but you requested Y"
+            const match = errMsg.match(/afford\s+(\d+)/i) || errMsg.match(/(\d+)\s+(?:completion\s+)?tokens/i);
+            const affordTokens = match ? parseInt(match[1], 10) : null;
+
+            if (affordTokens !== null && (affordTokens <= 0 || affordTokens < 32)) {
+              reply = "Your OpenRouter account does not have enough remaining credits to generate a response. Please add credits or choose a free model.";
+            } else {
+              const retryMaxTokens = (affordTokens !== null && affordTokens >= 32)
+                ? Math.max(128, affordTokens - 64)
+                : 512;
+              console.log(`⚠️ Silently retrying request once with max_tokens = ${retryMaxTokens}...`);
+
+              const retryRequestBody = {
+                ...requestBody,
+                max_tokens: retryMaxTokens
+              };
+
+              try {
+                const retryResponse = await fetch(endpoint, {
+                  method: "POST",
+                  headers,
+                  body: JSON.stringify(retryRequestBody)
+                });
+                data = await retryResponse.json();
+                console.log("RETRY RESPONSE:", data);
+              } catch (retryErr) {
+                console.error("Retry fetch error:", retryErr);
+              }
+            }
+          }
+        }
+
+        if (data && data.error) {
+          const finalErrMsg = typeof data.error === "string"
+            ? data.error
+            : (data.error.message || JSON.stringify(data.error));
+          if (/afford/i.test(finalErrMsg)) {
+            reply = "Your OpenRouter account does not have enough remaining credits to generate a response. Please add credits or choose a free model.";
+          } else {
+            reply = "API Error: " + finalErrMsg;
+          }
+        } else if (data && data.choices && data.choices.length > 0) {
+          const choice = data.choices[0];
+          const msgObj = choice.message || choice.delta;
+
+          if (msgObj) {
+            if (typeof msgObj.content === "string" && msgObj.content.trim() !== "") {
+              reply = msgObj.content;
+            } else if (Array.isArray(msgObj.content)) {
+              reply = msgObj.content
+                .map(part => {
+                  if (typeof part === "string") return part;
+                  if (part && typeof part === "object" && (part.type === "text" || !part.type)) {
+                    return part.text || "";
+                  }
+                  return "";
+                })
+                .filter(Boolean)
+                .join("\n");
+            } else if (typeof msgObj.text === "string" && msgObj.text.trim() !== "") {
+              reply = msgObj.text;
+            } else if (typeof choice.text === "string" && choice.text.trim() !== "") {
+              reply = choice.text;
+            }
+          }
+        }
+
+        if (!reply || typeof reply !== "string" || reply.trim() === "") {
+          reply = "No response.";
+        }
 
 
 
-      let reply =
-        "No response.";
 
-      if (data.error) {
 
-        reply =
-          "API Error: " +
-          data.error.message;
+        // 🔥 Remove accidental Base64 image output
+
+        // 🔥 Remove accidental Base64 image output
+        if (
+          reply.includes("data:image") ||
+          /^[A-Za-z0-9+/=\s]{5000,}$/.test(reply.replace(/\s/g, ""))
+        ) {
+          reply = "🖼️ Image analyzed successfully.";
+        }
+
+        updateLastTopic(question);
+        conversationObjects.push({
+
+          question,
+
+          object:
+            currentAIObject?.name ||
+
+            "Unknown",
+
+          time:
+            new Date().toISOString()
+        });
+        removeThinkingLoader(loader);
+
+        await typeAIMessage(reply);
+
+        if (pendingMemory) {
+
+          pendingStructuredMemory =
+            extractStructuredMemory(pendingMemory);
+
+          showMemorySuggestion(
+            pendingStructuredMemory
+          );
+
+          pendingMemory = null;
+
+        }
+
+
+
+
+
+
+        generateConversationTitle(
+          question,
+          reply
+        );
+
+        attachments = [];
+        renderAttachments();
+        const cleanReply =
+
+          reply.replace(/[#*`>-]/g, "");
+
+        //speakResponse(cleanReply);
       }
 
-      else if (
-        data.choices &&
-        data.choices.length > 0
-      ) {
+      catch (err) {
 
-        reply =
+        console.log(err);
 
-          data.choices[0]
-          .message.content;
+        addAIMessage(
+
+          "AI request failed.",
+
+          "Astro AI"
+        );
       }
-      // 🔥 Remove accidental Base64 image output
-if (
-    reply.includes("data:image") ||
-    /^[A-Za-z0-9+/=\s]{5000,}$/.test(reply.replace(/\s/g, ""))
-) {
-
-    reply = "🖼️ Image analyzed successfully.";
-}
-
-      updateLastTopic(question);
-      conversationObjects.push({
-
-  question,
-
-  object:
-    currentAIObject?.name ||
-
-    "Unknown",
-
-  time:
-    new Date().toISOString()
-});
-      removeThinkingLoader(loader);
-
-await typeAIMessage(reply);
-
-if (pendingMemory) {
-
-    pendingStructuredMemory =
-        extractStructuredMemory(pendingMemory);
-
-    showMemorySuggestion(
-        pendingStructuredMemory
-    );
-
-    pendingMemory = null;
-
-}
+    });
 
 
+  const attachBtn =
+    document.getElementById("attach-btn");
+
+  const attachMenu =
+    document.getElementById("attach-menu");
+
+  attachBtn.onclick = () => {
+
+    attachMenu.classList.toggle("show");
+
+  };
+
+  document
+    .getElementById("image-option")
+    .onclick = () => {
+
+      const input =
+        document.getElementById("astro-image");
+
+      input.accept = "image/*";
+
+      input.click();
+
+      attachMenu.classList.remove("show");
+
+    };
+
+  document
+    .getElementById("file-option")
+    .onclick = () => {
+
+      const input =
+        document.getElementById("astro-image");
+
+      input.accept = ".pdf,.txt,.doc,.docx,.js,.html,.css,.json,.md,.py,.java,.cpp,.c,.zip,.rar";
+
+      input.click();
+
+      attachMenu.classList.remove("show");
+
+    };
+  document.getElementById("memory-filter")
+    ?.addEventListener("change", () => {
+
+      renderMemoryList();
+
+    });
+
+  document.getElementById("memory-search")
+    ?.addEventListener("input", () => {
+
+      renderMemoryList();
+
+    });
 
 
+  document
+    .getElementById("observation-option")
+    .onclick = () => {
 
+      alert("Coming Soon 🔭");
 
-saveMessage("Astro AI", reply);
+      attachMenu.classList.remove("show");
 
-saveMessage("Astro AI", reply);
+    };
 
-generateConversationTitle(
-question,
-reply
-);
+  document
+    .getElementById("research-option")
+    .onclick = () => {
 
-attachments = [];
-renderAttachments();
-      const cleanReply =
+      if (researchMode) {
 
-  reply.replace(/[#*`>-]/g, "");
+        addAIMessage(
+          "Research mode disabled 😄🔥",
+          "Astro AI"
+        );
 
-//speakResponse(cleanReply);
+        researchMode = false;
+
+      }
+
+      else {
+
+        addAIMessage(
+          "Research mode enabled 🧠😈🔥",
+          "Astro AI"
+        );
+
+        researchMode = true;
+
+      }
+
+      attachMenu.classList.remove("show");
+
+    };
+
+  document.onclick = (e) => {
+
+    if (
+      !attachMenu.contains(e.target)
+      &&
+      e.target !== attachBtn
+    ) {
+
+      attachMenu.classList.remove("show");
+
     }
 
-    catch(err) {
+  };
 
-      console.log(err);
+  // ================= EDIT MEMORY OUTSIDE CLICK =================
 
-      addAIMessage(
+  document
+    .getElementById("edit-memory-overlay")
+    ?.addEventListener("click", e => {
 
-        "AI request failed.",
-
-        "Astro AI"
-      );
-    }
-});
-
-
-const attachBtn =
-document.getElementById("attach-btn");
-
-const attachMenu =
-document.getElementById("attach-menu");
-
-attachBtn.onclick=()=>{
-
-attachMenu.classList.toggle("show");
-
-};
-
-document
-.getElementById("image-option")
-.onclick=()=>{
-
-const input=
-document.getElementById("astro-image");
-
-input.accept="image/*";
-
-input.click();
-
-attachMenu.classList.remove("show");
-
-};
-
-document
-.getElementById("file-option")
-.onclick=()=>{
-
-const input=
-document.getElementById("astro-image");
-
-input.accept=".pdf,.txt,.doc,.docx,.js,.html,.css,.json,.md,.py,.java,.cpp,.c,.zip,.rar";
-
-input.click();
-
-attachMenu.classList.remove("show");
-
-};
-document.getElementById("memory-filter")
-?.addEventListener("change", () => {
-
-    renderMemoryList();
-
-});
-
-document.getElementById("memory-search")
-?.addEventListener("input", () => {
-
-    renderMemoryList();
-
-});
-
-
-document
-.getElementById("observation-option")
-.onclick=()=>{
-
-alert("Coming Soon 🔭");
-
-attachMenu.classList.remove("show");
-
-};
-
-document
-.getElementById("research-option")
-.onclick = () => {
-
-if (researchMode) {
-
-  addAIMessage(
-    "Research mode disabled 😄🔥",
-    "Astro AI"
-  );
-
-  researchMode = false;
-
-}
-
-else {
-
-  addAIMessage(
-    "Research mode enabled 🧠😈🔥",
-    "Astro AI"
-  );
-
-  researchMode = true;
-
-}
-
-attachMenu.classList.remove("show");
-
-};
-
-document.onclick=(e)=>{
-
-if(
-!attachMenu.contains(e.target)
-&&
-e.target!==attachBtn
-){
-
-attachMenu.classList.remove("show");
-
-}
-
-};
-
-// ================= EDIT MEMORY OUTSIDE CLICK =================
-
-document
-.getElementById("edit-memory-overlay")
-?.addEventListener("click", e => {
-
-    if (e.target.id === "edit-memory-overlay") {
+      if (e.target.id === "edit-memory-overlay") {
 
         document
-        .getElementById("edit-memory-overlay")
-        .classList.remove("show");
+          .getElementById("edit-memory-overlay")
+          .classList.remove("show");
 
         editingMemory = null;
 
-    }
+      }
 
-});
+    });
 
-// ================= CHAT HISTORY OUTSIDE CLICK =================
+  // ================= CHAT HISTORY OUTSIDE CLICK =================
 
-document
-.getElementById("history-overlay")
-?.addEventListener("click", e => {
+  document
+    .getElementById("history-overlay")
+    ?.addEventListener("click", e => {
 
-    if (e.target.id === "history-overlay") {
+      if (e.target.id === "history-overlay") {
 
         document
-        .getElementById("history-overlay")
-        .style.display = "none";
+          .getElementById("history-overlay")
+          .style.display = "none";
 
-    }
+      }
 
 
-});
-compassScale =
-document.getElementById(
-"compassScale"
-);
+    });
+  compassScale =
+    document.getElementById(
+      "compassScale"
+    );
 
-buildCompass();
+  buildCompass();
 
 }); // 🔥 DOMContentLoaded END
 
 document
-.getElementById("cancel-edit-memory")
-?.addEventListener("click",()=>{
+  .getElementById("cancel-edit-memory")
+  ?.addEventListener("click", () => {
+
+    document
+      .getElementById("edit-memory-overlay")
+      .classList.remove("show");
+
+    editingMemory = null;
+
+  });
 
 document
-.getElementById("edit-memory-overlay")
-.classList.remove("show");
+  .getElementById("save-edit-memory")
+  ?.addEventListener("click", () => {
 
-editingMemory = null;
+    if (!editingMemory) return;
 
-});
+    editingMemory.text =
 
-document
-.getElementById("save-edit-memory")
-?.addEventListener("click",()=>{
+      document
+        .getElementById("edit-memory-text")
+        .value
+        .trim();
 
-if(!editingMemory) return;
+    editingMemory.updatedAt =
 
-editingMemory.text =
+      new Date().toISOString();
 
-document
-.getElementById("edit-memory-text")
-.value
-.trim();
+    localStorage.setItem(
 
-editingMemory.updatedAt =
+      "astroMemory",
 
-new Date().toISOString();
+      JSON.stringify(astroMemory)
 
-localStorage.setItem(
+    );
 
-"astroMemory",
+    saveCloudMemory();
 
-JSON.stringify(astroMemory)
+    updateMemorySettings();
 
-);
+    renderMemoryList();
 
-saveCloudMemory();
+    document
+      .getElementById("edit-memory-overlay")
+      .classList.remove("show");
 
-updateMemorySettings();
+    editingMemory = null;
 
-renderMemoryList();
-
-document
-.getElementById("edit-memory-overlay")
-.classList.remove("show");
-
-editingMemory = null;
-
-});
+  });
 
 function addAIMessage(text, sender) {
 
   const msg =
     document.createElement("div");
 
-    msg.className = "message";
+  msg.className = "message";
 
-    const width =
-localStorage.getItem("messageWidth")
-|| "85";
+  const width =
+    localStorage.getItem("messageWidth")
+    || "85";
 
-msg.style.maxWidth =
-width + "%";
+  msg.style.maxWidth =
+    width + "%";
 
-msg.style.padding = "12px";
+  msg.style.padding = "12px";
 
-const bubble =
-localStorage.getItem("bubbleStyle")
-|| "rounded";
+  const bubble =
+    localStorage.getItem("bubbleStyle")
+    || "rounded";
 
-msg.style.borderRadius =
+  msg.style.borderRadius =
 
-bubble==="rounded"
+    bubble === "rounded"
 
-? "16px"
+      ? "16px"
 
-: "4px";
+      : "4px";
 
-msg.style.margin = "10px";
+  msg.style.margin = "10px";
 
-msg.style.lineHeight = "1.6";
+  msg.style.lineHeight = "1.6";
 
-msg.style.wordWrap = "break-word";
+  msg.style.wordWrap = "break-word";
 
-msg.style.whiteSpace = "normal";
+  msg.style.whiteSpace = "normal";
 
-msg.style.boxShadow =
-  "0 0 10px rgba(0,0,0,0.3)";
+  msg.style.boxShadow =
+    "0 0 10px rgba(0,0,0,0.3)";
 
   msg.style.marginBottom = "10px";
 
   if (sender === "You") {
 
-  msg.style.background =
-    "#2563eb";
+    msg.style.background =
+      "#2563eb";
 
-  msg.style.color =
-    "white";
+    msg.style.color =
+      "white";
 
-  msg.style.marginLeft =
-    "auto";
+    msg.style.marginLeft =
+      "auto";
 
-  msg.style.marginWidth =
-    "30%";
+    msg.style.marginWidth =
+      "30%";
 
-}
+  }
 
-else {
+  else {
 
-  msg.style.background =
-    "#111827";
+    msg.style.background =
+      "#111827";
 
-  msg.style.color =
-    "#e5e7eb";
+    msg.style.color =
+      "#e5e7eb";
 
-  msg.style.border =
-    "1px solid #374151";
+    msg.style.border =
+      "1px solid #374151";
 
-  msg.style.marginRight =
-    "auto";
-}
+    msg.style.marginRight =
+      "auto";
+  }
 
- msg.innerHTML = `
+  msg.innerHTML = `
 <b>${sender}:</b>
 `;
 
-const content = document.createElement("div");
+  const content = document.createElement("div");
 
-if (text.trim().startsWith("<img")) {
+  if (text.trim().startsWith("<img")) {
 
     content.innerHTML = text;
 
-} else {
+  } else {
 
     content.innerHTML = marked.parse(text);
 
-}
+  }
 
-msg.appendChild(content);
+  msg.appendChild(content);
 
-// 🔥 Sirf AI replies ke liye actions
-if (sender !== "You") {
+  // 🔥 Sirf AI replies ke liye actions
+  if (sender !== "You") {
 
     const actions = document.createElement("div");
 
@@ -5329,23 +7006,23 @@ if (sender !== "You") {
 
     copyBtn.onclick = async () => {
 
-        await navigator.clipboard.writeText(text);
+      await navigator.clipboard.writeText(text);
 
-        copyBtn.textContent = "✅";
+      copyBtn.textContent = "✅";
 
-        setTimeout(() => {
+      setTimeout(() => {
 
-            copyBtn.textContent = "📋";
+        copyBtn.textContent = "📋";
 
-        }, 1000);
+      }, 1000);
 
     };
 
     let speaking = false;
 
-speakBtn.onclick = () => {
+    speakBtn.onclick = () => {
 
-    if (!speaking) {
+      if (!speaking) {
 
         window.speechSynthesis.cancel();
 
@@ -5356,8 +7033,8 @@ speakBtn.onclick = () => {
 
         speech.onend = () => {
 
-            speaking = false;
-            speakBtn.textContent = "🔊";
+          speaking = false;
+          speakBtn.textContent = "🔊";
 
         };
 
@@ -5366,7 +7043,7 @@ speakBtn.onclick = () => {
         speaking = true;
         speakBtn.textContent = "⏹";
 
-    } else {
+      } else {
 
         window.speechSynthesis.cancel();
 
@@ -5374,16 +7051,16 @@ speakBtn.onclick = () => {
 
         speakBtn.textContent = "🔊";
 
-    }
+      }
 
-};
+    };
 
-    
+
 
     likeBtn.onclick = () => {
 
-    // Agar pehle se liked hai
-    if (likeBtn.classList.contains("active")) {
+      // Agar pehle se liked hai
+      if (likeBtn.classList.contains("active")) {
 
         likeBtn.classList.remove("active");
 
@@ -5392,23 +7069,23 @@ speakBtn.onclick = () => {
         dislikeBtn.style.display = "inline-block";
 
         return;
-    }
+      }
 
-    // Like ON
-    likeBtn.classList.add("active");
+      // Like ON
+      likeBtn.classList.add("active");
 
-    likeBtn.style.color = "#22d3ee";
+      likeBtn.style.color = "#22d3ee";
 
-    dislikeBtn.style.display = "none";
+      dislikeBtn.style.display = "none";
 
-    showToast("👍 Thanks for your feedback");
+      showToast("👍 Thanks for your feedback");
 
-};
+    };
 
-   dislikeBtn.onclick = () => {
+    dislikeBtn.onclick = () => {
 
-    // Agar pehle se disliked hai
-    if (dislikeBtn.classList.contains("active")) {
+      // Agar pehle se disliked hai
+      if (dislikeBtn.classList.contains("active")) {
 
         dislikeBtn.classList.remove("active");
 
@@ -5417,281 +7094,281 @@ speakBtn.onclick = () => {
         likeBtn.style.display = "inline-block";
 
         return;
-    }
+      }
 
-    // Dislike ON
-    dislikeBtn.classList.add("active");
+      // Dislike ON
+      dislikeBtn.classList.add("active");
 
-    dislikeBtn.style.color = "#ef4444";
+      dislikeBtn.style.color = "#ef4444";
 
-    likeBtn.style.display = "none";
+      likeBtn.style.display = "none";
 
-    showToast("👎 Thanks for your feedback");
+      showToast("👎 Thanks for your feedback");
 
-};
+    };
 
     regenBtn.onclick = () => {
 
-    if (!lastQuestion) return;
+      if (!lastQuestion) return;
 
-    document.getElementById("ai-input").value = lastQuestion;
+      document.getElementById("ai-input").value = lastQuestion;
 
-    document.getElementById("ai-send").click();
+      document.getElementById("ai-send").click();
 
-};
+    };
 
     // 🔥 Message ke niche buttons
     msg.appendChild(actions);
-    
 
 
 
-}
 
-// 🔥 You message actions
-if(sender === "You"){
+  }
 
-const actions=document.createElement("div");
+  // 🔥 You message actions
+  if (sender === "You") {
 
-actions.className="message-actions";
+    const actions = document.createElement("div");
 
-actions.innerHTML=`
+    actions.className = "message-actions";
+
+    actions.innerHTML = `
 <button class="select-btn">🔤</button>
 <button class="edit-btn">✏️</button>
 <button class="message-copy-btn">📋</button>
 `;
 
-const selectBtn=actions.querySelector(".select-btn");
-const editBtn=actions.querySelector(".edit-btn");
-const copyBtn=actions.querySelector(".message-copy-btn");
+    const selectBtn = actions.querySelector(".select-btn");
+    const editBtn = actions.querySelector(".edit-btn");
+    const copyBtn = actions.querySelector(".message-copy-btn");
 
-copyBtn.onclick=async()=>{
+    copyBtn.onclick = async () => {
 
-await navigator.clipboard.writeText(text);
+      await navigator.clipboard.writeText(text);
 
-copyBtn.textContent="✅";
+      copyBtn.textContent = "✅";
 
-setTimeout(()=>{
+      setTimeout(() => {
 
-copyBtn.textContent="📋";
+        copyBtn.textContent = "📋";
 
-},1000);
+      }, 1000);
 
-};
+    };
 
-selectBtn.onclick = () => {
+    selectBtn.onclick = () => {
 
-    content.contentEditable = "true";
+      content.contentEditable = "true";
 
-    content.focus();
+      content.focus();
 
-    showToast("Select any text you want");
+      showToast("Select any text you want");
 
-};
+    };
 
-content.addEventListener("blur", () => {
+    content.addEventListener("blur", () => {
 
-    content.contentEditable = "false";
+      content.contentEditable = "false";
 
-});
+    });
 
-editBtn.onclick=()=>{
+    editBtn.onclick = () => {
 
-const input=document.getElementById("ai-input");
+      const input = document.getElementById("ai-input");
 
-input.value=text;
+      input.value = text;
 
-input.focus();
+      input.focus();
 
-input.setSelectionRange(text.length,text.length);
+      input.setSelectionRange(text.length, text.length);
 
-};
+    };
 
-msg.appendChild(actions);
+    msg.appendChild(actions);
 
 
 
-}
+  }
 
-// 🔥 Sirf ek baar append karna hai
-document
+  // 🔥 Sirf ek baar append karna hai
+  document
     .getElementById("ai-messages")
     .appendChild(msg);
 }
 
 
 
-function formatHistoryDate(time){
+function formatHistoryDate(time) {
 
-const d=new Date(time);
+  const d = new Date(time);
 
-const now=new Date();
+  const now = new Date();
 
-const today=new Date(
-now.getFullYear(),
-now.getMonth(),
-now.getDate()
-);
+  const today = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate()
+  );
 
-const yesterday=new Date(today);
+  const yesterday = new Date(today);
 
-yesterday.setDate(
-yesterday.getDate()-1
-);
+  yesterday.setDate(
+    yesterday.getDate() - 1
+  );
 
-const target=new Date(
-d.getFullYear(),
-d.getMonth(),
-d.getDate()
-);
+  const target = new Date(
+    d.getFullYear(),
+    d.getMonth(),
+    d.getDate()
+  );
 
-if(target.getTime()===today.getTime()){
+  if (target.getTime() === today.getTime()) {
 
-return "Today • " +
+    return "Today • " +
 
-d.toLocaleTimeString([],{
+      d.toLocaleTimeString([], {
 
-hour:"2-digit",
+        hour: "2-digit",
 
-minute:"2-digit"
+        minute: "2-digit"
 
-});
+      });
 
-}
+  }
 
-if(target.getTime()===yesterday.getTime()){
+  if (target.getTime() === yesterday.getTime()) {
 
-return "Yesterday • " +
+    return "Yesterday • " +
 
-d.toLocaleTimeString([],{
+      d.toLocaleTimeString([], {
 
-hour:"2-digit",
+        hour: "2-digit",
 
-minute:"2-digit"
+        minute: "2-digit"
 
-});
+      });
 
-}
+  }
 
-return d.toLocaleDateString([],{
+  return d.toLocaleDateString([], {
 
-day:"numeric",
+    day: "numeric",
 
-month:"short",
+    month: "short",
 
-year:"numeric"
+    year: "numeric"
 
-});
-
-}
-
-function isMemoryRequest(text){
-
-    const t = text.toLowerCase().trim();
-
-    return (
-
-        t.startsWith("remember:") ||
-
-        t.startsWith("save") ||
-
-        t.startsWith("store") ||
-
-        t.includes("yaad rakh") ||
-
-        t.includes("yaad rakhna") ||
-
-        t.includes("remember me") ||
-
-        t.includes("memory me") ||
-
-        t.includes("memory mein") ||
-
-        t.includes("add to memory") ||
-
-        t.includes("save this") ||
-
-        t.includes("remember this")
-
-    );
+  });
 
 }
 
-function shouldSuggestMemory(text){
+function isMemoryRequest(text) {
 
-    const structured = extractStructuredMemory(text);
+  const t = text.toLowerCase().trim();
 
-    return structured.category.toLowerCase() !== "general";
+  return (
 
-}
+    t.startsWith("remember:") ||
 
-function extractMemory(text){
+    t.startsWith("save") ||
 
-let memory = text.trim();
+    t.startsWith("store") ||
 
-const removePatterns = [
+    t.includes("yaad rakh") ||
 
-/^remember\s*:?\s*/i,
-/^remember this\s*/i,
-/^remember that\s*/i,
-/^save this\s*/i,
-/^save it\s*/i,
-/^add to memory\s*/i,
-/^store this\s*/i,
+    t.includes("yaad rakhna") ||
 
-/^yaad rakhna\s*/i,
-/^yaad rakh\s*/i,
-/^yaad rakh lena\s*/i,
+    t.includes("remember me") ||
 
-/^apni memory me add kar lo\s*/i,
-/^apni memory mein add kar lo\s*/i,
-/^memory me add kar lo\s*/i,
-/^memory mein add kar lo\s*/i,
+    t.includes("memory me") ||
 
-/^save kar lo\s*/i,
-/^note kar lo\s*/i
+    t.includes("memory mein") ||
 
-];
+    t.includes("add to memory") ||
 
-removePatterns.forEach(pattern=>{
+    t.includes("save this") ||
 
-memory = memory.replace(pattern,"");
+    t.includes("remember this")
 
-});
-
-return memory.trim();
+  );
 
 }
 
-function showToast(message){
+function shouldSuggestMemory(text) {
 
-const toast =
-document.getElementById("toast");
+  const structured = extractStructuredMemory(text);
 
-toast.innerText = message;
-
-toast.classList.add("show");
-
-clearTimeout(toast.timer);
-
-toast.timer = setTimeout(()=>{
-
-toast.classList.remove("show");
-
-},2000);
+  return structured.category.toLowerCase() !== "general";
 
 }
 
-function clearChatUI(){
+function extractMemory(text) {
 
-const container =
-document.getElementById("ai-messages");
+  let memory = text.trim();
 
-if(container){
+  const removePatterns = [
 
-container.innerHTML = "";
+    /^remember\s*:?\s*/i,
+    /^remember this\s*/i,
+    /^remember that\s*/i,
+    /^save this\s*/i,
+    /^save it\s*/i,
+    /^add to memory\s*/i,
+    /^store this\s*/i,
+
+    /^yaad rakhna\s*/i,
+    /^yaad rakh\s*/i,
+    /^yaad rakh lena\s*/i,
+
+    /^apni memory me add kar lo\s*/i,
+    /^apni memory mein add kar lo\s*/i,
+    /^memory me add kar lo\s*/i,
+    /^memory mein add kar lo\s*/i,
+
+    /^save kar lo\s*/i,
+    /^note kar lo\s*/i
+
+  ];
+
+  removePatterns.forEach(pattern => {
+
+    memory = memory.replace(pattern, "");
+
+  });
+
+  return memory.trim();
 
 }
+
+function showToast(message) {
+
+  const toast =
+    document.getElementById("toast");
+
+  toast.innerText = message;
+
+  toast.classList.add("show");
+
+  clearTimeout(toast.timer);
+
+  toast.timer = setTimeout(() => {
+
+    toast.classList.remove("show");
+
+  }, 2000);
+
+}
+
+function clearChatUI() {
+
+  const container =
+    document.getElementById("ai-messages");
+
+  if (container) {
+
+    container.innerHTML = "";
+
+  }
 }
 
 
@@ -5812,121 +7489,121 @@ document
 
     const files = Array.from(e.target.files);
 
-if (files.length === 0)
-    return;
-    
-    files.forEach(file=>{
+    if (files.length === 0)
+      return;
+
+    files.forEach(file => {
 
       saveFileMemory(file);
 
-      
 
-const reader=
-new FileReader();
 
-    // 🖼️ IMAGE FILE
-    if (
-      file.type.startsWith(
-        "image/"
-      )
-    ) {
+      const reader =
+        new FileReader();
 
-      
+      // 🖼️ IMAGE FILE
+      if (
+        file.type.startsWith(
+          "image/"
+        )
+      ) {
 
-      reader.onload = () => {
 
-    
 
-    attachments.push({
+        reader.onload = () => {
 
-type:"image",
 
-name:file.name,
 
-data:reader.result
+          attachments.push({
 
-});
+            type: "image",
 
-renderAttachments();
+            name: file.name,
 
-        
-      };
+            data: reader.result
 
-      reader.readAsDataURL(
-        file
-      );
-    }
+          });
 
-    // 📄 TEXT / CODE FILE
-    else {
+          renderAttachments();
 
-      
 
-      reader.onload = () => {
+        };
 
-   
+        reader.readAsDataURL(
+          file
+        );
+      }
 
-    attachments.push({
+      // 📄 TEXT / CODE FILE
+      else {
 
-type:"file",
 
-name:file.name,
 
-data:reader.result
+        reader.onload = () => {
 
-});
 
-renderAttachments();
 
-        
-      };
+          attachments.push({
 
-      reader.readAsText(file);
-    }
+            type: "file",
+
+            name: file.name,
+
+            data: reader.result
+
+          });
+
+          renderAttachments();
+
+
+        };
+
+        reader.readAsText(file);
+      }
 
     });
-    
+
 
     e.target.value = "";
-});
+  });
 function searchMemories(query) {
 
-    if (!astroMemory.memories)
-        return [];
+  if (!astroMemory.memories)
+    return [];
 
-    const words = query
-        .toLowerCase()
-        .replace(/[^\w\s]/g, "")
-        .split(/\s+/)
-        .filter(w =>
-            w.length > 2 &&
-            ![
-                "what",
-                "which",
-                "where",
-                "when",
-                "who",
-                "why",
-                "how",
-                "is",
-                "are",
-                "the",
-                "a",
-                "an",
-                "my",
-                "me",
-                "tell",
-                "about"
-            ].includes(w)
-        );
+  const words = query
+    .toLowerCase()
+    .replace(/[^\w\s]/g, "")
+    .split(/\s+/)
+    .filter(w =>
+      w.length > 2 &&
+      ![
+        "what",
+        "which",
+        "where",
+        "when",
+        "who",
+        "why",
+        "how",
+        "is",
+        "are",
+        "the",
+        "a",
+        "an",
+        "my",
+        "me",
+        "tell",
+        "about"
+      ].includes(w)
+    );
 
-    return astroMemory.memories.filter(memory => {
+  return astroMemory.memories.filter(memory => {
 
-        const text = memory.text.toLowerCase();
+    const text = memory.text.toLowerCase();
 
-        return words.some(word => text.includes(word));
+    return words.some(word => text.includes(word));
 
-    });
+  });
 
 }
 function addCopyButtons() {
@@ -5978,64 +7655,64 @@ document
   .getElementById("google-login")
   .addEventListener("click", async () => {
 
-  try {
+    try {
 
-    const result =
+      const result =
 
-      await signInWithPopup(
+        await signInWithPopup(
 
-        auth,
-        provider
-      );
+          auth,
+          provider
+        );
 
-    const user =
-      result.user;
+      const user =
+        result.user;
 
       const profilePic =
-document.getElementById("profile-pic");
+        document.getElementById("profile-pic");
 
-profilePic.src =
-user.photoURL;
+      profilePic.src =
+        user.photoURL;
 
-profilePic.src =
-user.photoURL ||
-"https://ui-avatars.com/api/?name=User&background=333&color=fff";
+      profilePic.src =
+        user.photoURL ||
+        "https://ui-avatars.com/api/?name=User&background=333&color=fff";
 
-profilePic.style.display = "block";
+      profilePic.style.display = "block";
 
-document.getElementById("profile-name").innerText =
-user.displayName;
+      document.getElementById("profile-name").innerText =
+        user.displayName;
 
-document.getElementById("profile-email").innerText =
-user.email;
+      document.getElementById("profile-email").innerText =
+        user.email;
 
-document.getElementById("google-login").style.display =
-"none";
+      document.getElementById("google-login").style.display =
+        "none";
 
-document.getElementById("logout-menu-btn").style.display =
-"block";
+      document.getElementById("logout-menu-btn").style.display =
+        "block";
 
 
 
-    addAIMessage(
+      addAIMessage(
 
-`
+        `
 Logged in 😈🔥
 
 Welcome:
 ${user.displayName}
 `,
 
-      "Astro AI"
-    );
+        "Astro AI"
+      );
 
-  }
+    }
 
-  catch(err) {
+    catch (err) {
 
-    console.log(err);
-  }
-});
+      console.log(err);
+    }
+  });
 
 
 const oldLogoutBtn = document.getElementById("logout-btn");
@@ -6051,22 +7728,22 @@ if (oldLogoutBtn) {
   });
 }
 document
-.getElementById("profile-pic")
-.addEventListener("click",()=>{
+  .getElementById("profile-pic")
+  .addEventListener("click", () => {
+
+    document
+      .getElementById("profile-menu")
+      .classList.toggle("show");
+
+  });
 
 document
-.getElementById("profile-menu")
-.classList.toggle("show");
+  .getElementById("logout-menu-btn")
+  .addEventListener("click", async () => {
 
-});
+    await signOut(auth);
 
-document
-.getElementById("logout-menu-btn")
-.addEventListener("click",async()=>{
-
-await signOut(auth);
-
-});
+  });
 
 console.log("Window Auth:", typeof window.onAuthStateChanged);
 console.log("Window auth:", typeof window.auth);
@@ -6075,148 +7752,148 @@ window.onAuthStateChanged(window.auth, async user => {
 
   if (user) {
 
- const profilePic =
-document.getElementById("profile-pic");
+    const profilePic =
+      document.getElementById("profile-pic");
 
-profilePic.src =
-user.photoURL ||
-"https://ui-avatars.com/api/?name=User&background=333&color=fff";
+    profilePic.src =
+      user.photoURL ||
+      "https://ui-avatars.com/api/?name=User&background=333&color=fff";
 
-profilePic.style.display =
-"block";
+    profilePic.style.display =
+      "block";
 
-document.getElementById("profile-name").innerText =
-user.displayName;
+    document.getElementById("profile-name").innerText =
+      user.displayName;
 
-document.getElementById("profile-email").innerText =
-user.email;
+    document.getElementById("profile-email").innerText =
+      user.email;
 
-// New profile menu buttons
-document.getElementById("google-login").style.display =
-"none";
+    // New profile menu buttons
+    document.getElementById("google-login").style.display =
+      "none";
 
-document.getElementById("logout-menu-btn").style.display =
-"block";
+    document.getElementById("logout-menu-btn").style.display =
+      "block";
 
-  // ✅ Pehle current user set karo
-  window.currentUser = user;
+    // ✅ Pehle current user set karo
+    window.currentUser = user;
 
-  updateAccountSettings();
+    updateAccountSettings();
 
-  await loadCloudMemory();
+    await loadCloudMemory();
 
-  // ✅ Sirf ek baar conversations load karo
-  await loadConversations();
+    // ✅ Sirf ek baar conversations load karo
+    await loadConversations();
 
-  if (!currentConversationId) {
+    if (!currentConversationId) {
 
-    await createNewConversation(
-      "New Astronomy Chat"
-    );
+      await createNewConversation(
+        "New Astronomy Chat"
+      );
+
+    }
+
+
+
+    /*addAIMessage(
+   
+   `
+   Welcome back 😈🔥
+   
+   ${user.displayName}
+   `,
+   
+       "Astro AI"
+     );*/
+
+
 
   }
 
+  else {
+
+    document.getElementById("profile-pic").style.display =
+      "block";
+
+    document.getElementById("profile-pic").src =
+      "https://ui-avatars.com/api/?name=User&background=333&color=fff";
+
+    document.getElementById("profile-menu")
+      .classList.remove("show");
+
+    document.getElementById("google-login").style.display =
+      "block";
+
+    document.getElementById("logout-menu-btn").style.display =
+      "none";
+
+    document.getElementById("profile-name").innerText =
+      "";
+
+    document.getElementById("profile-email").innerText =
+      "";
+
+    window.currentUser = null;
+
+    updateAccountSettings();
+    const profilePic = document.getElementById("profile-pic");
+    const profileMenu = document.getElementById("profile-menu");
+    const profileName = document.getElementById("profile-name");
+    const profileEmail = document.getElementById("profile-email");
+
+    const googleLogin =
+      document.getElementById("google-login");
+
+    const logoutBtn =
+      document.getElementById("logout-menu-btn");
 
 
- /*addAIMessage(
-
-`
-Welcome back 😈🔥
-
-${user.displayName}
-`,
-
-    "Astro AI"
-  );*/
-
-  
-
-}
-
-else {
-
-document.getElementById("profile-pic").style.display =
-"block";
-
-document.getElementById("profile-pic").src =
-"https://ui-avatars.com/api/?name=User&background=333&color=fff";
-
-document.getElementById("profile-menu")
-.classList.remove("show");
-
-document.getElementById("google-login").style.display =
-"block";
-
-document.getElementById("logout-menu-btn").style.display =
-"none";
-
-document.getElementById("profile-name").innerText =
-"";
-
-document.getElementById("profile-email").innerText =
-"";
-
-window.currentUser = null;
-
-updateAccountSettings();
-const profilePic = document.getElementById("profile-pic");
-const profileMenu = document.getElementById("profile-menu");
-const profileName = document.getElementById("profile-name");
-const profileEmail = document.getElementById("profile-email");
-
-const googleLogin =
-document.getElementById("google-login");
-
-const logoutBtn =
-document.getElementById("logout-menu-btn");
-
-
-}
-
-document
-  .getElementById(
-    "new-chat-settings"
-  )
-  .addEventListener(
-    "click",
-
-async () => {
-
-  await createNewConversation(
-    "New Astronomy Chat"
-  );
+  }
 
   document
     .getElementById(
-      "attach-btn"
+      "new-chat-settings"
     )
-    .onclick = () => {
+    .addEventListener(
+      "click",
 
-      document
-        .getElementById(
-          "astro-image"
-        )
-        .click();
+      async () => {
 
-    };
+        await createNewConversation(
+          "New Astronomy Chat"
+        );
 
-});
+        document
+          .getElementById(
+            "attach-btn"
+          )
+          .onclick = () => {
+
+            document
+              .getElementById(
+                "astro-image"
+              )
+              .click();
+
+          };
+
+      });
 });
 
 document.getElementById("profile-pic").style.display =
-"block";
+  "block";
 
 document.getElementById("profile-pic").src =
-"https://ui-avatars.com/api/?name=User&background=333&color=fff";
+  "https://ui-avatars.com/api/?name=User&background=333&color=fff";
 
 document.getElementById("profile-menu")
-.classList.remove("show");
+  .classList.remove("show");
 
 document.getElementById("google-login").style.display =
-"block";
+  "block";
 
 document.getElementById("logout-menu-btn").style.display =
-"none";
+  "none";
 
 async function saveCloudMemory() {
 
@@ -6300,54 +7977,54 @@ async function loadCloudMemory() {
 
 
 window.loadChatHistory =
-async function() {
+  async function () {
 
-  if (!window.currentUser)
-    return;
-
-  try {
-
-    const ref = doc(
-      db,
-      "users",
-      window.currentUser.uid
-    );
-
-    const snap =
-      await getDoc(ref);
-
-    if (!snap.exists())
+    if (!window.currentUser)
       return;
 
-    const chats =
-      snap.data().chatHistory || [];
+    try {
 
-    chats.forEach(chat => {
-
-      addAIMessage(
-
-        chat.text,
-
-        chat.sender
-
+      const ref = doc(
+        db,
+        "users",
+        window.currentUser.uid
       );
 
-    });
+      const snap =
+        await getDoc(ref);
 
-    console.log(
-      "History loaded 😈🔥"
-    );
+      if (!snap.exists())
+        return;
 
-  }
+      const chats =
+        snap.data().chatHistory || [];
 
-  catch(err) {
+      chats.forEach(chat => {
 
-    console.log(err);
+        addAIMessage(
 
-  }
+          chat.text,
 
-  
-};
+          chat.sender
+
+        );
+
+      });
+
+      console.log(
+        "History loaded 😈🔥"
+      );
+
+    }
+
+    catch (err) {
+
+      console.log(err);
+
+    }
+
+
+  };
 
 function renderCurrentConversation() {
 
@@ -6390,7 +8067,7 @@ function renderConversationList() {
   console.log("INSIDE renderConversationList");
 
   const list =
-document.getElementById("history-list");
+    document.getElementById("history-list");
 
   list.innerHTML = "";
 
@@ -6405,23 +8082,23 @@ document.getElementById("history-list");
     item.innerText =
       convo.title;
 
-      item.style.cursor =
-  "pointer";
+    item.style.cursor =
+      "pointer";
 
-item.style.padding =
-  "10px";
+    item.style.padding =
+      "10px";
 
-item.style.marginBottom =
-  "10px";
+    item.style.marginBottom =
+      "10px";
 
-item.style.background =
-  "#111827";
+    item.style.background =
+      "#111827";
 
-item.style.color =
-  "white";
+    item.style.color =
+      "white";
 
-item.style.borderRadius =
-  "10px";
+    item.style.borderRadius =
+      "10px";
 
     item.onclick = () => {
 
@@ -6440,25 +8117,25 @@ function showThinkingLoader() {
   const loader =
     document.createElement("div");
 
-    loader.style.maxWidth = "85%";
+  loader.style.maxWidth = "85%";
 
-loader.style.padding = "12px";
+  loader.style.padding = "12px";
 
-loader.style.borderRadius = "16px";
+  loader.style.borderRadius = "16px";
 
-loader.style.margin = "10px";
+  loader.style.margin = "10px";
 
-loader.style.background =
-  "#1f2937";
+  loader.style.background =
+    "#1f2937";
 
-loader.style.color =
-  "#f9fafb";
+  loader.style.color =
+    "#f9fafb";
 
-loader.style.border =
-  "1px solid #374151";
+  loader.style.border =
+    "1px solid #374151";
 
-loader.style.boxShadow =
-  "0 0 10px rgba(0,0,0,0.3)";
+  loader.style.boxShadow =
+    "0 0 10px rgba(0,0,0,0.3)";
 
   loader.id = "astro-loader";
 
@@ -6521,53 +8198,54 @@ function removeThinkingLoader(loader) {
 }
 
 async function typeAIMessage(text) {
+  text = String(text || "");
 
   const msg =
     document.createElement("div");
 
-    const width =
-localStorage.getItem("messageWidth")
-|| "85";
+  const width =
+    localStorage.getItem("messageWidth")
+    || "85";
 
-msg.style.maxWidth =
-width + "%";
+  msg.style.maxWidth =
+    width + "%";
 
-msg.style.padding = "12px";
+  msg.style.padding = "12px";
 
-const bubble =
-localStorage.getItem("bubbleStyle")
-|| "rounded";
+  const bubble =
+    localStorage.getItem("bubbleStyle")
+    || "rounded";
 
-msg.style.borderRadius =
+  msg.style.borderRadius =
 
-bubble==="rounded"
+    bubble === "rounded"
 
-? "16px"
+      ? "16px"
 
-: "4px";
+      : "4px";
 
-msg.style.margin = "10px";
+  msg.style.margin = "10px";
 
-msg.style.lineHeight = "1.6";
+  msg.style.lineHeight = "1.6";
 
-msg.style.wordWrap = "break-word";
+  msg.style.wordWrap = "break-word";
 
-msg.style.whiteSpace = "normal";
+  msg.style.whiteSpace = "normal";
 
-msg.style.background =
-  "#111827";
+  msg.style.background =
+    "#111827";
 
-msg.style.color =
-  "#e5e7eb";
+  msg.style.color =
+    "#e5e7eb";
 
-msg.style.border =
-  "1px solid #374151";
+  msg.style.border =
+    "1px solid #374151";
 
-msg.style.marginRight =
-  "auto";
+  msg.style.marginRight =
+    "auto";
 
-msg.style.boxShadow =
-  "0 0 10px rgba(0,0,0,0.3)";
+  msg.style.boxShadow =
+    "0 0 10px rgba(0,0,0,0.3)";
 
   msg.style.marginBottom = "10px";
 
@@ -6576,105 +8254,113 @@ msg.style.boxShadow =
     <span class="typing-text"></span>
   `;
 
-  document
-    .getElementById("ai-messages")
-    .appendChild(msg);
-
-  const span =
-    msg.querySelector(".typing-text");
-
-  let i = 0;
-
-  while (i < text.length) {
-
-    const char = text.charAt(i);
-
-    // 🔥 preserve line breaks
-    if (char === "\n") {
-      span.innerHTML += "<br>";
-    }
-
-    else {
-      span.innerHTML += char;
-    }
-
-    i++;
-
-    // 🔥 auto scroll
-    const container =
-      document.getElementById("ai-messages");
-
-    container.scrollTop =
-      container.scrollHeight;
-
-    const animations =
-JSON.parse(
-    localStorage.getItem("animations")
-    ?? "true"
-);
-
-if(animations){
-
-    await new Promise(r =>
-        setTimeout(r,8)
-    );
-
-}
+  const messagesContainer = document.getElementById("ai-messages");
+  if (messagesContainer) {
+    messagesContainer.appendChild(msg);
   }
 
-  span.innerHTML =
-  marked.parse(text);
+  const span = msg.querySelector(".typing-text");
 
-renderMathInElement(span, {
+  const animations = (typeof AstroSettings !== "undefined" ? AstroSettings.get("animations") : null) ?? JSON.parse(
+    localStorage.getItem("animations") ?? "true"
+  );
 
-  
-  delimiters: [
+  try {
+    if (!animations || text.length > 500) {
+      // Animation OFF or long reply (> 500 characters): render instantly
+      span.innerHTML = marked.parse(text);
+      if (messagesContainer) messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    } else {
+      // Smooth frame-batched typing animation for short replies (<= 500 characters)
+      let i = 0;
+      const chunkSize = Math.max(3, Math.ceil(text.length / 40));
+      while (i < text.length) {
+        const chunk = text.slice(i, i + chunkSize);
+        let chunkHtml = "";
+        for (let c = 0; c < chunk.length; c++) {
+          const char = chunk.charAt(c);
+          if (char === "\n") {
+            chunkHtml += "<br>";
+          } else if (char === "<") {
+            chunkHtml += "&lt;";
+          } else if (char === ">") {
+            chunkHtml += "&gt;";
+          } else if (char === "&") {
+            chunkHtml += "&amp;";
+          } else {
+            chunkHtml += char;
+          }
+        }
+        span.innerHTML += chunkHtml;
+        i += chunkSize;
 
-    {
-      left: "$$",
-      right: "$$",
-      display: true
-    },
+        if (messagesContainer) {
+          messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
 
-    {
-      left: "$",
-      right: "$",
-      display: false
-    },
-
-    {
-      left: "\\[",
-      right: "\\]",
-      display: true
-    },
-
-    {
-      left: "\\(",
-      right: "\\)",
-      display: false
+        if (animations) {
+          await new Promise(r => requestAnimationFrame(r));
+        }
+      }
+      // Typing complete: render markdown
+      span.innerHTML = marked.parse(text);
+      if (messagesContainer) messagesContainer.scrollTop = messagesContainer.scrollHeight;
     }
-  ]
-});
+  } catch (e) {
+    console.error("Typing animation error:", e);
+    span.innerHTML = marked.parse(text);
+  }
 
-saveMessage(
-  "Astro AI",
-  text
-);
-addCopyButtons();
+  renderMathInElement(span, {
+
+
+    delimiters: [
+
+      {
+        left: "$$",
+        right: "$$",
+        display: true
+      },
+
+      {
+        left: "$",
+        right: "$",
+        display: false
+      },
+
+      {
+        left: "\\[",
+        right: "\\]",
+        display: true
+      },
+
+      {
+        left: "\\(",
+        right: "\\)",
+        display: false
+      }
+    ]
+  });
+
+  saveMessage(
+    "Astro AI",
+    text
+  );
+  addCopyButtons();
 
   span.classList.remove(
-  "typing-text"
+    "typing-text"
 
-  
-  
-);
 
-// 🔥 AI message actions
-const actions = document.createElement("div");
 
-actions.className = "message-actions";
+  );
 
-actions.innerHTML = `
+  // 🔥 AI message actions
+  const actions = document.createElement("div");
+
+  actions.className = "message-actions";
+
+  actions.innerHTML = `
 <button class="message-copy-btn">📋</button>
 <button class="speak-btn">🔊</button>
 <button class="like-btn">👍</button>
@@ -6682,15 +8368,15 @@ actions.innerHTML = `
 <button class="regen-btn">🔄</button>
 `;
 
-msg.appendChild(actions);
+  msg.appendChild(actions);
 
-const copyBtn = actions.querySelector(".message-copy-btn");
-const speakBtn = actions.querySelector(".speak-btn");
-const likeBtn = actions.querySelector(".like-btn");
-const dislikeBtn = actions.querySelector(".dislike-btn");
-const regenBtn = actions.querySelector(".regen-btn");
+  const copyBtn = actions.querySelector(".message-copy-btn");
+  const speakBtn = actions.querySelector(".speak-btn");
+  const likeBtn = actions.querySelector(".like-btn");
+  const dislikeBtn = actions.querySelector(".dislike-btn");
+  const regenBtn = actions.querySelector(".regen-btn");
 
-copyBtn.onclick = async () => {
+  copyBtn.onclick = async () => {
 
     await navigator.clipboard.writeText(text);
 
@@ -6698,61 +8384,61 @@ copyBtn.onclick = async () => {
 
     setTimeout(() => {
 
-        copyBtn.textContent = "📋";
+      copyBtn.textContent = "📋";
 
-    },1000);
+    }, 1000);
 
-};
+  };
 
-let speaking = false;
+  let speaking = false;
 
-speakBtn.onclick = () => {
+  speakBtn.onclick = () => {
 
     if (!speaking) {
 
-        window.speechSynthesis.cancel();
+      window.speechSynthesis.cancel();
 
-        const speech = new SpeechSynthesisUtterance(text);
+      const speech = new SpeechSynthesisUtterance(text);
 
-        speech.lang = "en-US";
-        speech.rate = 1;
+      speech.lang = "en-US";
+      speech.rate = 1;
 
-        speech.onend = () => {
+      speech.onend = () => {
 
-            speaking = false;
-            speakBtn.textContent = "🔊";
+        speaking = false;
+        speakBtn.textContent = "🔊";
 
-        };
+      };
 
-        window.speechSynthesis.speak(speech);
+      window.speechSynthesis.speak(speech);
 
-        speaking = true;
-        speakBtn.textContent = "⏹";
+      speaking = true;
+      speakBtn.textContent = "⏹";
 
     } else {
 
-        window.speechSynthesis.cancel();
+      window.speechSynthesis.cancel();
 
-        speaking = false;
+      speaking = false;
 
-        speakBtn.textContent = "🔊";
+      speakBtn.textContent = "🔊";
 
     }
 
-};
+  };
 
-likeBtn.onclick = () => {
+  likeBtn.onclick = () => {
 
     // Agar pehle se liked hai
     if (likeBtn.classList.contains("active")) {
 
-        likeBtn.classList.remove("active");
+      likeBtn.classList.remove("active");
 
-        likeBtn.style.color = "";
+      likeBtn.style.color = "";
 
-        dislikeBtn.style.display = "inline-block";
+      dislikeBtn.style.display = "inline-block";
 
-        return;
+      return;
     }
 
     // Like ON
@@ -6764,20 +8450,20 @@ likeBtn.onclick = () => {
 
     showToast("👍 Thanks for your feedback");
 
-};
+  };
 
-dislikeBtn.onclick = () => {
+  dislikeBtn.onclick = () => {
 
     // Agar pehle se disliked hai
     if (dislikeBtn.classList.contains("active")) {
 
-        dislikeBtn.classList.remove("active");
+      dislikeBtn.classList.remove("active");
 
-        dislikeBtn.style.color = "";
+      dislikeBtn.style.color = "";
 
-        likeBtn.style.display = "inline-block";
+      likeBtn.style.display = "inline-block";
 
-        return;
+      return;
     }
 
     // Dislike ON
@@ -6789,9 +8475,9 @@ dislikeBtn.onclick = () => {
 
     showToast("👎 Thanks for your feedback");
 
-};
+  };
 
-regenBtn.onclick = () => {
+  regenBtn.onclick = () => {
 
     if (!lastQuestion) return;
 
@@ -6799,7 +8485,7 @@ regenBtn.onclick = () => {
 
     document.getElementById("ai-send").click();
 
-};
+  };
 }
 
 
@@ -6821,7 +8507,7 @@ async function loadConversations({ openFirst = false } = {}) {
         ...docSnap.data()
       });
     });
-  
+
 
     conversations.sort((a, b) => {
       if ((a.pinned || false) !== (b.pinned || false)) {
@@ -6863,7 +8549,7 @@ async function createNewConversation(title = "New Chat") {
 
     time: Date.now()
 
-});
+  });
 
   currentConversationId = id;
 
@@ -6876,9 +8562,9 @@ async function createNewConversation(title = "New Chat") {
   clearChatUI();
 
   addAIMessage(
-  "Hello 🌌 I am Astro AI. Ask me anything about space.",
-  "Astro AI"
-);
+    "Hello 🌌 I am Astro AI. Ask me anything about space.",
+    "Astro AI"
+  );
   renderHistoryList(historySearch?.value?.toLowerCase() || "");
   updateGeneralSettings();
 }
@@ -6990,79 +8676,90 @@ async function saveMessage(
 
   conversations = conversations.map(c => {
 
-  if (c.id === currentConversationId) {
+    if (c.id === currentConversationId) {
 
-    return {
+      return {
 
-      ...c,
+        ...c,
 
-      updatedAt: Date.now(),
+        updatedAt: Date.now(),
 
-      messages
+        messages
 
-    };
+      };
 
-  }
+    }
 
-  return c;
+    return c;
 
-});
+  });
 
-await loadConversations();
+  await loadConversations();
 
-renderCurrentConversation();
-renderHistoryList();
+  renderHistoryList();
 }
 
-async function generateConversationTitle(question, reply){
+async function generateConversationTitle(question, reply) {
 
-if(!window.currentUser) return;
+  if (!window.currentUser) return;
 
-if(!currentConversationId) return;
+  if (!currentConversationId) return;
 
-try{
+  try {
 
-const endpoint = useCloud
-? "https://astro-exp-seven.vercel.app/api/chat"
-: "https://openrouter.ai/api/v1/chat/completions";
+    const endpoint = useCloud
+      ? "https://astro-exp-seven.vercel.app/api/chat"
+      : "https://openrouter.ai/api/v1/chat/completions";
 
-const headers = useCloud
-? {
-    "Content-Type": "application/json"
-}
-: {
-    "Authorization":
-    "Bearer " +
-    localStorage.getItem("OPENROUTER_API_KEY"),
+    const headers = useCloud
+      ? {
+        "Content-Type": "application/json"
+      }
+      : {
+        "Authorization":
+          "Bearer " +
+          localStorage.getItem("OPENROUTER_API_KEY"),
 
-    "Content-Type":"application/json",
+        "Content-Type": "application/json",
 
-    "HTTP-Referer":location.origin,
+        "HTTP-Referer": location.origin,
 
-    "X-Title":"Astro AI"
-};
+        "X-Title": "Astro AI"
+      };
 
 
 
-console.log("===== TITLE =====");
-console.log("Endpoint:", endpoint);
-console.log("useCloud:", useCloud);
+    console.log("===== TITLE =====");
+    console.log("Endpoint:", endpoint);
+    console.log("useCloud:", useCloud);
 
-const response = await fetch(endpoint,{
+    console.log("🔍 [DEBUG] Title Generation Request:", {
+      endpoint: endpoint,
+      useCloud: useCloud,
+      question: question,
+      reply: reply
+    });
 
-method:"POST",
+    const selectedModel =
+      (typeof AstroSettings !== "undefined" ? AstroSettings.get("aiModel") : null) ||
+      localStorage.getItem("aiModel") ||
+      "openai/gpt-4o-mini";
 
-headers,
+    const response = await fetch(endpoint, {
 
-body:JSON.stringify({
+      method: "POST",
 
-model:"openai/gpt-4o-mini",
+      headers,
 
-messages: [
+      body: JSON.stringify({
 
-{
-role:"system",
-content:`
+        model: selectedModel,
+
+        messages: [
+
+          {
+            role: "system",
+            content: `
 Generate a short conversation title.
 
 Rules:
@@ -7071,79 +8768,81 @@ Rules:
 - Do not use markdown.
 - Return only the title.
 `
-},
+          },
 
-{
-role:"user",
-content:`
+          {
+            role: "user",
+            content: `
 Question:
 ${question}
 
 Assistant Reply:
 ${reply}
 `
-}
+          }
 
-],
+        ],
 
-temperature:0.2,
+        temperature: 0.2,
 
-max_tokens:20
+        max_tokens: 20
 
-})
+      })
 
-});
+    });
 
-const data=await response.json();
+    const data = await response.json();
+    console.log("TITLE RESPONSE:", data);
 
-if(!data.choices) return;
+    if (!data || !data.choices || data.choices.length === 0) return;
 
-const title=
-data.choices[0].message.content.trim();
+    const msgObj = data.choices[0]?.message;
+    const rawTitle = msgObj?.content || msgObj?.reasoning || msgObj?.reasoning_content || "Astronomy Chat";
+    const title = String(rawTitle || "Astronomy Chat").trim();
 
-const ref=doc(
+    const ref = doc(
 
-db,
+      db,
 
-"users",
+      "users",
 
-window.currentUser.uid,
+      window.currentUser.uid,
 
-"conversations",
+      "conversations",
 
-currentConversationId
+      currentConversationId
 
-);
+    );
 
-const snap=await getDoc(ref);
+    const snap = await getDoc(ref);
 
-if(!snap.exists()) return;
+    if (!snap.exists()) return;
 
-const convo=snap.data();
+    const convo = snap.data();
 
-if(convo.title!=="New Astronomy Chat") return;
+    if (convo.title !== "New Astronomy Chat") return;
 
-await setDoc(ref,{
+    await setDoc(ref, {
 
-...convo,
+      ...convo,
 
-title,
+      title,
 
-updatedAt:Date.now()
+      updatedAt: Date.now()
 
-});
+    });
 
-await loadConversations();
+    await loadConversations();
 
-renderHistoryList();
+    renderHistoryList();
 
-}
+  }
 
-catch(err){
+  catch (err) {
 
-console.log(err);
+    console.log(err);
 
-}
+  }
 
 }
 
@@ -7152,241 +8851,241 @@ console.log(err);
 
 
 document
-.getElementById("open-ai")
-.addEventListener("click",()=>{
+  .getElementById("open-ai")
+  .addEventListener("click", () => {
 
-document.getElementById("ai-panel").style.display="flex";
+    document.getElementById("ai-panel").style.display = "flex";
 
-document.getElementById("open-ai").style.display="none";
+    document.getElementById("open-ai").style.display = "none";
 
-});
+  });
 
 document
-.getElementById("close-ai")
-.addEventListener("click",()=>{
+  .getElementById("close-ai")
+  .addEventListener("click", () => {
 
-document.getElementById("ai-panel").style.display="none";
+    document.getElementById("ai-panel").style.display = "none";
 
-document.getElementById("open-ai").style.display="block";
+    document.getElementById("open-ai").style.display = "block";
 
-});
+  });
 
-function showAPIKeyModal(){
+function showAPIKeyModal() {
 
-document.getElementById(
-"api-key-modal"
-).style.display="flex";
-
-}
-
-function hideAPIKeyModal(){
-
-document.getElementById(
-"api-key-modal"
-).style.display="none";
+  document.getElementById(
+    "api-key-modal"
+  ).style.display = "flex";
 
 }
 
-function updateAccountSettings(){
+function hideAPIKeyModal() {
 
-const photo =
-document.getElementById("account-photo");
-
-const name =
-document.getElementById("account-name");
-
-const email =
-document.getElementById("account-email");
-
-const status =
-document.getElementById("account-status");
-
-if(window.currentUser){
-
-photo.src =
-window.currentUser.photoURL ||
-"https://ui-avatars.com/api/?name=User";
-
-name.textContent =
-window.currentUser.displayName ||
-"User";
-
-email.textContent =
-window.currentUser.email ||
-"";
-
-status.textContent =
-"🟢 Signed In";
-
-document.getElementById("account-type").textContent =
-"☁ Cloud Account";
+  document.getElementById(
+    "api-key-modal"
+  ).style.display = "none";
 
 }
 
-else{
+function updateAccountSettings() {
 
-photo.src =
-"https://ui-avatars.com/api/?name=Guest";
+  const photo =
+    document.getElementById("account-photo");
 
-name.textContent =
-"Guest User";
+  const name =
+    document.getElementById("account-name");
 
-email.textContent =
-"Not Signed In";
+  const email =
+    document.getElementById("account-email");
 
-status.textContent =
-"🔴 Signed Out";
+  const status =
+    document.getElementById("account-status");
 
-document.getElementById("account-type").textContent =
-"☁ Cloud Account";
+  if (window.currentUser) {
+
+    photo.src =
+      window.currentUser.photoURL ||
+      "https://ui-avatars.com/api/?name=User";
+
+    name.textContent =
+      window.currentUser.displayName ||
+      "User";
+
+    email.textContent =
+      window.currentUser.email ||
+      "";
+
+    status.textContent =
+      "🟢 Signed In";
+
+    document.getElementById("account-type").textContent =
+      "☁ Cloud Account";
+
+  }
+
+  else {
+
+    photo.src =
+      "https://ui-avatars.com/api/?name=Guest";
+
+    name.textContent =
+      "Guest User";
+
+    email.textContent =
+      "Not Signed In";
+
+    status.textContent =
+      "🔴 Signed Out";
+
+    document.getElementById("account-type").textContent =
+      "☁ Cloud Account";
 
 
-}
+  }
 
 }
 
 document.getElementById("manage-account-btn").onclick = () => {
 
-    document.getElementById("settings-overlay").style.display = "none";
+  document.getElementById("settings-overlay").style.display = "none";
 
-    setTimeout(() => {
-        document.getElementById("profile-menu").classList.add("show");
-    }, 100);
-
-};
-
-document
-.getElementById("sync-now-btn")
-.onclick=async()=>{
-
-await saveCloudMemory();
-
-document
-.getElementById("last-sync")
-.textContent =
-new Date().toLocaleString();
-
-showToast("☁ Cloud Synced");
+  setTimeout(() => {
+    document.getElementById("profile-menu").classList.add("show");
+  }, 100);
 
 };
 
 document
-.getElementById("export-account-data")
-.onclick=()=>{
+  .getElementById("sync-now-btn")
+  .onclick = async () => {
+
+    await saveCloudMemory();
+
+    document
+      .getElementById("last-sync")
+      .textContent =
+      new Date().toLocaleString();
+
+    showToast("☁ Cloud Synced");
+
+  };
 
 document
-.getElementById("export-memory")
-?.click();
+  .getElementById("export-account-data")
+  .onclick = () => {
 
-};
+    document
+      .getElementById("export-memory")
+      ?.click();
 
-document
-.getElementById("import-account-data")
-.onclick=()=>{
-
-document
-.getElementById("import-account-file")
-.click();
-
-};
+  };
 
 document
-.getElementById("import-account-file")
-.onchange=e=>{
+  .getElementById("import-account-data")
+  .onclick = () => {
 
-const file=e.target.files[0];
+    document
+      .getElementById("import-account-file")
+      .click();
 
-if(!file)return;
+  };
 
-const reader=
-new FileReader();
+document
+  .getElementById("import-account-file")
+  .onchange = e => {
 
-reader.onload=()=>{
+    const file = e.target.files[0];
 
-astroMemory=
-JSON.parse(reader.result);
+    if (!file) return;
 
-localStorage.setItem(
-"astroMemory",
-JSON.stringify(astroMemory)
-);
+    const reader =
+      new FileReader();
 
-updateMemorySettings();
-renderMemoryList();
-showToast("📦 Data Imported");
+    reader.onload = () => {
 
-};
+      astroMemory =
+        JSON.parse(reader.result);
 
-reader.readAsText(file);
+      localStorage.setItem(
+        "astroMemory",
+        JSON.stringify(astroMemory)
+      );
 
-};
+      updateMemorySettings();
+      renderMemoryList();
+      showToast("📦 Data Imported");
 
-function updateGeneralSettings(){
+    };
 
-const conversationCount =
-document.getElementById("conversation-count");
+    reader.readAsText(file);
 
-const memoryCount =
-document.getElementById("memory-count");
+  };
 
-const fileCount =
-document.getElementById("file-count");
+function updateGeneralSettings() {
 
-if(fileCount){
+  const conversationCount =
+    document.getElementById("conversation-count");
+
+  const memoryCount =
+    document.getElementById("memory-count");
+
+  const fileCount =
+    document.getElementById("file-count");
+
+  if (fileCount) {
 
     fileCount.textContent =
-    (astroMemory.files || []).length;
+      (astroMemory.files || []).length;
 
-}
+  }
 
-const aiStatus =
-document.getElementById("ai-status-general");
+  const aiStatus =
+    document.getElementById("ai-status-general");
 
-const apiKey =
-localStorage.getItem("OPENROUTER_API_KEY");
+  const apiKey =
+    localStorage.getItem("OPENROUTER_API_KEY");
 
-const aiConnected =
+  const aiConnected =
 
-useCloud
+    useCloud
 
-?
+      ?
 
-true
+      true
 
-:
+      :
 
-(apiKey && apiKey.trim() !== "");
-aiStatus.textContent =
+      (apiKey && apiKey.trim() !== "");
+  aiStatus.textContent =
 
-aiConnected
+    aiConnected
 
-?
+      ?
 
-"🟢 Connected"
+      "🟢 Connected"
 
-:
+      :
 
-"🔴 Not Connected";
+      "🔴 Not Connected";
 
-if(conversationCount){
+  if (conversationCount) {
 
-conversationCount.textContent =
-conversations.length;
+    conversationCount.textContent =
+      conversations.length;
 
-}
+  }
 
-if(memoryCount){
+  if (memoryCount) {
 
-const totalMemories =
-(astroMemory.memories?.length || 0) +
-(astroMemory.theories?.length || 0) +
-(astroMemory.observations?.length || 0) +
-(astroMemory.telescopeSessions?.length || 0) +
-(astroMemory.files?.length || 0);
+    const totalMemories =
+      (astroMemory.memories?.length || 0) +
+      (astroMemory.theories?.length || 0) +
+      (astroMemory.observations?.length || 0) +
+      (astroMemory.telescopeSessions?.length || 0) +
+      (astroMemory.files?.length || 0);
 
-memoryCount.textContent = totalMemories;
+    memoryCount.textContent = totalMemories;
 
-}
+  }
 
 
 
@@ -7394,44 +9093,44 @@ memoryCount.textContent = totalMemories;
 
 document.getElementById("close-info-panel").addEventListener("click", () => {
 
-    document.getElementById("object-info-panel").style.display = "none";
+  document.getElementById("object-info-panel").style.display = "none";
 
-    if (marker) {
-        marker.remove();
-        marker = null;
-    }
+  if (marker) {
+    marker.remove();
+    marker = null;
+  }
 
-    if (searchHighlight) {
+  if (searchHighlight) {
 
     searchHighlight.remove();
 
     searchHighlight = null;
 
-}
+  }
 
-    tracking = false;
-    currentTarget = null;
+  tracking = false;
+  currentTarget = null;
 
-    if (starLabel) {
-        starLabel.remove();
-        starLabel = null;
-    }
+  if (starLabel) {
+    starLabel.remove();
+    starLabel = null;
+  }
 
-    if (planetLabel) {
-        planetLabel.remove();
-        planetLabel = null;
-    }
+  if (planetLabel) {
+    planetLabel.remove();
+    planetLabel = null;
+  }
 
-    if (dsoSearchLabel) {
-        dsoSearchLabel.remove();
-        dsoSearchLabel = null;
-    }
+  if (dsoSearchLabel) {
+    dsoSearchLabel.remove();
+    dsoSearchLabel = null;
+  }
 
-    searchedObjectName = "";
-    selectedObject = null;
-    lastSelectedPlanet = null;
+  searchedObjectName = "";
+  selectedObject = null;
+  lastSelectedPlanet = null;
 
-    document.getElementById("searchBox").value = "";
+  document.getElementById("searchBox").value = "";
 
 });
 /* ==========================================
@@ -7458,21 +9157,21 @@ console.log("SETTINGS INIT");
 
 if (settingsOverlay && openSettingsBtn && closeSettingsBtn) {
 
-    console.log("ATTACHING SETTINGS EVENTS");
+  console.log("ATTACHING SETTINGS EVENTS");
 
-    openSettingsBtn.onclick = () => {
+  openSettingsBtn.onclick = () => {
 
-        console.log("SETTINGS CLICKED");
+    console.log("SETTINGS CLICKED");
 
-        settingsOverlay.style.display = "flex";
+    settingsOverlay.style.display = "flex";
 
-    };
+  };
 
-    closeSettingsBtn.onclick = () => {
+  closeSettingsBtn.onclick = () => {
 
-        settingsOverlay.style.display = "none";
+    settingsOverlay.style.display = "none";
 
-    };
+  };
 
 
 
@@ -7510,12 +9209,16 @@ if (settingsOverlay && openSettingsBtn && closeSettingsBtn) {
       );
 
       if (page) {
-    page.classList.add("active");
-}
+        page.classList.add("active");
+      }
 
-if (tab.dataset.page === "sky") {
-    initSkySettings();
-}
+      if (tab.dataset.page === "sky") {
+        initSkySettings();
+      }
+
+      if (tab.dataset.page === "observation") {
+        initObserverLocation();
+      }
 
     });
 
@@ -7523,67 +9226,67 @@ if (tab.dataset.page === "sky") {
 
 }
 document.getElementById("environment-status").textContent =
-isLocal
-? "🟡 Local Development"
-: "🟢 Production";
+  isLocal
+    ? "🟡 Local Development"
+    : "🟢 Production";
 
 document.getElementById("firebase-status").textContent =
-window.db
-? "🟢 Connected"
-: "🔴 Offline";
+  window.db
+    ? "🟢 Connected"
+    : "🔴 Offline";
 
 document.getElementById("database-status").textContent =
-window.db
-? "🟢 Online"
-: "🔴 Offline";
+  window.db
+    ? "🟢 Online"
+    : "🔴 Offline";
 
 document.getElementById("conversation-count").textContent =
-conversations.length;
+  conversations.length;
 
 document.getElementById("memory-count").textContent =
-astroMemory.memories.length;
+  astroMemory.memories.length;
 
 document.getElementById("file-count").textContent =
-(astroMemory.files || []).length;
+  (astroMemory.files || []).length;
 
-document.getElementById("clear-cache-btn").onclick=()=>{
+document.getElementById("clear-cache-btn").onclick = () => {
 
-if(!confirm(
+  if (!confirm(
 
-"Are you sure you want to clear the application cache?"
+    "Are you sure you want to clear the application cache?"
 
-)) return;
+  )) return;
 
-localStorage.clear();
+  localStorage.clear();
 
-showToast("🧹 Cache Cleared");
+  showToast("🧹 Cache Cleared");
 
-location.reload();
+  location.reload();
 
 };
 
-document.getElementById("reset-settings-btn").onclick=()=>{
+document.getElementById("reset-settings-btn").onclick = () => {
 
-if(!confirm("Reset all settings?"))
-return;
+  if (!confirm("Reset all settings?"))
+    return;
 
-localStorage.removeItem("astro_settings_consolidated");
-localStorage.removeItem("fontSize");
-localStorage.removeItem("accentColor");
-localStorage.removeItem("bubbleStyle");
-localStorage.removeItem("messageWidth");
-localStorage.removeItem("animations");
-localStorage.removeItem("responseLength");
-localStorage.removeItem("creativity");
-localStorage.removeItem("skySettings");
+  localStorage.removeItem("astro_settings_consolidated");
+  localStorage.removeItem("fontSize");
+  localStorage.removeItem("accentColor");
+  localStorage.removeItem("bubbleStyle");
+  localStorage.removeItem("messageWidth");
+  localStorage.removeItem("animations");
+  localStorage.removeItem("responseLength");
+  localStorage.removeItem("creativity");
+  localStorage.removeItem("skySettings");
 
-AstroSettings.load();
-applyAppearanceSettings();
-applyAccentColor();
-applyAISettings();
+  AstroSettings.load();
+  applyAppearanceSettings();
+  applyAccentColor();
+  applyAISettings();
 
-showToast("⚙ Settings Reset");
-setTimeout(() => location.reload(), 1000);
+  showToast("⚙ Settings Reset");
+  setTimeout(() => location.reload(), 1000);
 
 };
 
@@ -7592,235 +9295,235 @@ setTimeout(() => location.reload(), 1000);
 ========================================== */
 
 const apiStatus =
-document.getElementById("api-status");
+  document.getElementById("api-status");
 
 const settingsApiKey =
-document.getElementById("settings-api-key");
+  document.getElementById("settings-api-key");
 
 const changeApiKeyBtn =
-document.getElementById("change-api-key");
+  document.getElementById("change-api-key");
 
 const removeApiKeySettingsBtn =
-document.getElementById("remove-api-key-settings");
+  document.getElementById("remove-api-key-settings");
 
 const viewHistoryBtn =
-document.getElementById("view-chat-history");
+  document.getElementById("view-chat-history");
 
 const newChatSettingsBtn =
-document.getElementById("new-chat-settings");
+  document.getElementById("new-chat-settings");
 
 const clearCurrentBtn =
-document.getElementById("clear-current-chat");
+  document.getElementById("clear-current-chat");
 
 const clearAllBtn =
-document.getElementById("clear-all-chat");
+  document.getElementById("clear-all-chat");
 
 
 // Load current API key
 
 const savedKey =
-localStorage.getItem("OPENROUTER_API_KEY");
+  localStorage.getItem("OPENROUTER_API_KEY");
 
-if(savedKey){
+if (savedKey) {
 
-settingsApiKey.value =
-"••••••••••••••••";
+  settingsApiKey.value =
+    "••••••••••••••••";
 
-apiStatus.textContent =
-"🟢 Connected";
+  apiStatus.textContent =
+    "🟢 Connected";
 
-}else{
+} else {
 
-apiStatus.textContent =
-"🔴 Not Connected";
+  apiStatus.textContent =
+    "🔴 Not Connected";
 
 }
 
 
 // Change API Key
 
-changeApiKeyBtn?.addEventListener("click",()=>{
+changeApiKeyBtn?.addEventListener("click", () => {
 
-showAPIKeyModal();
+  showAPIKeyModal();
 
 });
 
 
 // Remove API Key
 
-removeApiKeySettingsBtn?.addEventListener("click",()=>{
+removeApiKeySettingsBtn?.addEventListener("click", () => {
 
-if(confirm("Remove saved API Key?")){
+  if (confirm("Remove saved API Key?")) {
 
-localStorage.removeItem("OPENROUTER_API_KEY");
-updateGeneralSettings();
+    localStorage.removeItem("OPENROUTER_API_KEY");
+    updateGeneralSettings();
 
-settingsApiKey.value="";
+    settingsApiKey.value = "";
 
-apiStatus.textContent=
-"🔴 Not Connected";
+    apiStatus.textContent =
+      "🔴 Not Connected";
 
-showToast("API Key Removed");
+    showToast("API Key Removed");
 
-}
+  }
 
 });
 
 
 // View History
 
-viewHistoryBtn?.addEventListener("click",()=>{
+viewHistoryBtn?.addEventListener("click", () => {
 
-showToast("Chat History coming in Phase 2.2");
+  showToast("Chat History coming in Phase 2.2");
 
 });
 
 
 // New Chat
 
-newChatSettingsBtn?.addEventListener("click",async()=>{
+newChatSettingsBtn?.addEventListener("click", async () => {
 
-if(typeof createNewConversation==="function"){
+  if (typeof createNewConversation === "function") {
 
-await createNewConversation(
-"New Astronomy Chat"
-);
+    await createNewConversation(
+      "New Astronomy Chat"
+    );
 
-showToast("New Chat Created");
+    showToast("New Chat Created");
 
-}
+  }
 
 });
 
 
 // Clear Current Chat
 
-clearCurrentBtn?.addEventListener("click", async ()=>{
+clearCurrentBtn?.addEventListener("click", async () => {
 
-if(!currentConversationId) return;
+  if (!currentConversationId) return;
 
-if(!confirm("Clear current conversation?")) return;
+  if (!confirm("Clear current conversation?")) return;
 
-try{
+  try {
 
-const ref = doc(
+    const ref = doc(
 
-db,
+      db,
 
-"users",
+      "users",
 
-window.currentUser.uid,
+      window.currentUser.uid,
 
-"conversations",
+      "conversations",
 
-currentConversationId
+      currentConversationId
 
-);
+    );
 
-const snap = await getDoc(ref);
+    const snap = await getDoc(ref);
 
-if(!snap.exists()) return;
+    if (!snap.exists()) return;
 
-const data = snap.data();
+    const data = snap.data();
 
-await setDoc(
+    await setDoc(
 
-ref,
+      ref,
 
-{
+      {
 
-...data,
+        ...data,
 
-messages:[],
+        messages: [],
 
-updatedAt:Date.now()
+        updatedAt: Date.now()
 
-}
+      }
 
-);
+    );
 
-clearChatUI();
+    clearChatUI();
 
-addAIMessage(
+    addAIMessage(
 
-"Hello 🌌 I am Astro AI. Ask me anything about space.",
+      "Hello 🌌 I am Astro AI. Ask me anything about space.",
 
-"Astro AI"
+      "Astro AI"
 
-);
+    );
 
-await loadConversations();
+    await loadConversations();
 
-renderHistoryList();
+    renderHistoryList();
 
-showToast("🗑 Current chat cleared");
+    showToast("🗑 Current chat cleared");
 
-}
+  }
 
-catch(err){
+  catch (err) {
 
-console.log(err);
+    console.log(err);
 
-showToast("Failed to clear chat");
+    showToast("Failed to clear chat");
 
-}
+  }
 
 });
 
 
 // Clear All Chats
 
-clearAllBtn?.addEventListener("click", async ()=>{
+clearAllBtn?.addEventListener("click", async () => {
 
-if(!window.currentUser) return;
+  if (!window.currentUser) return;
 
-if(!confirm("Delete ALL conversations? This cannot be undone.")) return;
+  if (!confirm("Delete ALL conversations? This cannot be undone.")) return;
 
-try{
+  try {
 
-for(const conv of conversations){
+    for (const conv of conversations) {
 
-await deleteDoc(
+      await deleteDoc(
 
-doc(
+        doc(
 
-db,
+          db,
 
-"users",
+          "users",
 
-window.currentUser.uid,
+          window.currentUser.uid,
 
-"conversations",
+          "conversations",
 
-conv.id
+          conv.id
 
-)
+        )
 
-);
+      );
 
-}
+    }
 
-conversations = [];
+    conversations = [];
 
-currentConversationId = null;
+    currentConversationId = null;
 
-clearChatUI();
+    clearChatUI();
 
-await createNewConversation(
-"New Astronomy Chat"
-);
+    await createNewConversation(
+      "New Astronomy Chat"
+    );
 
-showToast("🗑 All chats deleted");
+    showToast("🗑 All chats deleted");
 
-}
+  }
 
-catch(err){
+  catch (err) {
 
-console.log(err);
+    console.log(err);
 
-showToast("Failed to delete chats");
+    showToast("Failed to delete chats");
 
-}
+  }
 
 });
 
@@ -7829,186 +9532,186 @@ showToast("Failed to delete chats");
 ========================================== */
 
 const historyOverlay =
-document.getElementById("history-overlay");
+  document.getElementById("history-overlay");
 
 const historyList =
-document.getElementById("history-list");
+  document.getElementById("history-list");
 
 
 
 
 
 const historySearch =
-document.getElementById("history-search-box");
+  document.getElementById("history-search-box");
 
 const importBtn =
-document.getElementById("import-chat");
+  document.getElementById("import-chat");
 
 const importInput =
-document.getElementById("import-chat-file");
+  document.getElementById("import-chat-file");
 
 importBtn.onclick = () => {
 
-    importInput.click();
+  importInput.click();
 
 };
 
-importInput.onchange=async(e)=>{
+importInput.onchange = async (e) => {
 
-const file=e.target.files[0];
+  const file = e.target.files[0];
 
-if(!file)return;
+  if (!file) return;
 
-try{
+  try {
 
-const text=
-await file.text();
+    const text =
+      await file.text();
 
-const data=
-JSON.parse(text);
+    const data =
+      JSON.parse(text);
 
-if(
-!data.title||
-!Array.isArray(data.messages)
-){
+    if (
+      !data.title ||
+      !Array.isArray(data.messages)
+    ) {
 
-showToast(
-"Invalid Chat File"
-);
+      showToast(
+        "Invalid Chat File"
+      );
 
-return;
+      return;
 
-}
+    }
 
-const id=
-"conv_"+Date.now();
+    const id =
+      "conv_" + Date.now();
 
-await setDoc(
+    await setDoc(
 
-doc(
+      doc(
 
-db,
+        db,
 
-"users",
+        "users",
 
-window.currentUser.uid,
+        window.currentUser.uid,
 
-"conversations",
+        "conversations",
 
-id
+        id
 
-),
+      ),
 
-{
+      {
 
-title:data.title,
+        title: data.title,
 
-createdAt:
-data.createdAt||
-Date.now(),
+        createdAt:
+          data.createdAt ||
+          Date.now(),
 
-updatedAt:
-Date.now(),
+        updatedAt:
+          Date.now(),
 
-messages:
-data.messages,
+        messages:
+          data.messages,
 
-pinned:false
+        pinned: false
 
-}
+      }
 
-);
+    );
 
-await loadConversations();
+    await loadConversations();
 
-renderHistoryList();
+    renderHistoryList();
 
-showToast(
-"📥 Chat Imported"
-);
+    showToast(
+      "📥 Chat Imported"
+    );
 
-}
+  }
 
-catch(err){
+  catch (err) {
 
-console.log(err);
+    console.log(err);
 
-showToast(
-"Import Failed"
-);
+    showToast(
+      "Import Failed"
+    );
 
-}
+  }
 
 };
 
 const closeHistoryBtn =
-document.getElementById("close-history");
+  document.getElementById("close-history");
 
 viewHistoryBtn?.addEventListener("click", () => {
 
-    historyOverlay.style.display = "flex";
+  historyOverlay.style.display = "flex";
 
-    renderHistoryList();
+  renderHistoryList();
 
 });
 
 
 // OPEN
 
-viewHistoryBtn?.addEventListener("click",()=>{
+viewHistoryBtn?.addEventListener("click", () => {
 
-historyOverlay.style.display="flex";
+  historyOverlay.style.display = "flex";
 
-renderHistoryList();
+  renderHistoryList();
 
 });
 
 
 // CLOSE
 
-closeHistoryBtn?.addEventListener("click",()=>{
+closeHistoryBtn?.addEventListener("click", () => {
 
-historyOverlay.style.display="none";
+  historyOverlay.style.display = "none";
 
 });
 
 
 // CLICK OUTSIDE
 
-historyOverlay?.addEventListener("click",(e)=>{
+historyOverlay?.addEventListener("click", (e) => {
 
-if(e.target===historyOverlay){
+  if (e.target === historyOverlay) {
 
-historyOverlay.style.display="none";
+    historyOverlay.style.display = "none";
 
-}
+  }
 
 });
 
 
 // SEARCH
 
-historySearch?.addEventListener("input",()=>{
+historySearch?.addEventListener("input", () => {
 
-renderHistoryList(
-historySearch.value.toLowerCase()
-);
+  renderHistoryList(
+    historySearch.value.toLowerCase()
+  );
 
 });
 
 
 // RENDER
 
-function renderHistoryList(search=""){
+function renderHistoryList(search = "") {
 
-historyList.innerHTML="";
+  historyList.innerHTML = "";
 
-if(
-!Array.isArray(conversations) ||
-conversations.length===0
-){
+  if (
+    !Array.isArray(conversations) ||
+    conversations.length === 0
+  ) {
 
-historyList.innerHTML=`
+    historyList.innerHTML = `
 
 <div class="history-item">
 
@@ -8022,91 +9725,91 @@ No conversations
 
 `;
 
-return;
+    return;
 
-}
+  }
 
-const sortedConversations =
+  const sortedConversations =
 
-[...conversations].sort((a,b)=>{
+    [...conversations].sort((a, b) => {
 
-if(a.pinned!==b.pinned){
+      if (a.pinned !== b.pinned) {
 
-return b.pinned-a.pinned;
+        return b.pinned - a.pinned;
 
-}
+      }
 
-return (b.updatedAt||0)-(a.updatedAt||0);
+      return (b.updatedAt || 0) - (a.updatedAt || 0);
 
-});
-let found = 0;
+    });
+  let found = 0;
 
-sortedConversations.forEach(conv=>{
+  sortedConversations.forEach(conv => {
 
-const titleMatch =
-    (conv.title || "")
+    const titleMatch =
+      (conv.title || "")
         .toLowerCase()
         .includes(search);
 
-const messageMatch =
-    (conv.messages || []).some(msg =>
+    const messageMatch =
+      (conv.messages || []).some(msg =>
         (msg.text || "")
-            .toLowerCase()
-            .includes(search)
-    );
+          .toLowerCase()
+          .includes(search)
+      );
 
-if (search && !(titleMatch || messageMatch)) {
-    return;
-}
+    if (search && !(titleMatch || messageMatch)) {
+      return;
+    }
 
-found++;
+    found++;
 
-const item=
-document.createElement("div");
+    const item =
+      document.createElement("div");
 
-item.className=
-"history-item";
+    item.className =
+      "history-item";
 
-if(conv.id===currentConversationId){
+    if (conv.id === currentConversationId) {
 
-item.classList.add("active-history");
-
-}
-
-if(conv.pinned){
-
-    item.classList.add("pinned");
-
-}
-let lastMessage = "No messages yet";
-
-if (conv.messages?.length) {
-
-    if (search) {
-
-        const found = conv.messages.find(msg =>
-            (msg.text || "")
-                .toLowerCase()
-                .includes(search)
-        );
-
-        if (found) {
-            lastMessage = found.text.substring(0, 60);
-        } else {
-            lastMessage =
-                conv.messages.at(-1).text.substring(0, 60);
-        }
-
-    } else {
-
-        lastMessage =
-            conv.messages.at(-1).text.substring(0, 60);
+      item.classList.add("active-history");
 
     }
 
-}
+    if (conv.pinned) {
 
-item.innerHTML=`
+      item.classList.add("pinned");
+
+    }
+    let lastMessage = "No messages yet";
+
+    if (conv.messages?.length) {
+
+      if (search) {
+
+        const found = conv.messages.find(msg =>
+          (msg.text || "")
+            .toLowerCase()
+            .includes(search)
+        );
+
+        if (found) {
+          lastMessage = found.text.substring(0, 60);
+        } else {
+          lastMessage =
+            conv.messages.at(-1).text.substring(0, 60);
+        }
+
+      } else {
+
+        lastMessage =
+          conv.messages.at(-1).text.substring(0, 60);
+
+      }
+
+    }
+
+    item.innerHTML = `
 
 <div class="history-title">
 
@@ -8123,8 +9826,8 @@ ${lastMessage}
 <div class="history-date">
 
 ${formatHistoryDate(
-conv.updatedAt||Date.now()
-)}
+      conv.updatedAt || Date.now()
+    )}
 
 </div>
 
@@ -8154,84 +9857,84 @@ Delete
 
 `;
 
-const pinBtn =
-item.querySelector(".pin-chat");
+    const pinBtn =
+      item.querySelector(".pin-chat");
 
-const exportBtn =
-item.querySelector(".export-chat");
+    const exportBtn =
+      item.querySelector(".export-chat");
 
-exportBtn.onclick = () => {
+    exportBtn.onclick = () => {
 
-const exportData = {
+      const exportData = {
 
-title: conv.title,
+        title: conv.title,
 
-createdAt: conv.createdAt,
+        createdAt: conv.createdAt,
 
-updatedAt: conv.updatedAt,
+        updatedAt: conv.updatedAt,
 
-messages: conv.messages || []
+        messages: conv.messages || []
 
-};
+      };
 
-const blob = new Blob(
+      const blob = new Blob(
 
-[JSON.stringify(exportData,null,2)],
+        [JSON.stringify(exportData, null, 2)],
 
-{
+        {
 
-type:"application/json"
+          type: "application/json"
 
-}
+        }
 
-);
+      );
 
-const url =
-URL.createObjectURL(blob);
+      const url =
+        URL.createObjectURL(blob);
 
-const a =
-document.createElement("a");
+      const a =
+        document.createElement("a");
 
-a.href = url;
+      a.href = url;
 
-a.download =
-`${conv.title.replace(/[\\/:*?"<>|]/g,"_")}.json`;
+      a.download =
+        `${conv.title.replace(/[\\/:*?"<>|]/g, "_")}.json`;
 
-a.click();
+      a.click();
 
-URL.revokeObjectURL(url);
+      URL.revokeObjectURL(url);
 
-showToast("📤 Chat Exported");
+      showToast("📤 Chat Exported");
 
-};
+    };
 
-pinBtn.onclick = async () => {
+    pinBtn.onclick = async () => {
 
-    conv.pinned = !conv.pinned;
+      conv.pinned = !conv.pinned;
 
-    try {
+      try {
 
         await setDoc(
 
-            doc(
+          doc(
 
-                db,
+            db,
 
-                "users",
+            "users",
 
-                window.currentUser.uid,
+            window.currentUser.uid,
 
-                "conversations",
+            "conversations",
 
-                conv.id
+            conv.id
 
-            ),
+          ),
 
-            {
+          {
 
-                ...conv
+            ...conv
 
-            }
+          }
 
         );
 
@@ -8239,13 +9942,13 @@ pinBtn.onclick = async () => {
 
         renderHistoryList(
 
-            historySearch.value.toLowerCase()
+          historySearch.value.toLowerCase()
 
         );
 
         showToast(
 
-            conv.pinned
+          conv.pinned
 
             ? "📌 Chat Pinned"
 
@@ -8253,149 +9956,149 @@ pinBtn.onclick = async () => {
 
         );
 
-    }
+      }
 
-    catch(err){
+      catch (err) {
 
         console.log(err);
 
-    }
+      }
 
-};
+    };
 
 
-// OPEN
+    // OPEN
 
-item.querySelector(".open-chat").onclick=async()=>{
+    item.querySelector(".open-chat").onclick = async () => {
 
-historyOverlay.style.display="none";
+      historyOverlay.style.display = "none";
 
-currentConversationId=conv.id;
+      currentConversationId = conv.id;
 
-await openConversation(conv.id);
+      await openConversation(conv.id);
 
-renderHistoryList(
-historySearch.value.toLowerCase()
-);
+      renderHistoryList(
+        historySearch.value.toLowerCase()
+      );
 
-};
+    };
 
 
-// RENAME
+    // RENAME
 
-item.querySelector(".rename-chat").onclick = async () => {
+    item.querySelector(".rename-chat").onclick = async () => {
 
-const title = prompt(
-"Rename conversation",
-conv.title
-);
+      const title = prompt(
+        "Rename conversation",
+        conv.title
+      );
 
-if(!title || title.trim()==="") return;
+      if (!title || title.trim() === "") return;
 
-try{
+      try {
 
-conv.title = title.trim();
+        conv.title = title.trim();
 
-await setDoc(
+        await setDoc(
 
-doc(
+          doc(
 
-db,
+            db,
 
-"users",
+            "users",
 
-window.currentUser.uid,
+            window.currentUser.uid,
 
-"conversations",
+            "conversations",
 
-conv.id
+            conv.id
 
-),
+          ),
 
-{
+          {
 
-...conv,
+            ...conv,
 
-title: title.trim(),
+            title: title.trim(),
 
-updatedAt: Date.now()
+            updatedAt: Date.now()
 
-}
+          }
 
-);
+        );
 
-await loadConversations();
+        await loadConversations();
 
-renderHistoryList(
+        renderHistoryList(
 
-historySearch.value.toLowerCase()
+          historySearch.value.toLowerCase()
 
-);
+        );
 
-showToast("✏️ Conversation Renamed");
+        showToast("✏️ Conversation Renamed");
 
-}
+      }
 
-catch(err){
+      catch (err) {
 
-console.log(err);
+        console.log(err);
 
-showToast("Rename Failed");
+        showToast("Rename Failed");
 
-}
+      }
 
-};
+    };
 
-// DELETE
+    // DELETE
 
-item.querySelector(".delete-chat").onclick = async () => {
+    item.querySelector(".delete-chat").onclick = async () => {
 
-if(!confirm("Delete this conversation?"))
-return;
+      if (!confirm("Delete this conversation?"))
+        return;
 
-try{
+      try {
 
-await deleteDoc(
+        await deleteDoc(
 
-doc(
+          doc(
 
-db,
+            db,
 
-"users",
+            "users",
 
-window.currentUser.uid,
+            window.currentUser.uid,
 
-"conversations",
+            "conversations",
 
-conv.id
+            conv.id
 
-)
+          )
 
-);
+        );
 
-await loadConversations();
+        await loadConversations();
 
-renderHistoryList(
-historySearch.value.toLowerCase()
-);
+        renderHistoryList(
+          historySearch.value.toLowerCase()
+        );
 
-showToast("Conversation Deleted");
+        showToast("Conversation Deleted");
 
-}
+      }
 
-catch(err){
+      catch (err) {
 
-console.log(err);
+        console.log(err);
 
-}
+      }
 
-};
+    };
 
-historyList.appendChild(item);
+    historyList.appendChild(item);
 
-});
+  });
 
-if (found === 0) {
+  if (found === 0) {
 
     historyList.innerHTML = `
         <div class="history-item no-results">
@@ -8411,7 +10114,7 @@ if (found === 0) {
         </div>
     `;
 
-}
+  }
 
 }
 
@@ -8422,95 +10125,95 @@ if (found === 0) {
 
 
 const fontSizeSelect =
-document.getElementById("font-size-select");
+  document.getElementById("font-size-select");
 
-fontSizeSelect?.addEventListener("change",()=>{
-    AstroSettings.set("fontSize", fontSizeSelect.value);
-    applyAppearanceSettings();
-    showToast("🎨 Font size updated");
+fontSizeSelect?.addEventListener("change", () => {
+  AstroSettings.set("fontSize", fontSizeSelect.value);
+  applyAppearanceSettings();
+  showToast("🎨 Font size updated");
 });
 
-function applyAppearanceSettings(){
-    const size = AstroSettings.get("fontSize");
-    document.documentElement.style.fontSize = size + "px";
+function applyAppearanceSettings() {
+  const size = AstroSettings.get("fontSize");
+  document.documentElement.style.fontSize = size + "px";
 
-    const bubble = AstroSettings.get("bubbleStyle");
-    const width = AstroSettings.get("messageWidth");
-    const animation = AstroSettings.get("animations");
+  const bubble = AstroSettings.get("bubbleStyle");
+  const width = AstroSettings.get("messageWidth");
+  const animation = AstroSettings.get("animations");
 
-    document.querySelectorAll(".message").forEach(msg=>{
-        msg.style.maxWidth = width + "%";
-        msg.style.borderRadius = bubble==="rounded" ? "16px" : "4px";
-    });
+  document.querySelectorAll(".message").forEach(msg => {
+    msg.style.maxWidth = width + "%";
+    msg.style.borderRadius = bubble === "rounded" ? "16px" : "4px";
+  });
 
-    const fsEl = document.getElementById("font-size-select");
-    if (fsEl) fsEl.value = size;
+  const fsEl = document.getElementById("font-size-select");
+  if (fsEl) fsEl.value = size;
 
-    const bsEl = document.getElementById("bubble-style");
-    if (bsEl) bsEl.value = bubble;
+  const bsEl = document.getElementById("bubble-style");
+  if (bsEl) bsEl.value = bubble;
 
-    const mwEl = document.getElementById("message-width");
-    if (mwEl) mwEl.value = width;
+  const mwEl = document.getElementById("message-width");
+  if (mwEl) mwEl.value = width;
 
-    const atEl = document.getElementById("animation-toggle");
-    if (atEl) atEl.checked = animation;
+  const atEl = document.getElementById("animation-toggle");
+  if (atEl) atEl.checked = animation;
 }
 
 const bubbleStyle = document.getElementById("bubble-style");
-bubbleStyle?.addEventListener("change",()=>{
-    AstroSettings.set("bubbleStyle", bubbleStyle.value);
-    applyAppearanceSettings();
-    showToast("💬 Bubble Style Updated");
+bubbleStyle?.addEventListener("change", () => {
+  AstroSettings.set("bubbleStyle", bubbleStyle.value);
+  applyAppearanceSettings();
+  showToast("💬 Bubble Style Updated");
 });
 
 const messageWidth = document.getElementById("message-width");
-messageWidth?.addEventListener("change",()=>{
-    AstroSettings.set("messageWidth", messageWidth.value);
-    applyAppearanceSettings();
-    showToast("📏 Message Width Updated");
+messageWidth?.addEventListener("change", () => {
+  AstroSettings.set("messageWidth", messageWidth.value);
+  applyAppearanceSettings();
+  showToast("📏 Message Width Updated");
 });
 
 const animationToggle = document.getElementById("animation-toggle");
-animationToggle?.addEventListener("change",()=>{
-    AstroSettings.set("animations", animationToggle.checked);
-    applyAppearanceSettings();
-    showToast("✨ Typing Animation Updated");
+animationToggle?.addEventListener("change", () => {
+  AstroSettings.set("animations", animationToggle.checked);
+  applyAppearanceSettings();
+  showToast("✨ Typing Animation Updated");
 });
 
-function applyAccentColor(){
-    const color = AstroSettings.get("accentColor");
-    document.documentElement.style.setProperty("--accent", color);
-    const select = document.getElementById("accent-color-select");
-    if(select){
-        select.value=color;
-    }
+function applyAccentColor() {
+  const color = AstroSettings.get("accentColor");
+  document.documentElement.style.setProperty("--accent", color);
+  const select = document.getElementById("accent-color-select");
+  if (select) {
+    select.value = color;
+  }
 }
 
 const accentSelect = document.getElementById("accent-color-select");
-accentSelect?.addEventListener("change", ()=>{
-    AstroSettings.set("accentColor", accentSelect.value);
-    applyAccentColor();
-    showToast("🎨 Accent Updated");
+accentSelect?.addEventListener("change", () => {
+  AstroSettings.set("accentColor", accentSelect.value);
+  applyAccentColor();
+  showToast("🎨 Accent Updated");
 });
 
-function applyAISettings(){
-    const responseLength = AstroSettings.get("responseLength");
-    const creativity = AstroSettings.get("creativity");
-    const aiModel = AstroSettings.get("aiModel");
-    const saveChatHistory = AstroSettings.get("saveChatHistory");
-    const cloudSync = AstroSettings.get("cloudSync");
+function applyAISettings() {
+  const responseLength = AstroSettings.get("responseLength");
+  const creativity = AstroSettings.get("creativity");
+  const aiModel = AstroSettings.get("aiModel");
+  const saveChatHistory = AstroSettings.get("saveChatHistory");
+  const cloudSync = AstroSettings.get("cloudSync");
 
-    const responseSelect = document.getElementById("response-length");
-    const creativitySelect = document.getElementById("creativity-select");
-    const modelSelect = document.getElementById("ai-model");
-    const saveChatHistoryToggle = document.getElementById("toggle-save-chat-history");
-    const cloudSyncToggle = document.getElementById("toggle-cloud-sync");
+  const responseSelect = document.getElementById("response-length");
+  const creativitySelect = document.getElementById("creativity-select");
+  const modelSelect = document.getElementById("ai-model");
+  const saveChatHistoryToggle = document.getElementById("toggle-save-chat-history");
+  const cloudSyncToggle = document.getElementById("toggle-cloud-sync");
 
-    if(responseSelect) responseSelect.value = responseLength;
-    if(creativitySelect) creativitySelect.value = creativity;
-    if(modelSelect) modelSelect.value = aiModel;
-    if(saveChatHistoryToggle) saveChatHistoryToggle.checked = saveChatHistory;
-    if(cloudSyncToggle) cloudSyncToggle.checked = cloudSync;
+  if (responseSelect) responseSelect.value = responseLength;
+  if (creativitySelect) creativitySelect.value = creativity;
+  if (modelSelect) modelSelect.value = aiModel;
+  if (saveChatHistoryToggle) saveChatHistoryToggle.checked = saveChatHistory;
+  if (cloudSyncToggle) cloudSyncToggle.checked = cloudSync;
 }
 
 const responseLengthSelect = document.getElementById("response-length");
@@ -8520,237 +10223,237 @@ const saveChatHistoryToggle = document.getElementById("toggle-save-save-chat-his
 const cloudSyncToggle = document.getElementById("toggle-cloud-sync");
 
 responseLengthSelect?.addEventListener("change", () => {
-    AstroSettings.set("responseLength", responseLengthSelect.value);
-    applyAISettings();
-    showToast("🤖 AI Settings Saved");
+  AstroSettings.set("responseLength", responseLengthSelect.value);
+  applyAISettings();
+  showToast("🤖 AI Settings Saved");
 });
 
 creativitySelect?.addEventListener("change", () => {
-    AstroSettings.set("creativity", creativitySelect.value);
-    applyAISettings();
-    showToast("🤖 AI Settings Saved");
+  AstroSettings.set("creativity", creativitySelect.value);
+  applyAISettings();
+  showToast("🤖 AI Settings Saved");
 });
 
 aiModelSelect?.addEventListener("change", () => {
-    AstroSettings.set("aiModel", aiModelSelect.value);
-    applyAISettings();
-    showToast("🤖 AI Model Settings Saved");
+  AstroSettings.set("aiModel", aiModelSelect.value);
+  applyAISettings();
+  showToast("🤖 AI Model Settings Saved");
 });
 
 const saveChatHistoryEl = document.getElementById("toggle-save-chat-history");
 saveChatHistoryEl?.addEventListener("change", () => {
-    AstroSettings.set("saveChatHistory", saveChatHistoryEl.checked);
-    applyAISettings();
-    showToast("🤖 AI Chat History Settings Saved");
+  AstroSettings.set("saveChatHistory", saveChatHistoryEl.checked);
+  applyAISettings();
+  showToast("🤖 AI Chat History Settings Saved");
 });
 
 cloudSyncToggle?.addEventListener("change", () => {
-    AstroSettings.set("cloudSync", cloudSyncToggle.checked);
-    applyAISettings();
-    showToast("🤖 Cloud Sync Settings Saved");
+  AstroSettings.set("cloudSync", cloudSyncToggle.checked);
+  applyAISettings();
+  showToast("🤖 Cloud Sync Settings Saved");
 });
 
 applyAISettings();
 
 function updateMemorySettings() {
 
-    const memories = astroMemory.memories || [];
-    const theories = astroMemory.theories || [];
-    const observations = astroMemory.observations || [];
-    const equipments = astroMemory.memories || [];
+  const memories = astroMemory.memories || [];
+  const theories = astroMemory.theories || [];
+  const observations = astroMemory.observations || [];
+  const equipments = astroMemory.memories || [];
 
-    document.getElementById("memory-total").textContent =
-        memories.length + theories.length + observations.length;
+  document.getElementById("memory-total").textContent =
+    memories.length + theories.length + observations.length;
 
-    document.getElementById("memory-pref-count").textContent =
-        memories.length;
+  document.getElementById("memory-pref-count").textContent =
+    memories.length;
 
-    document.getElementById("memory-theory-count").textContent =
-        theories.length;
+  document.getElementById("memory-theory-count").textContent =
+    theories.length;
 
-    document.getElementById("memory-observation-count").textContent =
-        observations.length;
+  document.getElementById("memory-observation-count").textContent =
+    observations.length;
 
-    document.getElementById("memory-telescope-count").textContent =
+  document.getElementById("memory-telescope-count").textContent =
     astroMemory.telescopeSessions?.length || 0;
 
-document.getElementById("memory-file-count").textContent =
+  document.getElementById("memory-file-count").textContent =
     astroMemory.files?.length || 0;
 
-    
 
-document.getElementById("memory-telescope-equipment-count").textContent =
-equipments.filter(m =>
-m.category === "equipment" &&
-m.key === "telescope"
-).length;
 
-document.getElementById("memory-camera-count").textContent =
-equipments.filter(m =>
-m.category === "equipment" &&
-m.key === "camera"
-).length;
+  document.getElementById("memory-telescope-equipment-count").textContent =
+    equipments.filter(m =>
+      m.category === "equipment" &&
+      m.key === "telescope"
+    ).length;
 
-document.getElementById("memory-binocular-count").textContent =
-equipments.filter(m =>
-m.category === "equipment" &&
-m.key === "binoculars"
-).length;
+  document.getElementById("memory-camera-count").textContent =
+    equipments.filter(m =>
+      m.category === "equipment" &&
+      m.key === "camera"
+    ).length;
 
-document.getElementById("memory-eyepiece-count").textContent =
-equipments.filter(m =>
-m.category === "equipment" &&
-m.key === "eyepiece"
-).length;
+  document.getElementById("memory-binocular-count").textContent =
+    equipments.filter(m =>
+      m.category === "equipment" &&
+      m.key === "binoculars"
+    ).length;
+
+  document.getElementById("memory-eyepiece-count").textContent =
+    equipments.filter(m =>
+      m.category === "equipment" &&
+      m.key === "eyepiece"
+    ).length;
 
 }
 
 function renderMemoryList() {
 
   console.log("Memories:", astroMemory);
-console.table(getAllMemoryItems());
+  console.table(getAllMemoryItems());
 
-    const list = document.getElementById("memory-list");
+  const list = document.getElementById("memory-list");
 
-    if (!list) return;
+  if (!list) return;
 
-    let memories = getAllMemoryItems();
+  let memories = getAllMemoryItems();
 
-    const search =
-        document.getElementById("memory-search")?.value
-        ?.toLowerCase() || "";
+  const search =
+    document.getElementById("memory-search")?.value
+      ?.toLowerCase() || "";
 
-    const filter =
-        document.getElementById("memory-filter")?.value
-        || "all";
+  const filter =
+    document.getElementById("memory-filter")?.value
+    || "all";
 
-    // Search
-    // Search
-if (search) {
+  // Search
+  // Search
+  if (search) {
 
     memories = memories.filter(m =>
 
-        (m.text || "")
+      (m.text || "")
         .toLowerCase()
         .includes(search)
 
     );
 
-}
+  }
 
-    // Filter
-   if(filter === "memory"){
-
-    memories = memories.filter(m =>
-        m.type === "Memory" &&
-        m.category !== "equipment"
-    );
-
-}
-
-else if(filter === "theory"){
+  // Filter
+  if (filter === "memory") {
 
     memories = memories.filter(m =>
-        m.type === "Theory"
+      m.type === "Memory" &&
+      m.category !== "equipment"
     );
 
-}
+  }
 
-else if(filter === "observation"){
+  else if (filter === "theory") {
 
     memories = memories.filter(m =>
-        m.type === "Observation"
+      m.type === "Theory"
     );
 
-}
+  }
 
-else if(filter === "telescope"){
+  else if (filter === "observation") {
 
     memories = memories.filter(m =>
-        m.category === "equipment" &&
-        m.key === "telescope"
+      m.type === "Observation"
     );
 
-}
+  }
 
-else if(filter === "telescope_session"){
+  else if (filter === "telescope") {
 
     memories = memories.filter(m =>
-        m.type === "Telescope"
+      m.category === "equipment" &&
+      m.key === "telescope"
     );
 
-}
+  }
 
-else if(filter === "camera"){
+  else if (filter === "telescope_session") {
 
     memories = memories.filter(m =>
-        m.category === "equipment" &&
-        m.key === "camera"
+      m.type === "Telescope"
     );
 
-}
+  }
 
-else if(filter === "binoculars"){
+  else if (filter === "camera") {
 
     memories = memories.filter(m =>
-        m.category === "equipment" &&
-        m.key === "binoculars"
+      m.category === "equipment" &&
+      m.key === "camera"
     );
 
-}
+  }
 
-else if(filter === "eyepiece"){
+  else if (filter === "binoculars") {
 
     memories = memories.filter(m =>
-        m.category === "equipment" &&
-        m.key === "eyepiece"
+      m.category === "equipment" &&
+      m.key === "binoculars"
     );
 
-}
+  }
 
-else if(filter === "file"){
+  else if (filter === "eyepiece") {
 
     memories = memories.filter(m =>
-        m.type === "File"
+      m.category === "equipment" &&
+      m.key === "eyepiece"
     );
 
-}
+  }
 
-else if(filter === "favorite"){
+  else if (filter === "file") {
 
     memories = memories.filter(m =>
-        m.favorite
+      m.type === "File"
     );
 
-}
+  }
 
-else if(filter === "pinned"){
+  else if (filter === "favorite") {
 
     memories = memories.filter(m =>
-        m.pinned
+      m.favorite
     );
 
-}
+  }
+
+  else if (filter === "pinned") {
+
+    memories = memories.filter(m =>
+      m.pinned
+    );
+
+  }
 
 
 
 
-    // Sort
-    memories.sort((a, b) => {
+  // Sort
+  memories.sort((a, b) => {
 
-        if (a.pinned !== b.pinned)
-            return b.pinned - a.pinned;
+    if (a.pinned !== b.pinned)
+      return b.pinned - a.pinned;
 
-        if (a.favorite !== b.favorite)
-            return b.favorite - a.favorite;
+    if (a.favorite !== b.favorite)
+      return b.favorite - a.favorite;
 
-        return new Date(b.time) - new Date(a.time);
+    return new Date(b.time) - new Date(a.time);
 
-    });
+  });
 
-    if (memories.length === 0) {
+  if (memories.length === 0) {
 
-        list.innerHTML = `
+    list.innerHTML = `
             <div class="memory-empty">
 
                 <h3>🧠 No Memories</h3>
@@ -8762,78 +10465,76 @@ else if(filter === "pinned"){
             </div>
         `;
 
-        return;
+    return;
+  }
+
+  list.innerHTML = "";
+  let currentTimeline = "";
+
+  memories.forEach(memory => {
+
+    const timeline = getTimelineLabel(memory.time);
+
+    if (timeline !== currentTimeline) {
+
+
+
     }
 
-    list.innerHTML = "";
-    let currentTimeline = "";
+    const card = document.createElement("div");
 
-    memories.forEach(memory => {
+    card.className = "memory-card";
 
-      const timeline = getTimelineLabel(memory.time);
-
-if(timeline !== currentTimeline){
-
-
-
-}
-
-        const card = document.createElement("div");
-
-        card.className = "memory-card";
-
-        card.innerHTML = `
+    card.innerHTML = `
 
 <div class="memory-top">
 
 <div class="memory-title">
 
-${
-memory.type === "File"
-? "📄 File"
+${memory.type === "File"
+        ? "📄 File"
 
-: memory.type === "Telescope"
-? "🛰 Telescope Session"
+        : memory.type === "Telescope"
+          ? "🛰 Telescope Session"
 
-: memory.category === "equipment"
-? (
-memory.key === "telescope"
-? "🔭 Telescope"
+          : memory.category === "equipment"
+            ? (
+              memory.key === "telescope"
+                ? "🔭 Telescope"
 
-: memory.key === "camera"
-? "📷 Camera"
+                : memory.key === "camera"
+                  ? "📷 Camera"
 
-: memory.key === "binoculars"
-? "🔭 Binoculars"
+                  : memory.key === "binoculars"
+                    ? "🔭 Binoculars"
 
-: memory.key === "eyepiece"
-? "👁️ Eyepiece"
+                    : memory.key === "eyepiece"
+                      ? "👁️ Eyepiece"
 
-: "🔧 Equipment"
-)
+                      : "🔧 Equipment"
+            )
 
-: memory.type === "Theory"
-? "📚 Theory"
+            : memory.type === "Theory"
+              ? "📚 Theory"
 
-: memory.type === "Observation"
-? "🔭 Observation"
+              : memory.type === "Observation"
+                ? "🔭 Observation"
 
-: "🧠 Memory"
-}
+                : "🧠 Memory"
+      }
 </div>
 
 <div class="memory-icons">
 
-${
-memory.type === "File"
+${memory.type === "File"
 
-?
+        ?
 
-""
+        ""
 
-:
+        :
 
-`
+        `
 
 <button
 class="memory-btn"
@@ -8853,7 +10554,7 @@ ${memory.favorite ? "⭐" : "☆"}
 
 `
 
-}
+      }
 
 </div>
 
@@ -8861,12 +10562,11 @@ ${memory.favorite ? "⭐" : "☆"}
 
 <div class="memory-body">
 
-${
-memory.type === "File"
+${memory.type === "File"
 
-?
+        ?
 
-`
+        `
 <div><strong>📄 ${memory.name}</strong></div>
 
 <div style="margin-top:6px;font-size:13px;opacity:.8;">
@@ -8877,16 +10577,16 @@ ${memory.fileType || "Unknown"}
 <br>
 
 Size:
-${(memory.size/1024).toFixed(1)} KB
+${(memory.size / 1024).toFixed(1)} KB
 
 </div>
 `
 
-:
+        :
 
-memory.text
+        memory.text
 
-}
+      }
 
 </div>
 
@@ -8902,12 +10602,11 @@ ${formatMemoryDate(memory.time)}
 
 
 
-${
-memory.type === "File"
+${memory.type === "File"
 
-?
+        ?
 
-`
+        `
 
 <button
 class="memory-btn delete-btn"
@@ -8919,9 +10618,9 @@ onclick="removeFileMemory(${memory.id})">
 
 `
 
-:
+        :
 
-`
+        `
 
 <button
 class="memory-btn edit-btn"
@@ -8941,7 +10640,7 @@ onclick="deleteMemoryById(${memory.id})">
 
 `
 
-}
+      }
 
 </div>
 
@@ -8949,232 +10648,441 @@ onclick="deleteMemoryById(${memory.id})">
 
 `;
 
-        list.appendChild(card);
+    list.appendChild(card);
 
-    });
+  });
 
 }
 
-function findMemoryById(id){
+function findMemoryById(id) {
 
-    const groups=[
+  const groups = [
 
-        astroMemory.memories||[],
-        astroMemory.theories||[],
-        astroMemory.observations||[],
-        astroMemory.telescopeSessions||[]
+    astroMemory.memories || [],
+    astroMemory.theories || [],
+    astroMemory.observations || [],
+    astroMemory.telescopeSessions || []
 
-    ];
+  ];
 
-    for(const group of groups){
+  for (const group of groups) {
 
-        const memory=group.find(m=>m.id==id);
+    const memory = group.find(m => m.id == id);
 
-        if(memory) return memory;
+    if (memory) return memory;
+
+  }
+
+  return null;
+
+}
+
+function deleteMemoryById(id) {
+
+  if (!confirm("Delete this memory?")) return;
+
+  [
+    astroMemory.memories,
+    astroMemory.theories,
+    astroMemory.observations,
+    astroMemory.telescopeSessions
+
+  ].forEach(arr => {
+
+    const index = arr.findIndex(m => m.id == id);
+
+    if (index != -1) {
+
+      arr.splice(index, 1);
 
     }
 
-    return null;
+  });
+
+  localStorage.setItem(
+
+    "astroMemory",
+
+    JSON.stringify(astroMemory)
+
+  );
+
+  saveCloudMemory();
+
+  updateMemorySettings();
+
+  renderMemoryList();
 
 }
 
-function deleteMemoryById(id){
+function removeFileMemory(id) {
 
-if(!confirm("Delete this memory?")) return;
+  if (!confirm("Remove this file from memory?"))
+    return;
 
-[
-astroMemory.memories,
-astroMemory.theories,
-astroMemory.observations,
-astroMemory.telescopeSessions
+  const index =
+    astroMemory.files.findIndex(f => f.id == id);
 
-].forEach(arr=>{
+  if (index === -1)
+    return;
 
-const index=arr.findIndex(m=>m.id==id);
+  astroMemory.files.splice(index, 1);
 
-if(index!=-1){
+  localStorage.setItem(
 
-arr.splice(index,1);
+    "astroMemory",
 
-}
+    JSON.stringify(astroMemory)
 
-});
+  );
 
-localStorage.setItem(
+  saveCloudMemory();
 
-"astroMemory",
+  updateMemorySettings();
 
-JSON.stringify(astroMemory)
+  updateGeneralSettings();
 
-);
+  renderMemoryList();
 
-saveCloudMemory();
-
-updateMemorySettings();
-
-renderMemoryList();
+  showToast("📄 File Removed");
 
 }
 
-function removeFileMemory(id){
+function editMemory(id) {
 
-if(!confirm("Remove this file from memory?"))
-return;
+  const memory = findMemoryById(id);
 
-const index =
-astroMemory.files.findIndex(f=>f.id==id);
+  if (!memory) return;
 
-if(index===-1)
-return;
+  editingMemory = memory;
 
-astroMemory.files.splice(index,1);
+  document.getElementById(
+    "edit-memory-text"
+  ).value = memory.text;
 
-localStorage.setItem(
+  document
+    .getElementById("edit-memory-overlay")
+    .classList.add("show");
 
-"astroMemory",
+}
+function togglePin(id) {
 
-JSON.stringify(astroMemory)
+  const memory = findMemoryById(id);
 
-);
+  if (!memory) return;
 
-saveCloudMemory();
+  memory.pinned = !memory.pinned;
 
-updateMemorySettings();
+  memory.updatedAt = new Date().toISOString();
 
-updateGeneralSettings();
+  localStorage.setItem(
 
-renderMemoryList();
+    "astroMemory",
 
-showToast("📄 File Removed");
+    JSON.stringify(astroMemory)
+
+  );
+
+  saveCloudMemory();
+
+  updateMemorySettings();
+
+  renderMemoryList();
 
 }
 
-function editMemory(id){
+function toggleFavorite(id) {
 
-    const memory = findMemoryById(id);
+  const memory = findMemoryById(id);
 
-    if(!memory) return;
+  if (!memory) return;
 
-    editingMemory = memory;
+  memory.favorite = !memory.favorite;
 
-    document.getElementById(
-        "edit-memory-text"
-    ).value = memory.text;
+  memory.updatedAt = new Date().toISOString();
 
-    document
-        .getElementById("edit-memory-overlay")
-        .classList.add("show");
+  localStorage.setItem(
 
-}
-function togglePin(id){
+    "astroMemory",
 
-    const memory=findMemoryById(id);
+    JSON.stringify(astroMemory)
 
-    if(!memory) return;
+  );
 
-    memory.pinned=!memory.pinned;
+  saveCloudMemory();
 
-    memory.updatedAt=new Date().toISOString();
+  updateMemorySettings();
 
-    localStorage.setItem(
-
-        "astroMemory",
-
-        JSON.stringify(astroMemory)
-
-    );
-
-    saveCloudMemory();
-
-    updateMemorySettings();
-
-    renderMemoryList();
-
-}
-
-function toggleFavorite(id){
-
-    const memory=findMemoryById(id);
-
-    if(!memory) return;
-
-    memory.favorite=!memory.favorite;
-
-    memory.updatedAt=new Date().toISOString();
-
-    localStorage.setItem(
-
-        "astroMemory",
-
-        JSON.stringify(astroMemory)
-
-    );
-
-    saveCloudMemory();
-
-    updateMemorySettings();
-
-    renderMemoryList();
+  renderMemoryList();
 
 }
 
 function getAllMemoryItems() {
 
-    return [
+  return [
 
-        ...(astroMemory.memories || []).map(m => ({
-            ...m,
-            type: "Memory",
-            source: "memories"
-        })),
+    ...(astroMemory.memories || []).map(m => ({
+      ...m,
+      type: "Memory",
+      source: "memories"
+    })),
 
-        ...(astroMemory.theories || []).map(m => ({
-            ...m,
-            type: "Theory",
-            source: "theories"
-        })),
+    ...(astroMemory.theories || []).map(m => ({
+      ...m,
+      type: "Theory",
+      source: "theories"
+    })),
 
-        ...(astroMemory.observations || []).map(m => ({
-            ...m,
-            type: "Observation",
-            source: "observations"
-        })),
+    ...(astroMemory.observations || []).map(m => ({
+      ...m,
+      type: "Observation",
+      source: "observations"
+    })),
 
-        ...(astroMemory.telescopeSessions || []).map(m => ({
-            ...m,
-            type: "Telescope",
-            source: "telescopeSessions"
-        })),
+    ...(astroMemory.telescopeSessions || []).map(m => ({
+      ...m,
+      type: "Telescope",
+      source: "telescopeSessions"
+    })),
 
-        ...(astroMemory.files || []).map(f => ({
-    ...f,
+    ...(astroMemory.files || []).map(f => ({
+      ...f,
 
-    text:f.name,
+      text: f.name,
 
-    fileType:f.type,
+      fileType: f.type,
 
-    type:"File",
+      type: "File",
 
-    source:"files"
+      source: "files"
 
-}))
+    }))
 
-    ];
+  ];
 
 }
-function toggleFavorite(id){
+function toggleFavorite(id) {
 
-    const memory = findMemoryById(id);
+  const memory = findMemoryById(id);
 
-    if(!memory) return;
+  if (!memory) return;
 
-    memory.favorite = !memory.favorite;
+  memory.favorite = !memory.favorite;
 
-    memory.updatedAt = new Date().toISOString();
+  memory.updatedAt = new Date().toISOString();
+
+  localStorage.setItem(
+    "astroMemory",
+    JSON.stringify(astroMemory)
+  );
+
+  saveCloudMemory();
+
+  updateMemorySettings();
+
+  renderMemoryList();
+
+}
+function togglePin(id) {
+
+  const memory = findMemoryById(id);
+
+  if (!memory) return;
+
+  memory.pinned = !memory.pinned;
+
+  memory.updatedAt = new Date().toISOString();
+
+  localStorage.setItem(
+    "astroMemory",
+    JSON.stringify(astroMemory)
+  );
+
+  saveCloudMemory();
+
+  updateMemorySettings();
+
+  renderMemoryList();
+
+}
+document.getElementById("export-memory")
+  ?.addEventListener("click", () => {
+
+    const blob = new Blob(
+
+      [
+        JSON.stringify(
+          astroMemory,
+          null,
+          2
+        )
+      ],
+
+      {
+        type: "application/json"
+      }
+
+    );
+
+    const url =
+      URL.createObjectURL(blob);
+
+    const a =
+      document.createElement("a");
+
+    a.href = url;
+
+    a.download =
+      "astro-memory.json";
+
+    a.click();
+
+    URL.revokeObjectURL(url);
+
+  });
+
+document.getElementById("export-memory")
+  ?.addEventListener("click", () => {
+
+    const blob = new Blob(
+
+      [
+        JSON.stringify(
+          astroMemory,
+          null,
+          2
+        )
+      ],
+
+      {
+        type: "application/json"
+      }
+
+    );
+
+    const url =
+      URL.createObjectURL(blob);
+
+    const a =
+      document.createElement("a");
+
+    a.href = url;
+
+    a.download =
+      "astro-memory.json";
+
+    a.click();
+
+    URL.revokeObjectURL(url);
+
+  });
+
+document
+  .getElementById("import-memory")
+  ?.addEventListener("click", () => {
+
+    const input =
+      document.createElement("input");
+
+    input.type = "file";
+
+    input.accept = ".json";
+
+    input.onchange = e => {
+
+      const file =
+        e.target.files[0];
+
+
+
+      if (!file) return;
+
+      const reader =
+        new FileReader();
+
+      reader.onload = () => {
+
+        try {
+
+          astroMemory =
+            JSON.parse(reader.result);
+
+          astroMemory.files ??= [];
+          astroMemory.memories ??= [];
+          astroMemory.theories ??= [];
+          astroMemory.observations ??= [];
+          astroMemory.telescopeSessions ??= [];
+
+          localStorage.setItem(
+
+            "astroMemory",
+
+            JSON.stringify(astroMemory)
+
+          );
+
+          saveCloudMemory();
+
+          updateMemorySettings();
+
+          renderMemoryList();
+
+          alert("Memory Imported.");
+
+        }
+
+        catch {
+
+          alert("Invalid File.");
+
+        }
+
+      };
+
+      reader.readAsText(file);
+
+    };
+
+    input.click();
+
+  });
+
+document
+  .getElementById("clear-memory")
+  ?.addEventListener("click", () => {
+
+    if (
+
+      !confirm(
+
+        "Delete ALL memories?"
+
+      )
+
+    )
+
+      return;
+
+    astroMemory = {
+
+      memories: [],
+
+      theories: [],
+
+      observations: [],
+
+      telescopeSessions: [],
+
+      files: []
+
+    };
 
     localStorage.setItem(
-        "astroMemory",
-        JSON.stringify(astroMemory)
+
+      "astroMemory",
+
+      JSON.stringify(astroMemory)
+
     );
 
     saveCloudMemory();
@@ -9183,311 +11091,101 @@ function toggleFavorite(id){
 
     renderMemoryList();
 
-}
-function togglePin(id){
+  });
 
-    const memory = findMemoryById(id);
+function findMemoryById(id) {
 
-    if(!memory) return;
+  const groups = [
 
-    memory.pinned = !memory.pinned;
+    astroMemory.memories || [],
+    astroMemory.theories || [],
+    astroMemory.observations || [],
+    astroMemory.telescopeSessions || []
 
-    memory.updatedAt = new Date().toISOString();
+  ];
 
-    localStorage.setItem(
-        "astroMemory",
-        JSON.stringify(astroMemory)
-    );
+  for (const group of groups) {
 
-    saveCloudMemory();
+    const memory = group.find(m => m.id == id);
 
-    updateMemorySettings();
+    if (memory) return memory;
 
-    renderMemoryList();
+  }
 
-}
-document.getElementById("export-memory")
-?.addEventListener("click",()=>{
-
-const blob = new Blob(
-
-[
-JSON.stringify(
-astroMemory,
-null,
-2
-)
-],
-
-{
-type:"application/json"
-}
-
-);
-
-const url =
-URL.createObjectURL(blob);
-
-const a =
-document.createElement("a");
-
-a.href = url;
-
-a.download =
-"astro-memory.json";
-
-a.click();
-
-URL.revokeObjectURL(url);
-
-});
-
-document.getElementById("export-memory")
-?.addEventListener("click",()=>{
-
-const blob = new Blob(
-
-[
-JSON.stringify(
-astroMemory,
-null,
-2
-)
-],
-
-{
-type:"application/json"
-}
-
-);
-
-const url =
-URL.createObjectURL(blob);
-
-const a =
-document.createElement("a");
-
-a.href = url;
-
-a.download =
-"astro-memory.json";
-
-a.click();
-
-URL.revokeObjectURL(url);
-
-});
-
-document
-.getElementById("import-memory")
-?.addEventListener("click",()=>{
-
-const input =
-document.createElement("input");
-
-input.type="file";
-
-input.accept=".json";
-
-input.onchange=e=>{
-
-const file =
-e.target.files[0];
-
-
-
-if(!file) return;
-
-const reader =
-new FileReader();
-
-reader.onload=()=>{
-
-try{
-
-astroMemory=
-JSON.parse(reader.result);
-
-astroMemory.files ??= [];
-astroMemory.memories ??= [];
-astroMemory.theories ??= [];
-astroMemory.observations ??= [];
-astroMemory.telescopeSessions ??= [];
-
-localStorage.setItem(
-
-"astroMemory",
-
-JSON.stringify(astroMemory)
-
-);
-
-saveCloudMemory();
-
-updateMemorySettings();
-
-renderMemoryList();
-
-alert("Memory Imported.");
+  return null;
 
 }
 
-catch{
-
-alert("Invalid File.");
-
-}
-
-};
-
-reader.readAsText(file);
-
-};
-
-input.click();
-
-});
-
-document
-.getElementById("clear-memory")
-?.addEventListener("click",()=>{
-
-if(
-
-!confirm(
-
-"Delete ALL memories?"
-
-)
-
-)
-
-return;
-
-astroMemory={
-
-memories:[],
-
-theories:[],
-
-observations:[],
-
-telescopeSessions:[],
-
-files:[]
-
-};
-
-localStorage.setItem(
-
-"astroMemory",
-
-JSON.stringify(astroMemory)
-
-);
-
-saveCloudMemory();
-
-updateMemorySettings();
-
-renderMemoryList();
-
-});
-
-function findMemoryById(id){
-
-    const groups = [
-
-        astroMemory.memories || [],
-        astroMemory.theories || [],
-        astroMemory.observations || [],
-        astroMemory.telescopeSessions || []
-
-    ];
-
-    for(const group of groups){
-
-        const memory = group.find(m => m.id == id);
-
-        if(memory) return memory;
-
-    }
-
-    return null;
-
-}
-
-function showMemorySuggestion(memory){
+function showMemorySuggestion(memory) {
 
   console.log("Calling showMemorySuggestion");
-console.log("Pending:", pendingStructuredMemory);
+  console.log("Pending:", pendingStructuredMemory);
 
   let duplicate;
 
-if(memory.type === "Theory"){
+  if (memory.type === "Theory") {
 
     duplicate = findDuplicateInArray(
-        astroMemory.theories,
-        memory.value
+      astroMemory.theories,
+      memory.value
     );
 
-}
-else if(memory.type === "Observation"){
+  }
+  else if (memory.type === "Observation") {
 
     duplicate = findDuplicateInArray(
-        astroMemory.observations,
-        memory.value
+      astroMemory.observations,
+      memory.value
     );
 
-}
-else if(memory.type === "Telescope"){
+  }
+  else if (memory.type === "Telescope") {
 
     duplicate = findDuplicateInArray(
-        astroMemory.telescopeSessions,
-        memory.value
+      astroMemory.telescopeSessions,
+      memory.value
     );
 
-}
-else{
+  }
+  else {
 
     duplicate = findDuplicateMemory(memory);
 
-}
+  }
 
-console.log("Memory:", memory);
+  console.log("Memory:", memory);
   console.log("Duplicate:", duplicate);
   console.log("All Memories:", astroMemory.memories);
 
 
-const existing =
-document.getElementById("memory-suggestion");
+  const existing =
+    document.getElementById("memory-suggestion");
 
-if(existing) existing.remove();
+  if (existing) existing.remove();
 
-const box=document.createElement("div");
+  const box = document.createElement("div");
 
-box.id="memory-suggestion";
+  box.id = "memory-suggestion";
 
-box.innerHTML = `
+  box.innerHTML = `
 
 <h3>
 
-${
-memory.type==="Theory"
+${memory.type === "Theory"
 
-? "📚 Theory Detected"
+      ? "📚 Theory Detected"
 
-: memory.type==="Observation"
+      : memory.type === "Observation"
 
-? "🔭 Observation Detected"
+        ? "🔭 Observation Detected"
 
-: memory.type==="Telescope"
+        : memory.type === "Telescope"
 
-? "🔭 Telescope Session Detected"
+          ? "🔭 Telescope Session Detected"
 
-: "🧠 Memory Detected"
+          : "🧠 Memory Detected"
 
-}
+    }
 
 </h3>
 
@@ -9515,10 +11213,9 @@ memory.type==="Theory"
 
 </div>
 
-${
-duplicate ?
+${duplicate ?
 
-`
+      `
 
 <div class="duplicate-warning">
 
@@ -9528,7 +11225,7 @@ duplicate ?
 
 <b>Old:</b>
 
-${duplicate.value||duplicate.text}
+${duplicate.value || duplicate.text}
 
 <br>
 
@@ -9540,18 +11237,17 @@ ${memory.value}
 
 `
 
-:
+      :
 
-""
+      ""
 
-}
+    }
 
 <div class="memory-suggest-buttons">
 
-${
-duplicate ?
+${duplicate ?
 
-`
+      `
 
 <button id="update-memory-btn">
 
@@ -9567,9 +11263,9 @@ Save New
 
 `
 
-:
+      :
 
-`
+      `
 
 <button id="remember-btn">
 
@@ -9579,7 +11275,7 @@ Remember
 
 `
 
-}
+    }
 
 <button id="edit-memory-preview-btn">
 
@@ -9595,520 +11291,690 @@ Dismiss
 
 `;
 
-document
-.getElementById("memory-suggestion-container")
-.appendChild(box);
+  document
+    .getElementById("memory-suggestion-container")
+    .appendChild(box);
 
-box.scrollIntoView({
-behavior:"smooth"
-});
+  box.scrollIntoView({
+    behavior: "smooth"
+  });
 
-document
-.getElementById("remember-btn")
-?.addEventListener("click",()=>{
-  
+  document
+    .getElementById("remember-btn")
+    ?.addEventListener("click", () => {
 
-if(memory.category==="Theory"){
 
-    saveTheory(memory.value, true);
+      if (memory.category === "Theory") {
 
-}
+        saveTheory(memory.value, true);
 
-else if(memory.category==="Observation"){
+      }
 
-    saveObservation(memory.value, true);
+      else if (memory.category === "Observation") {
 
-}
+        saveObservation(memory.value, true);
 
-else if(memory.category==="Telescope"){
+      }
 
-    saveTelescopeSession(memory.value, true);
+      else if (memory.category === "Telescope") {
 
-}
+        saveTelescopeSession(memory.value, true);
 
-else{
+      }
 
-   saveMemory(memory);
+      else {
 
-}
+        saveMemory(memory);
 
-box.remove();
+      }
 
-showToast("🧠 Memory Saved");
+      box.remove();
 
-});
+      showToast("🧠 Memory Saved");
 
-document
-.getElementById("update-memory-btn")
-?.addEventListener("click",()=>{
+    });
 
-duplicate.value = memory.value;
+  document
+    .getElementById("update-memory-btn")
+    ?.addEventListener("click", () => {
 
-duplicate.text = memory.value;
+      duplicate.value = memory.value;
 
-duplicate.updatedAt = new Date().toISOString();
+      duplicate.text = memory.value;
 
-localStorage.setItem(
-"astroMemory",
-JSON.stringify(astroMemory)
-);
+      duplicate.updatedAt = new Date().toISOString();
 
-saveCloudMemory();
+      localStorage.setItem(
+        "astroMemory",
+        JSON.stringify(astroMemory)
+      );
 
-updateMemorySettings();
+      saveCloudMemory();
 
-renderMemoryList();
+      updateMemorySettings();
 
-box.remove();
+      renderMemoryList();
 
-showToast("🧠 Memory Updated");
+      box.remove();
 
-});
+      showToast("🧠 Memory Updated");
 
-document
-.getElementById("save-new-memory-btn")
-?.addEventListener("click",()=>{
+    });
 
-if(memory.category==="Theory"){
+  document
+    .getElementById("save-new-memory-btn")
+    ?.addEventListener("click", () => {
 
-    saveTheory(memory.value, true);
+      if (memory.category === "Theory") {
 
-}
+        saveTheory(memory.value, true);
 
-else if(memory.category==="Observation"){
+      }
 
-    saveObservation(memory.value, true);
+      else if (memory.category === "Observation") {
 
-}
+        saveObservation(memory.value, true);
 
-else if(memory.category==="Telescope"){
+      }
 
-    saveTelescopeSession(memory.value, true);
+      else if (memory.category === "Telescope") {
 
-}
+        saveTelescopeSession(memory.value, true);
 
-else{
+      }
 
-    saveMemory(memory);
+      else {
 
-}
+        saveMemory(memory);
 
-box.remove();
+      }
 
-showToast("🧠 New Memory Saved");
+      box.remove();
 
-});
+      showToast("🧠 New Memory Saved");
 
-document
-.getElementById("edit-memory-preview-btn")
-.onclick = () => {
+    });
 
-    const value = prompt(
+  document
+    .getElementById("edit-memory-preview-btn")
+    .onclick = () => {
+
+      const value = prompt(
         "Edit Memory",
         memory.value
-    );
+      );
 
-    if (value === null) return;
+      if (value === null) return;
 
-    memory.value = value;
+      memory.value = value;
 
-    box.querySelectorAll("span")[2].textContent = value;
+      box.querySelectorAll("span")[2].textContent = value;
 
-};
+    };
 
-document
-.getElementById("dismiss-memory-btn")
-.onclick=()=>{
+  document
+    .getElementById("dismiss-memory-btn")
+    .onclick = () => {
 
-box.remove();
+      box.remove();
 
-};
+    };
 
 }
 
-function saveFileMemory(file){
+function saveFileMemory(file) {
 
-    if(!astroMemory.files){
+  if (!astroMemory.files) {
 
-        astroMemory.files=[];
+    astroMemory.files = [];
 
+  }
+
+  astroMemory.files.push({
+
+    id: Date.now(),
+
+    name: file.name,
+
+    type: file.type,
+
+    size: file.size,
+
+    uploadedAt: new Date().toISOString(),
+
+    time: new Date().toISOString(),
+
+    summary: "",
+
+    tags: [],
+
+    pinned: false,
+
+    favorite: false
+
+  });
+
+  localStorage.setItem(
+
+    "astroMemory",
+
+    JSON.stringify(astroMemory)
+
+  );
+
+  saveCloudMemory();
+
+  updateMemorySettings();
+
+}
+
+function getRelevantMemories(question) {
+
+  const q = question.toLowerCase();
+
+  const memories = getAllMemoryItems();
+
+  return memories.filter(m => {
+
+    const text = (m.text || "").toLowerCase();
+    const value = (m.value || "").toLowerCase();
+    const key = (m.key || "").toLowerCase();
+
+    return (
+      q.includes(key) ||
+      q.includes(value) ||
+      text.includes(q) ||
+      q.includes(text)
+    );
+
+  });
+
+}
+
+function buildMemoryContext(question) {
+  const memories = getRelevantMemories(question);
+  if (!memories || memories.length === 0) return "";
+
+  const unique = [];
+  const seen = new Set();
+
+  for (const m of memories) {
+    const textStr = (m.text || m.value || m.key || "").trim();
+    if (textStr && !seen.has(textStr.toLowerCase())) {
+      seen.add(textStr.toLowerCase());
+      unique.push(`- ${m.type || "Memory"}: ${textStr}`);
     }
+  }
 
-    astroMemory.files.push({
+  return unique.slice(0, 3).join("\n");
+}
 
-        id:Date.now(),
+function getTimelineLabel(date) {
 
-        name:file.name,
+  const now = new Date();
 
-        type:file.type,
+  const d = new Date(date);
 
-        size:file.size,
+  const diff = Math.floor(
+    (now - d) / (1000 * 60 * 60 * 24)
+  );
 
-        uploadedAt:new Date().toISOString(),
+  if (diff === 0) return "📅 Today";
 
-        time:new Date().toISOString(),
+  if (diff === 1) return "📆 Yesterday";
 
-        summary:"",
+  if (diff <= 7) return "🗓 Last 7 Days";
 
-        tags:[],
+  if (diff <= 30) return "📁 Last Month";
 
-        pinned:false,
+  return "📦 Older";
 
-        favorite:false
+}
 
+function formatMemoryDate(time) {
+
+  const d = new Date(time);
+
+  const now = new Date();
+
+  const today = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate()
+  );
+
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  const target = new Date(
+    d.getFullYear(),
+    d.getMonth(),
+    d.getDate()
+  );
+
+  if (target.getTime() === today.getTime()) {
+
+    return "Today • " + d.toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit"
     });
 
-    localStorage.setItem(
+  }
 
-        "astroMemory",
+  if (target.getTime() === yesterday.getTime()) {
 
-        JSON.stringify(astroMemory)
-
-    );
-
-    saveCloudMemory();
-
-    updateMemorySettings();
-
-}
-
-function getRelevantMemories(question){
-
-    const q = question.toLowerCase();
-
-    const memories = getAllMemoryItems();
-
-    return memories.filter(m => {
-
-        const text = (m.text || "").toLowerCase();
-        const value = (m.value || "").toLowerCase();
-        const key = (m.key || "").toLowerCase();
-
-        return (
-            q.includes(key) ||
-            q.includes(value) ||
-            text.includes(q) ||
-            q.includes(text)
-        );
-
+    return "Yesterday • " + d.toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit"
     });
 
-}
+  }
 
-function buildMemoryContext(question){
-
-    const memories =
-        getRelevantMemories(question);
-
-    if(memories.length===0)
-        return "";
-
-    return memories
-        .slice(0,5)
-        .map(m=>`- ${m.type}: ${m.text}`)
-        .join("\n");
+  return d.toLocaleDateString([], {
+    day: "numeric",
+    month: "short",
+    year: "numeric"
+  });
 
 }
 
-function getTimelineLabel(date){
-
-    const now = new Date();
-
-    const d = new Date(date);
-
-    const diff = Math.floor(
-        (now - d) / (1000 * 60 * 60 * 24)
-    );
-
-    if(diff === 0) return "📅 Today";
-
-    if(diff === 1) return "📆 Yesterday";
-
-    if(diff <= 7) return "🗓 Last 7 Days";
-
-    if(diff <= 30) return "📁 Last Month";
-
-    return "📦 Older";
-
-}
-
-function formatMemoryDate(time){
-
-    const d = new Date(time);
-
-    const now = new Date();
-
-    const today = new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        now.getDate()
-    );
-
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-
-    const target = new Date(
-        d.getFullYear(),
-        d.getMonth(),
-        d.getDate()
-    );
-
-    if(target.getTime() === today.getTime()){
-
-        return "Today • " + d.toLocaleTimeString([],{
-            hour:"2-digit",
-            minute:"2-digit"
-        });
-
-    }
-
-    if(target.getTime() === yesterday.getTime()){
-
-        return "Yesterday • " + d.toLocaleTimeString([],{
-            hour:"2-digit",
-            minute:"2-digit"
-        });
-
-    }
-
-    return d.toLocaleDateString([],{
-        day:"numeric",
-        month:"short",
-        year:"numeric"
-    });
-
-}
-
-const skySettings = {
-
-showConstellationLines: true,
-showConstellationNames: true,
-
-showStars: true,
-showDSOs: true,
-showPlanets: true,
-
-showStarLabels: true,
-showPlanetLabels: true,
-showDSOLabels: true,
-
-showMilkyWay: true,
-showMarker: true,
-showCoordinates: true,
-
-defaultZoom: 1,
-followObject: true,
-smoothAnimations: true,
-timeSpeed: 1,
-
-starMagnitude: 4,
-dsoMagnitude: 4,
-
-...AstroSettings.get("skySettings")
-
-};
-
+// Load saved settings first so user preferences are available
+// when window.skySettings is constructed below.
 AstroSettings.load();
 
+var skySettings = window.skySettings = {
+
+  showStars: true,
+  showMilkyWay: true,
+  showSun: true,
+  showMoon: true,
+  showPlanets: true,
+  showHorizon: true,
+  showHorizonLine: true,
+
+  showAtmosphere: false,
+  showTwilight: false,
+  horizonGlow: false,
+  showHorizonGlow: false,
+
+  showAsterisms: true,
+  showConstellationLines: true,
+  showConstellationNames: false,
+  showConstellationLabels: false,
+  showConstellationArt: false,
+  showConstellationArtwork: false,
+
+  showComets: true,
+  showAsteroids: true,
+
+  showSatellites: false,
+  showSpacecraft: false,
+  showMeteors: false,
+  showMeteorShowers: false,
+
+  showDSOs: true,
+  showFOV: false,
+  showTelescopeFOV: false,
+
+  showEquatorialGrid: false,
+  showEqGrid: false,
+  showAltAzGrid: false,
+  showAzGrid: false,
+  showCardinalPoints: true,
+  showCardinals: true,
+
+  // Planet sub-toggles (independent)
+  showPlanetSymbols: true,
+  showPlanetNames: true,
+
+  showStarLabels: true,
+  showPlanetLabels: true,
+  showDSOLabels: true,
+
+  showObjectTrails: true,
+  showFuturePath: true,
+  showRisePath: true,
+  showSetPath: true,
+  showTransitPath: true,
+
+  showOrbits: true,
+  showMarker: true,
+  showCoordinates: true,
+
+  defaultZoom: 1,
+  smoothAnimations: true,
+  timeSpeed: 1,
+
+  starMagnitude: 4,
+  dsoMagnitude: 4,
+
+  // Grid / Reference Lines
+  showEcliptic: false,
+  showCelestialEquator: false,
+  showGalacticPlane: false,
+  showMeridian: false,
+  showZenithMarker: false,
+
+  // Round 2: Atmosphere Settings
+  enableRefraction: true,
+  skyBrightness: 0.5,
+  moonlightBrightness: 0.5,
+  lightPollution: 9,
+  airTransparency: 0.8,
+
+  // Round 3: Visual Effects Settings
+  enableTwinkling: true,
+  twinklingSpeed: 0.5,
+  twinklingIntensity: 0.5,
+  starColorSaturation: 1.0,
+  enableDeepSkyGlow: true,
+  deepSkyGlowIntensity: 0.5,
+  mwBrightness: 1.0,
+
+  ...AstroSettings.get("skySettings")
+
+};
+
+// Ensure user-saved settings are loaded before applying to skySettings
+// AstroSettings.load() was already called earlier in initialization.
+// syncToGlobals() will push any saved skySettings into window.skySettings.
+AstroSettings.syncToGlobals();
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", () => {
+    try { initSkySettings(); } catch (e) { }
+  });
+} else {
+  try { initSkySettings(); } catch (e) { }
+}
 
 
-    
+function updateSkySettingValue(key, val, options = {}) {
+  skySettings[key] = val;
+  if (key === "lightPollution") {
+    window.lightPollution = val;
+  }
+  AstroSettings.set("skySettings." + key, val);
 
-    function initSkySettings() {
-
-      console.log(
-    "Toggle checked =",
-    document.getElementById("toggle-constellation-names")?.checked
-);
-
-    const constellationLines = document.getElementById("toggle-constellation-lines");
-    const constellationNames = document.getElementById("toggle-constellation-names");
-    const starLabels = document.getElementById("toggle-star-labels");
-    const dsoLabels = document.getElementById("toggle-dso-labels");
-    const milkyWay = document.getElementById("toggle-milky-way");
-    const planets = document.getElementById("toggle-planets");
-    const stars = document.getElementById("toggle-stars");
-    const dsos = document.getElementById("toggle-dsos");
-
-    if (constellationLines) constellationLines.checked = skySettings.showConstellationLines;
-    if (constellationNames) constellationNames.checked = skySettings.showConstellationNames;
-
-    if (milkyWay) milkyWay.checked = skySettings.showMilkyWay;
-    if (planets) planets.checked = skySettings.showPlanets;
-    if (stars) stars.checked = skySettings.showStars;
-    if (dsos) dsos.checked = skySettings.showDSOs;
-    
-    const starMagnitude = document.getElementById("star-magnitude");
-    const dsoMagnitude = document.getElementById("dso-magnitude");
-    const zoom = document.getElementById("sky-zoom");
-
-    if (starMagnitude) {
-        starMagnitude.value = skySettings.starMagnitude;
-        const valEl = document.getElementById("star-magnitude-value");
-        if (valEl) valEl.textContent = skySettings.starMagnitude;
+  // 1. Sync all data-sky-setting inputs (Quick panel + Main Settings)
+  document.querySelectorAll(`input[data-sky-setting="${key}"]`).forEach(input => {
+    if (input.type === "checkbox") {
+      input.checked = !!val;
+    } else {
+      input.value = val;
     }
-    if (dsoMagnitude) {
-        dsoMagnitude.value = skySettings.dsoMagnitude;
-        const valEl = document.getElementById("dso-magnitude-value");
-        if (valEl) valEl.textContent = skySettings.dsoMagnitude;
+  });
+
+  // 2. Sync legacy element IDs in main settings tab
+  const legacyMap = {
+    showStars: "toggle-stars",
+    showStarLabels: "toggle-star-labels",
+    starMagnitude: "star-magnitude",
+    showDSOs: "toggle-dsos",
+    showDSOLabels: "toggle-dso-labels",
+    dsoMagnitude: "dso-magnitude",
+    showMilkyWay: "toggle-milky-way",
+    mwBrightness: "mw-brightness-slider",
+    showPlanets: "toggle-planets",
+    showSun: "toggle-sun",
+    showMoon: "toggle-moon",
+    showAsteroids: "toggle-asteroids",
+    showComets: "toggle-comets",
+    showSatellites: "toggle-satellites",
+    showSpacecraft: "toggle-spacecraft",
+    showMeteors: "toggle-meteors",
+    showOrbits: "toggle-orbits",
+    showEquatorialGrid: "toggle-equatorial-grid",
+    showCelestialEquator: "toggle-celestial-equator",
+    showEcliptic: "toggle-ecliptic",
+    showGalacticPlane: "toggle-galactic-plane",
+    showHorizonLine: "toggle-horizon-line",
+    showConstellationLines: "toggle-constellation-lines",
+    showConstellationNames: "toggle-constellation-names",
+    showConstellationArt: "toggle-constellation-art",
+    showAsterisms: "toggle-asterisms",
+    showAsterismNames: "toggle-asterism-names",
+    enableRefraction: "toggle-refraction",
+    horizonGlow: "toggle-horizon-glow",
+    skyBrightness: "sky-brightness",
+    lightPollution: "light-pollution",
+    airTransparency: "air-transparency",
+    moonlightBrightness: "moonlight-brightness",
+    enableTwinkling: "toggle-twinkling",
+    twinklingSpeed: "twinkling-speed",
+    twinklingIntensity: "twinkling-intensity",
+    starColorSaturation: "star-color-saturation"
+  };
+
+  if (legacyMap[key]) {
+    const el = document.getElementById(legacyMap[key]);
+    if (el) {
+      if (el.type === "checkbox") el.checked = !!val;
+      else el.value = val;
     }
-    if (zoom) {
-        zoom.value = skySettings.defaultZoom;
-        const valEl = document.getElementById("sky-zoom-value");
-        if (valEl) valEl.textContent = skySettings.defaultZoom;
-    }
+  }
 
-        function bindToggle(toggle, callback) {
+  // 3. Sync display text spans
+  const legacyValSpan = document.getElementById(legacyMap[key] + "-value");
+  if (legacyValSpan) legacyValSpan.textContent = val;
 
-        if (!toggle) return;
+  document.querySelectorAll(`[data-val-for="${key}"]`).forEach(span => {
+    span.textContent = val;
+  });
 
-        toggle.onchange = callback;
+  // 4. Update celestial markers & planet labels if object visibility changed
+  if (["showPlanets", "showSun", "showMoon", "showPlanetSymbols", "showPlanetNames", "enableRefraction"].includes(key)) {
+    try { updatePlanetMarkers(true); } catch (_) { }
+    try { updatePlanetLabelPositions(true); } catch (_) { }
+  }
 
-    }
-
-      bindToggle(constellationLines, function () {
-
-    AstroSettings.set("skySettings.showConstellationLines", this.checked);
-
+  // 5. Trigger live canvas redraw
+  if (!options.silent) {
     refreshSky();
+  }
+}
 
-});
 
-bindToggle(constellationNames, function () {
+function initSkySettings() {
+  // Sync initial values to all UI controls
+  for (const [key, val] of Object.entries(skySettings)) {
+    updateSkySettingValue(key, val, { silent: true });
+  }
 
-    AstroSettings.set("skySettings.showConstellationNames", this.checked);
-
-    refreshSky();
-
-});
-
-bindToggle(stars, function () {
-
-    AstroSettings.set("skySettings.showStars", this.checked);
-
-    refreshSky();
-
-});
-
-bindToggle(dsos, function () {
-    AstroSettings.set("skySettings.showDSOs", this.checked);
-    refreshSky();
-});
-
-bindToggle(milkyWay, function () {
-    AstroSettings.set("skySettings.showMilkyWay", this.checked);
-    refreshSky();
-});
-
-bindToggle(planets, function () {
-
-    AstroSettings.set("skySettings.showPlanets", this.checked);
-
-    // 🔥 Update our HTML planets immediately
-    updatePlanetMarkers();
-
-    // 🔥 Refresh sky
-    refreshSky();
-
-});
-
-if (starMagnitude) {
-    starMagnitude.oninput = function () {
-
-        AstroSettings.set("skySettings.starMagnitude", Number(this.value));
-
-        const valEl = document.getElementById("star-magnitude-value");
-        if (valEl) valEl.textContent = this.value;
-
-        refreshSky();
-
+  // Wire legacy inputs in main settings modal tab
+  const bindLegacyInput = (id, key) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const handler = function () {
+      const val = el.type === "checkbox" ? el.checked : Number(el.value);
+      updateSkySettingValue(key, val);
     };
-}
+    el.onchange = handler;
+    el.oninput = handler;
+  };
 
-if (dsoMagnitude) {
-    dsoMagnitude.oninput = function () {
+  const legacyMap = {
+    "toggle-stars": "showStars",
+    "toggle-star-labels": "showStarLabels",
+    "star-magnitude": "starMagnitude",
+    "toggle-dsos": "showDSOs",
+    "toggle-dso-labels": "showDSOLabels",
+    "dso-magnitude": "dsoMagnitude",
+    "toggle-milky-way": "showMilkyWay",
+    "mw-brightness-slider": "mwBrightness",
+    "toggle-planets": "showPlanets",
+    "toggle-sun": "showSun",
+    "toggle-moon": "showMoon",
+    "toggle-asteroids": "showAsteroids",
+    "toggle-comets": "showComets",
+    "toggle-satellites": "showSatellites",
+    "toggle-spacecraft": "showSpacecraft",
+    "toggle-meteors": "showMeteors",
+    "toggle-orbits": "showOrbits",
+    "toggle-equatorial-grid": "showEquatorialGrid",
+    "toggle-celestial-equator": "showCelestialEquator",
+    "toggle-ecliptic": "showEcliptic",
+    "toggle-galactic-plane": "showGalacticPlane",
+    "toggle-horizon-line": "showHorizonLine",
+    "toggle-constellation-lines": "showConstellationLines",
+    "toggle-constellation-names": "showConstellationNames",
+    "toggle-asterisms": "showAsterisms",
+    "toggle-asterism-names": "showAsterismNames",
+    "toggle-refraction": "enableRefraction",
+    "toggle-horizon-glow": "horizonGlow",
+    "sky-brightness": "skyBrightness",
+    "light-pollution": "lightPollution",
+    "air-transparency": "airTransparency",
+    "moonlight-brightness": "moonlightBrightness",
+    "toggle-twinkling": "enableTwinkling",
+    "twinkling-speed": "twinklingSpeed",
+    "twinkling-intensity": "twinklingIntensity",
+    "star-color-saturation": "starColorSaturation"
+  };
 
-        AstroSettings.set("skySettings.dsoMagnitude", Number(this.value));
+  for (const [id, key] of Object.entries(legacyMap)) {
+    bindLegacyInput(id, key);
+  }
 
-        const valEl = document.getElementById("dso-magnitude-value");
-        if (valEl) valEl.textContent = this.value;
+  // Quick Sky Controls Panel Setup
+  const toggleBtn = document.getElementById("quick-sky-controls-toggle");
+  const panel = document.getElementById("quick-sky-controls-panel");
+  const closeBtn = document.getElementById("quick-panel-close-btn");
 
-        refreshSky();
-
+  if (toggleBtn && panel) {
+    toggleBtn.onclick = (e) => {
+      e.stopPropagation();
+      panel.classList.toggle("quick-panel-hidden");
     };
-}
 
-if (zoom) {
-    zoom.oninput = function () {
+    if (closeBtn) {
+      closeBtn.onclick = (e) => {
+        e.stopPropagation();
+        panel.classList.add("quick-panel-hidden");
+      };
+    }
 
-        const value = Number(this.value);
+    // Dismiss on click outside
+    document.addEventListener("click", (e) => {
+      if (!panel.classList.contains("quick-panel-hidden")) {
+        if (!panel.contains(e.target) && !toggleBtn.contains(e.target)) {
+          panel.classList.add("quick-panel-hidden");
+        }
+      }
+    });
 
-        AstroSettings.set("skySettings.defaultZoom", value);
+    // Dismiss on ESC key
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && !panel.classList.contains("quick-panel-hidden")) {
+        panel.classList.add("quick-panel-hidden");
+      }
+    });
 
-        const valEl = document.getElementById("sky-zoom-value");
-        if (valEl) valEl.textContent = value;
+    // Single-Expanded Accordion Logic
+    const accordionItems = panel.querySelectorAll(".quick-accordion-item");
+    accordionItems.forEach(item => {
+      const header = item.querySelector(".quick-accordion-header");
+      if (!header) return;
 
-        // ✅ Direct Celestial zoom
-        Celestial.zoomBy(value);
+      header.onclick = (e) => {
+        e.stopPropagation();
+        const isActive = item.classList.contains("active");
 
+        // Collapse all accordion sections first
+        accordionItems.forEach(otherItem => {
+          otherItem.classList.remove("active");
+        });
+
+        // Expand clicked accordion if it wasn't already active
+        if (!isActive) {
+          item.classList.add("active");
+        }
+      };
+    });
+  }
+
+  // Bind all data-sky-setting inputs across both interfaces
+  document.querySelectorAll("input[data-sky-setting]").forEach(input => {
+    const key = input.getAttribute("data-sky-setting");
+    const handler = function () {
+      const val = input.type === "checkbox" ? input.checked : Number(input.value);
+      updateSkySettingValue(key, val);
     };
+
+    input.oninput = handler;
+    input.onchange = handler;
+  });
+
+  // Reset Sky Settings Button Logic
+  const resetBtn = document.getElementById("reset-sky-settings-btn");
+  if (resetBtn) {
+    resetBtn.onclick = () => {
+      const defaults = AstroSettings.defaults.skySettings;
+      AstroSettings.data.skySettings = JSON.parse(JSON.stringify(defaults));
+      AstroSettings.save();
+      AstroSettings.syncToGlobals();
+
+      for (const [key, val] of Object.entries(defaults)) {
+        updateSkySettingValue(key, val, { silent: true });
+      }
+      refreshSky();
+    };
+  }
 }
 
-}
+function buildCompass() {
 
-function buildCompass(){
+  let html = "";
 
-let html="";
+  for (
 
-for(
+    let d = -720;
 
-let d=-720;
+    d <= 720;
 
-d<=720;
+    d += 5
 
-d+=5
+  ) {
 
-){
+    let value =
 
-let value=
+      ((d % 360) + 360) % 360;
 
-((d%360)+360)%360;
+    let label = "";
 
-let label="";
+    switch (value) {
 
-switch(value){
+      case 0:
 
-case 0:
+        label = "N";
 
-label="N";
+        break;
 
-break;
+      case 90:
 
-case 90:
+        label = "E";
 
-label="E";
+        break;
 
-break;
+      case 180:
 
-case 180:
+        label = "S";
 
-label="S";
+        break;
 
-break;
+      case 270:
 
-case 270:
+        label = "W";
 
-label="W";
+        break;
 
-break;
+      default:
 
-default:
+        label = value + "°";
 
-label=value+"°";
+    }
 
-}
-
-html+=`
+    html += `
 
 <div class="compassTick">
 
@@ -10118,36 +11984,1465 @@ ${label}
 
 `;
 
-}
+  }
 
-compassScale.innerHTML=html;
+  compassScale.innerHTML = html;
 
 }
 
 function updateCompassHUD() {
 
-    if (!compassScale)
-        return;
+  if (!compassScale)
+    return;
 
-    const target = window.skyHeading || 0;
+  const target = window.skyHeading || 0;
 
-    let diff = target - compassHeading;
+  let diff = target - compassHeading;
 
-    // 359° → 0° jump fix
-    if (diff > 180) diff -= 360;
-    if (diff < -180) diff += 360;
+  // 359° → 0° jump fix
+  if (diff > 180) diff -= 360;
+  if (diff < -180) diff += 360;
 
-    // Smooth movement
-    let speed = 0.20;
+  // Smooth movement
+  let speed = 0.20;
 
-if (Math.abs(diff) > 20) speed = 0.30;
-if (Math.abs(diff) > 60) speed = 0.40;
+  if (Math.abs(diff) > 20) speed = 0.30;
+  if (Math.abs(diff) > 60) speed = 0.40;
 
-compassHeading += diff * speed;
+  compassHeading += diff * speed;
 
-    const offset = -compassHeading * 8;
+  const offset = -compassHeading * 8;
 
-    compassScale.style.transform =
-        `translateX(${offset}px)`;
+  compassScale.style.transform =
+    `translateX(${offset}px)`;
 }
 
+// ======================================
+// Observation Assistant
+// ======================================
+
+function updateObservationAssistant() {
+
+  if (!selectedObject) return;
+
+  updateMoonPhase();
+
+  updateVisibleTonight();
+
+  updateBestViewingTime();
+
+  updateObservationRecommendation();
+
+  updateEclipseStatus();
+
+}
+
+// --------------------
+// Moon Phase
+// --------------------
+
+function updateMoonPhase() {
+
+  const moonEl = document.getElementById("obs-moon-phase");
+
+  if (!moonEl) return;
+
+  const synodic = 29.53058867;
+
+  const knownNewMoon =
+    new Date("2000-01-06T18:14:00Z");
+
+  const days =
+    (skyTime - knownNewMoon) /
+    86400000;
+
+  const age =
+    ((days % synodic) + synodic) %
+    synodic;
+
+  let phase = "";
+
+  if (age < 1.8)
+    phase = "🌑 New";
+
+  else if (age < 7.4)
+    phase = "🌒 Waxing";
+
+  else if (age < 9.5)
+    phase = "🌓 First Quarter";
+
+  else if (age < 14.8)
+    phase = "🌔 Waxing Gibbous";
+
+  else if (age < 16.5)
+    phase = "🌕 Full";
+
+  else if (age < 22)
+    phase = "🌖 Waning";
+
+  else if (age < 24.5)
+    phase = "🌗 Last Quarter";
+
+  else
+    phase = "🌘 Waning Crescent";
+
+  moonEl.textContent = phase;
+
+}
+
+// --------------------
+// Temporary placeholders
+// --------------------
+
+function updateVisibleTonight() {
+
+  const el = document.getElementById("obs-visible-tonight");
+
+  if (!el || !selectedObject) return;
+
+  // Try altitude from selected object
+  let altitude = null;
+
+  if (typeof selectedObject.alt === "number") {
+    altitude = selectedObject.alt;
+  }
+  else if (typeof selectedObject.altitude === "number") {
+    altitude = selectedObject.altitude;
+  }
+
+  // Fallback: read the altitude text already shown in the info panel
+  if (altitude === null) {
+
+    const altText =
+      document.getElementById("info-alt")?.textContent || "";
+
+    const match = altText.match(/-?\d+(\.\d+)?/);
+
+    if (match)
+      altitude = parseFloat(match[0]);
+
+  }
+
+  if (altitude === null) {
+
+    el.textContent = "Unknown";
+    return;
+
+  }
+
+  if (altitude > 20) {
+
+    el.textContent = "✅ Yes";
+
+  }
+  else if (altitude > 0) {
+
+    el.textContent = "⚠ Low";
+
+  }
+  else {
+
+    el.textContent = "❌ No";
+
+  }
+
+}
+
+function updateBestViewingTime() {
+
+  const el = document.getElementById("obs-best-time");
+
+  if (!el) return;
+
+  // Reuse existing Transit time if available
+  const transit =
+    document.getElementById("info-transit")?.textContent || "";
+
+  const match =
+    transit.match(/\d{1,2}:\d{2}(\s?[AP]M)?/i);
+
+  if (match) {
+
+    el.textContent = "🕒 " + match[0];
+    return;
+
+  }
+
+  // Fallback to rise time
+  const rise =
+    document.getElementById("info-rise")?.textContent || "";
+
+  const riseMatch =
+    rise.match(/\d{1,2}:\d{2}(\s?[AP]M)?/i);
+
+  if (riseMatch) {
+
+    el.textContent = "🕒 " + riseMatch[0];
+    return;
+
+  }
+
+  el.textContent = "--";
+
+}
+
+function updateObservationRecommendation() {
+
+  const el =
+    document.getElementById("obs-recommendation");
+
+  if (!el || !selectedObject) return;
+
+  let altitude = null;
+
+  if (typeof selectedObject.alt === "number")
+    altitude = selectedObject.alt;
+
+  else if (typeof selectedObject.altitude === "number")
+    altitude = selectedObject.altitude;
+
+  if (altitude === null) {
+
+    const altText =
+      document.getElementById("info-alt")?.textContent || "";
+
+    const match =
+      altText.match(/-?\d+(\.\d+)?/);
+
+    if (match)
+      altitude = parseFloat(match[0]);
+
+  }
+
+  if (altitude === null) {
+
+    el.textContent = "--";
+    return;
+
+  }
+
+  if (altitude >= 60) {
+
+    el.textContent = "🌟 Excellent observing conditions";
+
+  }
+  else if (altitude >= 30) {
+
+    el.textContent = "👍 Good time to observe";
+
+  }
+  else if (altitude > 0) {
+
+    el.textContent = "⏳ Wait until object rises higher";
+
+  }
+  else {
+
+    el.textContent = "🌍 Object is below the horizon";
+
+  }
+
+}
+
+// Automatically initialize SearchManager and TelescopeManager on page load
+document.addEventListener("DOMContentLoaded", () => {
+  if (typeof SearchManager !== "undefined" && !SearchManager.initialized) {
+    SearchManager.init();
+    SearchManager.initialized = true;
+  }
+  if (typeof TelescopeManager !== "undefined" && !TelescopeManager.initialized) {
+    TelescopeManager.init();
+    TelescopeManager.initialized = true;
+  }
+  const skyTabBtn = document.querySelectorAll("#tabs button")[0];
+  if (skyTabBtn) {
+    skyTabBtn.classList.add("active");
+  }
+});
+
+// ── TRAJECTORY & OBSERVATION VISUALIZERS ──
+
+function getObjectTrajectoryPaths() {
+  if (!selectedObject) return null;
+
+  const coords = _getNavTarget();
+  if (!coords) return null;
+  const ra = coords[0];  // in degrees
+  const dec = coords[1]; // in degrees
+
+  const lat = observer ? observer.latitude : 0;
+
+  // cos(H) = (sin(-0.566) - sin(lat)*sin(dec)) / (cos(lat)*cos(dec))
+  let cosH = (Math.sin(-0.566 * Math.PI / 180) - Math.sin(lat * Math.PI / 180) * Math.sin(dec * Math.PI / 180)) /
+    (Math.cos(lat * Math.PI / 180) * Math.cos(dec * Math.PI / 180));
+
+  let circumpolar = false;
+  let neverRises = false;
+  let H = 0;
+
+  if (cosH <= -1) {
+    circumpolar = true;
+  } else if (cosH >= 1) {
+    neverRises = true;
+  } else {
+    H = Math.acos(cosH) * 180 / Math.PI; // in degrees
+  }
+
+  const paths = {
+    rise: [],
+    set: [],
+    transit: [],
+    future: []
+  };
+
+  if (neverRises) {
+    return paths;
+  }
+
+  if (circumpolar) {
+    for (let angle = 0; angle <= 360; angle += 5) {
+      paths.transit.push([(ra - 180 + angle + 360) % 360, dec]);
+    }
+    paths.future = paths.transit;
+  } else {
+    const steps = 30;
+    for (let i = 0; i <= steps; i++) {
+      const offset = -H + (H * i / steps);
+      paths.rise.push([(ra + offset + 360) % 360, dec]);
+    }
+    for (let i = 0; i <= steps; i++) {
+      const offset = (H * i / steps);
+      paths.set.push([(ra + offset + 360) % 360, dec]);
+    }
+    paths.transit = [...paths.rise, ...paths.set];
+
+    for (let i = 0; i <= 360; i += 10) {
+      paths.future.push([(ra + i) % 360, dec]);
+    }
+  }
+
+  return paths;
+}
+
+function drawTrajectoryPaths() {
+  if (!selectedObject) return;
+
+  const context = Celestial.context;
+  if (!context) return;
+
+  const paths = getObjectTrajectoryPaths();
+  if (!paths) return;
+
+  function drawPathLine(points, strokeStyle, lineWidth, lineDash = []) {
+    if (!points || points.length < 2) return;
+    context.save();
+    context.beginPath();
+
+    let first = true;
+    for (const pt of points) {
+      if (Celestial.clip(pt)) {
+        const pixel = Celestial.mapProjection(pt);
+        if (pixel) {
+          if (first) {
+            context.moveTo(pixel[0], pixel[1]);
+            first = false;
+          } else {
+            context.lineTo(pixel[0], pixel[1]);
+          }
+        }
+      }
+    }
+
+    context.strokeStyle = strokeStyle;
+    context.lineWidth = lineWidth;
+    if (lineDash.length > 0) {
+      context.setLineDash(lineDash);
+    }
+    context.stroke();
+    context.restore();
+  }
+
+  if (skySettings.showRisePath) {
+    drawPathLine(paths.rise, "rgba(0, 255, 100, 0.75)", 2);
+  }
+
+  if (skySettings.showSetPath) {
+    drawPathLine(paths.set, "rgba(255, 100, 0, 0.75)", 2);
+  }
+
+  if (skySettings.showTransitPath) {
+    drawPathLine(paths.transit, "rgba(255, 255, 0, 0.5)", 1.2, [4, 4]);
+  }
+
+  if (skySettings.showFuturePath) {
+    drawPathLine(paths.future, "rgba(200, 100, 255, 0.6)", 1.5, [6, 4]);
+  }
+
+  if (skySettings.showObjectTrails && objectTrailHistory.length > 1) {
+    context.save();
+    context.lineWidth = 2.5;
+
+    for (let i = 1; i < objectTrailHistory.length; i++) {
+      const p1 = [objectTrailHistory[i - 1].ra, objectTrailHistory[i - 1].dec];
+      const p2 = [objectTrailHistory[i].ra, objectTrailHistory[i].dec];
+
+      if (Celestial.clip(p1) && Celestial.clip(p2)) {
+        const pt1 = Celestial.mapProjection(p1);
+        const pt2 = Celestial.mapProjection(p2);
+
+        if (pt1 && pt2) {
+          const opacity = (i / objectTrailHistory.length) * 0.8;
+          context.strokeStyle = `rgba(0, 245, 255, ${opacity})`;
+          context.beginPath();
+          context.moveTo(pt1[0], pt1[1]);
+          context.lineTo(pt2[0], pt2[1]);
+          context.stroke();
+        }
+      }
+    }
+    context.restore();
+  }
+}
+
+function drawTelescopeHelper() {
+  const context = Celestial.context;
+  if (!context) return;
+
+  const metrics = Celestial.metrics();
+  const width = metrics.width;
+  const height = metrics.height;
+  const cx = width / 2;
+  const cy = height / 2;
+
+  const crosshairStyle = TelescopeManager.enabled ? TelescopeManager.crosshairStyle : "off";
+
+  // Render the current field-of-view numerical info in top-left
+  context.save();
+  context.fillStyle = "rgba(0, 255, 255, 0.85)";
+  context.font = "bold 13px 'Space Grotesk', sans-serif";
+  const scale = Celestial.mapProjection.scale();
+  const fovDeg = (width / scale) * (180 / Math.PI);
+  context.fillText(`FOV: ${fovDeg.toFixed(1)}°`, 20, 35);
+  context.restore();
+
+  if (crosshairStyle !== "off") {
+    context.save();
+    context.strokeStyle = TelescopeManager.nightVision ? "rgba(255, 0, 0, 0.7)" : "rgba(0, 255, 255, 0.6)";
+    context.lineWidth = 1.5;
+
+    if (crosshairStyle === "standard") {
+      context.beginPath();
+      context.moveTo(cx - 40, cy);
+      context.lineTo(cx - 8, cy);
+      context.moveTo(cx + 8, cy);
+      context.lineTo(cx + 40, cy);
+      context.moveTo(cx, cy - 40);
+      context.lineTo(cx, cy - 8);
+      context.moveTo(cx, cy + 8);
+      context.lineTo(cx, cy + 40);
+      context.stroke();
+    }
+    context.restore();
+  }
+}
+
+// ── ADVANCED LAYERS & SIMULATIONS (ISS, Meteor Showers, Comets, Orbits) ──
+
+// Cache for orbits
+let orbitCache = {};
+let lastOrbitCacheTime = null;
+
+// Meteor streaks animation state
+let activeMeteors = [];
+
+// Comet & Asteroid datasets loaded dynamically from data/comets.json and data/asteroids.json
+let COMETS_DATA = [];
+let ASTEROIDS_DATA = [];
+
+const METEOR_SHOWERS = [
+  { name: "Quadrantids", peakMonth: 0, peakDay: 3, ra: 230.1, dec: 48.5 },
+  { name: "Lyrids", peakMonth: 3, peakDay: 22, ra: 271.4, dec: 33.3 },
+  { name: "Eta Aquariids", peakMonth: 4, peakDay: 5, ra: 338.0, dec: -1.0 },
+  { name: "Perseids", peakMonth: 7, peakDay: 12, ra: 46.2, dec: 57.4 },
+  { name: "Orionids", peakMonth: 9, peakDay: 21, ra: 95.0, dec: 15.5 },
+  { name: "Leonids", peakMonth: 10, peakDay: 17, ra: 153.0, dec: 22.0 },
+  { name: "Geminids", peakMonth: 11, peakDay: 14, ra: 112.5, dec: 33.0 }
+];
+
+let SPACECRAFT_DATA = [];
+
+
+const FALLBACK_SATELLITES = [
+  {
+    name: "ISS (NORAD 25544)",
+    NORAD_CAT_ID: 25544,
+    line1: "1 25544U 98067A   26200.56233486  .00016717  00000-0  30104-3 0  9997",
+    line2: "2 25544  51.6421  20.4321 0001123  88.1234 272.4567 15.49876543 56789"
+  }
+];
+
+function hashString(str) {
+  let hash = 0;
+  if (!str) return 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash << 5) - hash + str.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash);
+}
+
+function getSpacecraftPosition(sp, date) {
+  if (!sp) return [0, 0];
+  const spData = sp.spData || sp;
+  const dest = String(spData.destination || "").toLowerCase();
+  const targets = Array.isArray(spData.celestialTargets) ? spData.celestialTargets.map(t => String(t).toLowerCase()) : [];
+  const orbitType = String(spData.orbitType || "").toLowerCase();
+  const lagrange = String(spData.lagrangePoint || "").toLowerCase();
+  const spId = String(spData.id || "").toLowerCase();
+
+  try {
+    // 1. Lagrange Points (L1 / L2)
+    if (lagrange.includes("l2") || spId.includes("james-webb") || spId.includes("euclid") || spId.includes("gaia") || spId.includes("planck") || spId.includes("herschel") || spId.includes("wmap") || spId.includes("spektr-rg") || spId.includes("lisa-pathfinder") || spId.includes("queqiao-1") || spId.includes("capstone")) {
+      const sunPos = typeof getPlanetPosition === "function" ? getPlanetPosition("sun", date) : null;
+      if (sunPos) {
+        const raDeg = (sunPos[0] * 15 + 180) % 360;
+        const decDeg = -sunPos[1];
+        return [raDeg, decDeg];
+      }
+    }
+    if (lagrange.includes("l1") || spId.includes("soho") || spId.includes("dscovr") || spId.includes("ace") || spId.includes("wind") || spId.includes("aditya-l1")) {
+      const sunPos = typeof getPlanetPosition === "function" ? getPlanetPosition("sun", date) : null;
+      if (sunPos) {
+        return [sunPos[0] * 15, sunPos[1]];
+      }
+    }
+
+    // 2. Moon & Lunar Missions
+    if (dest.includes("moon") || dest.includes("lunar") || targets.some(t => t.includes("moon") || t.includes("lunar")) || orbitType.includes("lunar")) {
+      const moonPos = typeof getPlanetPosition === "function" ? getPlanetPosition("moon", date) : null;
+      if (moonPos) {
+        return [moonPos[0] * 15, moonPos[1]];
+      }
+    }
+
+    // 3. Mars Missions
+    if (dest.includes("mars") || targets.some(t => t.includes("mars") || t.includes("phobos") || t.includes("deimos") || t.includes("jezero") || t.includes("gale") || t.includes("utopia") || t.includes("valles")) || orbitType.includes("mars") || orbitType.includes("martian")) {
+      const marsPos = typeof getPlanetPosition === "function" ? getPlanetPosition("mars", date) : null;
+      if (marsPos) {
+        return [marsPos[0] * 15, marsPos[1]];
+      }
+    }
+
+    // 4. Venus Missions
+    if (dest.includes("venus") || targets.some(t => t.includes("venus")) || orbitType.includes("venus")) {
+      const venusPos = typeof getPlanetPosition === "function" ? getPlanetPosition("venus", date) : null;
+      if (venusPos) {
+        return [venusPos[0] * 15, venusPos[1]];
+      }
+    }
+
+    // 5. Mercury Missions
+    if (dest.includes("mercury") || targets.some(t => t.includes("mercury")) || orbitType.includes("mercury")) {
+      const mercPos = typeof getPlanetPosition === "function" ? getPlanetPosition("mercury", date) : null;
+      if (mercPos) {
+        return [mercPos[0] * 15, mercPos[1]];
+      }
+    }
+
+    // 6. Jupiter & Outer System Moons
+    if (dest.includes("jupiter") || dest.includes("ganymede") || dest.includes("europa") || targets.some(t => t.includes("jupiter") || t.includes("ganymede") || t.includes("europa") || t.includes("callisto") || t.includes("io"))) {
+      const jupPos = typeof getPlanetPosition === "function" ? getPlanetPosition("jupiter", date) : null;
+      if (jupPos) {
+        return [jupPos[0] * 15, jupPos[1]];
+      }
+    }
+
+    // 7. Saturn & Titan
+    if (dest.includes("saturn") || dest.includes("titan") || targets.some(t => t.includes("saturn") || t.includes("titan") || t.includes("enceladus"))) {
+      const satPos = typeof getPlanetPosition === "function" ? getPlanetPosition("saturn", date) : null;
+      if (satPos) {
+        return [satPos[0] * 15, satPos[1]];
+      }
+    }
+
+    // 8. Heliocentric / Solar Orbit Missions
+    if (dest.includes("sun") || dest.includes("heliocentric") || orbitType.includes("heliocentric")) {
+      const sunPos = typeof getPlanetPosition === "function" ? getPlanetPosition("sun", date) : null;
+      if (sunPos) {
+        const seed = hashString(spId);
+        const raDeg = (sunPos[0] * 15 + (seed % 60) - 30 + 360) % 360;
+        const decDeg = Math.max(-85, Math.min(85, sunPos[1] + ((seed % 40) - 20)));
+        return [raDeg, decDeg];
+      }
+    }
+
+    // 9. LEO / GEO / MEO Earth Satellites & Space Stations (Hubble, ISS, GPS, TDRS)
+    const seed = hashString(spId);
+    const now = (date && date.getTime) ? date.getTime() : Date.now();
+    const periodMs = (spData.orbit && spData.orbit.periodMinutes) ? spData.orbit.periodMinutes * 60 * 1000 : (90 * 60 * 1000);
+    const orbitPhase = ((now / periodMs) + (seed / 1000)) % 1.0;
+    const inc = (spData.orbit && spData.orbit.inclinationDeg != null) ? spData.orbit.inclinationDeg : 51.6;
+    const raDeg = (orbitPhase * 360 + (seed % 360)) % 360;
+    const decDeg = Math.sin(orbitPhase * 2 * Math.PI) * Math.min(inc, 80);
+
+    return [raDeg, decDeg];
+  } catch (e) {
+    const seed = hashString(spId);
+    return [seed % 360, (seed % 160) - 80];
+  }
+}
+
+function openSpacecraftModal(spData) {
+  const modal = document.getElementById("asteroid-modal");
+  const modalBody = document.getElementById("modal-body");
+  if (!modal || !modalBody || !spData) return;
+
+  const name = spData.name || "Spacecraft Mission";
+  const patch = spData.missionPatch ? `<img src="${spData.missionPatch}" alt="Patch" style="max-height: 80px; margin-right: 12px; filter: drop-shadow(0 0 6px rgba(0,255,255,0.4));">` : "";
+  const img = spData.image ? `<div style="text-align: center; margin: 12px 0;"><img src="${spData.image}" alt="${name}" style="max-width: 100%; max-height: 260px; border-radius: 8px; border: 1px solid rgba(0,255,255,0.3); box-shadow: 0 0 15px rgba(0,0,0,0.5);"></div>` : "";
+
+  const statusColor = spData.status === "Active" ? "#00ffcc" : (spData.status === "Planned" ? "#00bbff" : "#ffaa00");
+
+  let html = `
+    <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.15); padding-bottom: 10px; margin-bottom: 15px;">
+      <div style="display: flex; align-items: center;">
+        ${patch ? patch : '<img src="assets/icons/spacecraft.svg" alt="spacecraft" style="height: 48px; width: 48px; margin-right: 12px; filter: drop-shadow(0 0 8px rgba(0,245,255,0.5));">'}
+        <div>
+          <h2 style="margin: 0; font-size: 20px; color: #00f5ff; display: flex; align-items: center; gap: 8px;">
+            ${patch ? '<img src="assets/icons/spacecraft.svg" alt="spacecraft" style="height: 20px; width: 20px;">' : ''}
+            ${name}
+          </h2>
+          <div style="font-size: 13px; color: #aaa; margin-top: 4px;">Category: <span style="color: #fff;">${spData.category || "Spacecraft"}</span> | Status: <span style="color: ${statusColor}; font-weight: bold;">${spData.status || "N/A"}</span></div>
+        </div>
+      </div>
+    </div>
+    ${img}
+    <p style="font-size: 13px; line-height: 1.5; color: #ddd; background: rgba(255,255,255,0.05); padding: 10px; border-radius: 6px; border-left: 3px solid #00f5ff;">
+      ${spData.description || "No detailed description available."}
+    </p>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 12px; margin: 15px 0; background: rgba(0,0,0,0.2); padding: 12px; border-radius: 6px;">
+      <div>🚀 <strong>Launch Date:</strong> ${spData.launchDate || "N/A"}</div>
+      <div>⏳ <strong>Mission Duration:</strong> ${spData.missionDurationDays ? spData.missionDurationDays + " days" : "N/A"}</div>
+      <div>🛰️ <strong>Operator:</strong> ${spData.operator || spData.primaryAgency || "N/A"}</div>
+      <div>📍 <strong>Destination:</strong> ${spData.destination || "N/A"}</div>
+      <div>🚀 <strong>Launch Vehicle:</strong> ${spData.launchVehicle || "N/A"}</div>
+      <div>🏢 <strong>Manufacturer:</strong> ${spData.manufacturer || "N/A"}</div>
+    </div>
+  `;
+
+  if (Array.isArray(spData.missionObjectives) && spData.missionObjectives.length > 0) {
+    html += `
+      <h3 style="color: #00f5ff; font-size: 14px; margin-top: 15px; border-bottom: 1px solid rgba(0,255,255,0.2); padding-bottom: 4px;">🎯 Mission Objectives</h3>
+      <ul style="font-size: 12px; color: #ccc; line-height: 1.5; padding-left: 20px;">
+        ${spData.missionObjectives.map(obj => `<li>${obj}</li>`).join("")}
+      </ul>
+    `;
+  }
+
+  if (Array.isArray(spData.instruments) && spData.instruments.length > 0) {
+    html += `
+      <h3 style="color: #00f5ff; font-size: 14px; margin-top: 15px; border-bottom: 1px solid rgba(0,255,255,0.2); padding-bottom: 4px;">🔬 Scientific Instruments</h3>
+      <ul style="font-size: 12px; color: #ccc; line-height: 1.5; padding-left: 20px;">
+        ${spData.instruments.map(inst => `<li>${inst}</li>`).join("")}
+      </ul>
+    `;
+  }
+
+  if (Array.isArray(spData.majorDiscoveries) && spData.majorDiscoveries.length > 0) {
+    html += `
+      <h3 style="color: #00f5ff; font-size: 14px; margin-top: 15px; border-bottom: 1px solid rgba(0,255,255,0.2); padding-bottom: 4px;">🏆 Major Discoveries & Science Results</h3>
+      <ul style="font-size: 12px; color: #ccc; line-height: 1.5; padding-left: 20px;">
+        ${spData.majorDiscoveries.map(disc => `<li>${disc}</li>`).join("")}
+      </ul>
+    `;
+  }
+
+  if (Array.isArray(spData.interestingFacts) && spData.interestingFacts.length > 0) {
+    html += `
+      <div style="background: rgba(255, 170, 0, 0.1); border: 1px solid rgba(255, 170, 0, 0.3); border-radius: 6px; padding: 10px; margin-top: 15px;">
+        <div style="color: #ffaa00; font-weight: bold; font-size: 13px;">💡 Interesting Fact:</div>
+        <div style="font-size: 12px; color: #eee; margin-top: 4px; line-height: 1.4;">${spData.interestingFacts[0]}</div>
+      </div>
+    `;
+  }
+
+  if (Array.isArray(spData.timeline) && spData.timeline.length > 0) {
+    html += `
+      <h3 style="color: #00f5ff; font-size: 14px; margin-top: 15px; border-bottom: 1px solid rgba(0,255,255,0.2); padding-bottom: 4px;">📅 Mission Timeline</h3>
+      <ul style="font-size: 12px; color: #bbb; line-height: 1.5; padding-left: 20px;">
+        ${spData.timeline.map(t => `<li>${t}</li>`).join("")}
+      </ul>
+    `;
+  }
+
+  const links = [];
+  if (spData.officialWebsite) links.push(`<a href="${spData.officialWebsite}" target="_blank" style="color: #00f5ff; margin-right: 12px; text-decoration: none;">🌐 Official Website</a>`);
+  if (spData.nasa) links.push(`<a href="${spData.nasa}" target="_blank" style="color: #00f5ff; margin-right: 12px; text-decoration: none;">🚀 NASA Portal</a>`);
+  if (spData.esa) links.push(`<a href="${spData.esa}" target="_blank" style="color: #00f5ff; margin-right: 12px; text-decoration: none;">🇪🇺 ESA Portal</a>`);
+  if (spData.wikipedia) links.push(`<a href="${spData.wikipedia}" target="_blank" style="color: #00f5ff; text-decoration: none;">📖 Wikipedia Article</a>`);
+
+  if (links.length > 0) {
+    html += `
+      <div style="margin-top: 20px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1); font-size: 12px;">
+        ${links.join("")}
+      </div>
+    `;
+  }
+
+  modalBody.innerHTML = html;
+  modal.classList.add("show");
+}
+
+function drawSpacecraftOnSky() {
+  if (typeof skySettings !== "undefined" && skySettings.showSpacecraft === false) return;
+  if (!SPACECRAFT_DATA || SPACECRAFT_DATA.length === 0) return;
+  const context = Celestial.context;
+  if (!context) return;
+
+  SPACECRAFT_DATA.forEach(sp => {
+    try {
+      const pos = getSpacecraftPosition(sp, skyTime || new Date());
+      if (!Celestial.clip([pos[0], pos[1]])) return;
+      let pt = null;
+      try { pt = Celestial.mapProjection([pos[0], pos[1]]); } catch (_) { pt = null; }
+      if (!pt || isNaN(pt[0]) || isNaN(pt[1])) return;
+
+      const x = pt[0];
+      const y = pt[1];
+      const isSelected = selectedObject && (selectedObject.id === sp.id || selectedObject.name === sp.name);
+      const primaryColor = sp.themeColor || (sp.status === "Active" ? "#00f5ff" : "#ffaa00");
+      const isFeatured = sp.isFeatured || false;
+
+      context.save();
+      context.globalAlpha = 1.0;
+
+      // 1. Halo ring (same as satellite bright-sat ring)
+      if (isSelected || isFeatured) {
+        context.strokeStyle = isSelected ? "#00ffff" : "rgba(0, 245, 255, 0.7)";
+        context.lineWidth = 1.8;
+        context.beginPath();
+        context.arc(x, y, 8, 0, Math.PI * 2);
+        context.stroke();
+      }
+
+      // 2. Vertical solar panels (top & bottom — satellites have horizontal left/right)
+      context.fillStyle = isSelected ? "#00ffff" : primaryColor;
+      context.fillRect(x - 1.5, y - 7, 3, 4);  // top panel arm
+      context.fillRect(x - 1.5, y + 3, 3, 4);  // bottom panel arm
+
+      // 3. Spacecraft body: upward-pointing triangle (distinct from satellite circle dot)
+      context.beginPath();
+      context.moveTo(x, y - 4);   // apex
+      context.lineTo(x + 4, y + 3);   // bottom-right
+      context.lineTo(x - 4, y + 3);   // bottom-left
+      context.closePath();
+      context.fillStyle = isSelected ? "#ffffff" : primaryColor;
+      context.fill();
+      context.strokeStyle = "#ffffff";
+      context.lineWidth = 1.2;
+      context.stroke();
+
+      context.restore();
+
+      // 4. Name label — crisp white/cyan text with heavy black stroke
+      context.save();
+      context.globalAlpha = 1.0;
+      context.fillStyle = isSelected ? "#00ffff" : "#e0f7ff";
+      context.strokeStyle = "#000000";
+      context.lineWidth = 3.5;
+      context.font = isSelected ? "bold 11px sans-serif" : "bold 10px sans-serif";
+      context.textAlign = "center";
+      const labelText = sp.shortName || sp.displayName || sp.name;
+      context.strokeText(labelText, x, y + 18);
+      context.fillText(labelText, x, y + 18);
+      context.restore();
+    } catch (_e) { /* skip broken spacecraft silently */ }
+  });
+}
+
+
+function mergeSatellites(fetchedSats) {
+  const merged = [...FALLBACK_SATELLITES];
+  const existingIds = new Set(merged.map(s => String(s.NORAD_CAT_ID || s.name).toLowerCase()));
+  if (Array.isArray(fetchedSats)) {
+    for (const s of fetchedSats) {
+      const id = String(s.NORAD_CAT_ID || s.name || s.OBJECT_NAME).toLowerCase();
+      if (!existingIds.has(id)) {
+        existingIds.add(id);
+        merged.push(s);
+      }
+    }
+  }
+  return merged;
+}
+
+let SATELLITES_DATA = [...FALLBACK_SATELLITES];
+fetch('data/satellites.json')
+  .then(r => r.json())
+  .then(d => { SATELLITES_DATA = mergeSatellites(d); })
+  .catch(() => {
+    SATELLITES_DATA = [...FALLBACK_SATELLITES];
+  });
+
+function ommToTle(sat) {
+  if (!sat) return null;
+  if (sat.line1 && sat.line2) return { line1: sat.line1, line2: sat.line2 };
+
+  try {
+    const epochDate = sat.EPOCH ? new Date(sat.EPOCH) : new Date();
+    const fullYear = epochDate.getUTCFullYear();
+    const year = fullYear % 100;
+    const startOfYear = new Date(Date.UTC(fullYear, 0, 1));
+    const dayOfYear = (epochDate - startOfYear) / (86400000) + 1;
+
+    const satnum = String(sat.NORAD_CAT_ID || 0).padStart(5, '0');
+    const classification = sat.CLASSIFICATION_TYPE || 'U';
+    const rawDesig = String(sat.OBJECT_ID || '00000A')
+      .replace(/^(19|20)/, '')
+      .replace('-', '');
+
+    const intlDesig = rawDesig.padEnd(8, ' ').substring(0, 8);
+
+    const epochYrStr = String(year).padStart(2, '0');
+    const epochDayStr = dayOfYear.toFixed(8).padStart(12, '0');
+
+    function formatExp(val) {
+      if (!val || val === 0) return " 00000-0";
+      let sign = val < 0 ? "-" : " ";
+      let absVal = Math.abs(val);
+      let exp = Math.floor(Math.log10(absVal)) + 1;
+      let mantissa = Math.round((absVal / Math.pow(10, exp)) * 100000);
+      if (mantissa >= 100000) { mantissa = 10000; exp++; }
+      let expSign = exp <= 0 ? "-" : "+";
+      let expVal = Math.abs(exp);
+      return `${sign}${String(mantissa).padStart(5, '0')}${expSign}${expVal}`;
+    }
+
+    const bstarStr = formatExp(sat.BSTAR);
+    const ndotVal = sat.MEAN_MOTION_DOT || 0;
+    const ndotSign = ndotVal < 0 ? "-" : " ";
+    const ndotStr = (ndotSign + Math.abs(ndotVal).toFixed(8).substring(1)).padStart(10, ' ');
+
+    const line1 = `1 ${satnum}${classification} ${intlDesig} ${epochYrStr}${epochDayStr} ${ndotStr}  00000-0 ${bstarStr} 0  9999`;
+
+    const incStr = Number(sat.INCLINATION || 0).toFixed(4).padStart(8, ' ');
+    const raanStr = Number(sat.RA_OF_ASC_NODE || 0).toFixed(4).padStart(8, ' ');
+
+    let eccVal = sat.ECCENTRICITY || 0;
+    let eccStr = String(Math.round(eccVal * 1e7)).padStart(7, '0');
+
+    const argpStr = Number(sat.ARG_OF_PERICENTER || 0).toFixed(4).padStart(8, ' ');
+    const maStr = Number(sat.MEAN_ANOMALY || 0).toFixed(4).padStart(8, ' ');
+    const mmStr = Number(sat.MEAN_MOTION || 0).toFixed(8).padStart(11, ' ');
+    const revStr = String(sat.REV_AT_EPOCH || 0).padStart(5, ' ');
+
+    const line2 = `2 ${satnum} ${incStr} ${raanStr} ${eccStr} ${argpStr} ${maStr} ${mmStr}${revStr}1`;
+    console.log("Generated TLE Line1:", line1, line1.length);
+    console.log("Generated TLE Line2:", line2, line2.length);
+    return { line1, line2 };
+  } catch (e) {
+    return null;
+  }
+}
+
+function getSatRec(sat) {
+  if (!sat) return null;
+  if (sat._satrec !== undefined) return sat._satrec;
+  try {
+    let l1 = sat.line1;
+    let l2 = sat.line2;
+    if (!l1 || !l2) {
+      const tle = ommToTle(sat);
+      if (tle) {
+        l1 = tle.line1;
+        l2 = tle.line2;
+      }
+    }
+    if (l1 && l2 && typeof satellite !== "undefined") {
+      sat._satrec = satellite.twoline2satrec(l1, l2);
+    } else {
+      sat._satrec = null;
+    }
+  } catch (e) {
+    sat._satrec = null;
+  }
+  return sat._satrec;
+}
+
+function getPlanetOrbitPoints(planetName) {
+  const periods = {
+    mercury: 88,
+    venus: 224.7,
+    mars: 687,
+    jupiter: 4331,
+    saturn: 10747,
+    uranus: 30589,
+    neptune: 59800,
+    moon: 27.3
+  };
+  const period = periods[planetName.toLowerCase()] || 365;
+  const points = [];
+  const nowTime = new Date(skyTime);
+  const steps = 60;
+  for (let i = 0; i <= steps; i++) {
+    const offsetDays = (i / steps - 0.5) * period;
+    const t = new Date(nowTime.getTime() + offsetDays * 24 * 3600 * 1000);
+    const pos = getPlanetPosition(planetName, t);
+    if (pos) {
+      points.push([pos[0] * 15, pos[1]]);
+    }
+  }
+  return points;
+}
+
+function getCachedPlanetOrbit(planetName) {
+  if (!lastOrbitCacheTime || Math.abs(skyTime - lastOrbitCacheTime) > 3600 * 1000) {
+    orbitCache = {};
+    lastOrbitCacheTime = new Date(skyTime);
+  }
+  if (!orbitCache[planetName]) {
+    orbitCache[planetName] = getPlanetOrbitPoints(planetName);
+  }
+  return orbitCache[planetName];
+}
+
+function drawAdvancedLayers() {
+  const context = Celestial.context;
+  if (!context) return;
+
+  const metrics = Celestial.metrics();
+  const width = metrics.width;
+  const height = metrics.height;
+
+  // 1. ORBITS DRAWING
+  if (skySettings.showOrbits) {
+    const orbitBodies = ["mercury", "venus", "mars", "jupiter", "saturn", "uranus", "neptune", "moon"];
+    orbitBodies.forEach(name => {
+      const points = getCachedPlanetOrbit(name);
+      if (points && points.length > 1) {
+        context.save();
+        context.beginPath();
+        let first = true;
+        for (const pt of points) {
+          if (Celestial.clip(pt)) {
+            const pixel = Celestial.mapProjection(pt);
+            if (pixel) {
+              if (first) {
+                context.moveTo(pixel[0], pixel[1]);
+                first = false;
+              } else {
+                context.lineTo(pixel[0], pixel[1]);
+              }
+            }
+          }
+        }
+        context.strokeStyle = name === "moon" ? "rgba(255, 230, 100, 0.22)" : "rgba(0, 240, 255, 0.12)";
+        context.lineWidth = name === "moon" ? 1.5 : 1.0;
+        context.setLineDash([4, 4]);
+        context.stroke();
+        context.restore();
+      }
+    });
+  }
+
+  // 2. SATELLITES & ISS
+  const satLib = (typeof satellite !== "undefined") ? satellite : (typeof window !== "undefined" && window.satellite ? window.satellite : null);
+  if (skySettings.showSatellites && satLib) {
+    const obsLat = observer ? observer.latitude : 0;
+    const obsLon = observer ? observer.longitude : 0;
+    const obsElev = observer ? (observer.elevation || 0) : 0;
+    const observerGd = {
+      longitude: obsLon * Math.PI / 180,
+      latitude: obsLat * Math.PI / 180,
+      height: obsElev / 1000
+    };
+    const gmst = satLib.gstime(skyTime);
+
+    const MAX_VISIBLE_SATS = 60;
+    let renderedCount = 0;
+
+    const selectedSatName = (selectedObject && selectedObject.type === "satellite")
+      ? (selectedObject.name || "").toLowerCase()
+      : null;
+
+    for (let i = 0; i < SATELLITES_DATA.length; i++) {
+      const sat = SATELLITES_DATA[i];
+      if (!sat) continue;
+      const rawName = String(sat.name || sat.OBJECT_NAME || "");
+      const satName = rawName.toLowerCase();
+      const isSelected = selectedSatName && (satName.includes(selectedSatName) || selectedSatName.includes(satName));
+
+      // Fast break: stop looping once MAX_VISIBLE_SATS quota is met
+      if (!isSelected && renderedCount >= MAX_VISIBLE_SATS) {
+        if (!selectedSatName) break;
+        continue;
+      }
+
+      const satrec = getSatRec(sat);
+      if (!satrec) continue;
+
+      try {
+        const posVel = satLib.propagate(satrec, skyTime);
+        const posEci = posVel ? posVel.position : null;
+
+        if (posEci) {
+          const lookAngles = satLib.ecfToLookAngles(observerGd, satLib.eciToEcf(posEci, gmst));
+          const alt = (lookAngles.elevation ?? lookAngles.altitude ?? lookAngles.alt) * 180 / Math.PI;
+          const az = (lookAngles.azimuth ?? lookAngles.az) * 180 / Math.PI;
+
+          // Render if above horizon or explicitly selected by user
+          if (alt > 0 || isSelected) {
+            const coords = horizontalToEquatorial(alt, az, skyTime, observer);
+            if (coords) {
+              const pt = Celestial.mapProjection(coords);
+              if (pt) {
+                renderedCount++;
+                context.save();
+                context.globalAlpha = 1.0;
+
+                const isBrightSat = satName.includes("iss") || satName.includes("tiangong") || satName.includes("hst") || isSelected;
+
+                // Satellite body dot
+                context.fillStyle = isBrightSat ? "#ffff00" : "#00f0ff";
+                context.beginPath();
+                context.arc(pt[0], pt[1], isBrightSat ? 3.5 : 2.5, 0, Math.PI * 2);
+                context.fill();
+                context.strokeStyle = "#ffffff";
+                context.lineWidth = 0.8;
+                context.stroke();
+
+                // Solar panels
+                context.fillStyle = isBrightSat ? "#ffee00" : "#00e5ff";
+                context.fillRect(pt[0] - 7, pt[1] - 1, 4, 2);
+                context.fillRect(pt[0] + 3, pt[1] - 1, 4, 2);
+
+                // Halo ring for highlighted / selected satellite
+                if (isBrightSat) {
+                  context.strokeStyle = isSelected ? "#00ffff" : "rgba(255, 234, 0, 0.7)";
+                  context.lineWidth = 1.8;
+                  context.beginPath();
+                  context.arc(pt[0], pt[1], 8, 0, 2 * Math.PI);
+                  context.stroke();
+                }
+
+                // Satellite Name Label
+                context.fillStyle = isSelected ? "#00ffff" : "#ffffff";
+                context.strokeStyle = "#000000";
+                context.lineWidth = 3.5;
+                context.font = isSelected ? "bold 11px sans-serif" : "bold 10px sans-serif";
+                context.textAlign = "center";
+
+                const displayName = rawName
+                  .replace(/\s*\(NORAD.*?\)/i, "")
+                  .replace(/^STARLINK-\d+.*/i, m => m.match(/STARLINK-\d+/i)[0])
+                  .trim();
+
+                context.strokeText(displayName, pt[0], pt[1] + 16);
+                context.fillText(displayName, pt[0], pt[1] + 16);
+                context.restore();
+
+                // Predict orbital path for selected satellite or ISS
+                if (isSelected || satName.includes("iss")) {
+                  context.save();
+                  context.beginPath();
+                  let first = true;
+                  for (let k = 0; k <= 40; k += 4) {
+                    const t = new Date(skyTime.getTime() + k * 60000);
+                    const pVal = satLib.propagate(satrec, t);
+                    const pEci = pVal ? pVal.position : null;
+                    if (pEci) {
+                      const g = satLib.gstime(t);
+                      const lAngles = satLib.ecfToLookAngles(observerGd, satLib.eciToEcf(pEci, g));
+                      const a_alt = (lAngles.elevation ?? lAngles.altitude ?? lAngles.alt) * 180 / Math.PI;
+                      const a_az = (lAngles.azimuth ?? lAngles.az) * 180 / Math.PI;
+                      if (a_alt > 0) {
+                        const c = horizontalToEquatorial(a_alt, a_az, t, observer);
+                        if (c && Celestial.clip(c)) {
+                          const pixel = Celestial.mapProjection(c);
+                          if (pixel) {
+                            if (first) {
+                              context.moveTo(pixel[0], pixel[1]);
+                              first = false;
+                            } else {
+                              context.lineTo(pixel[0], pixel[1]);
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                  context.strokeStyle = "rgba(0, 240, 255, 0.4)";
+                  context.lineWidth = 1;
+                  context.setLineDash([3, 3]);
+                  context.stroke();
+                  context.restore();
+                }
+              }
+            }
+          }
+        }
+      } catch (e) { }
+    }
+  }
+
+  // 3. METEOR SHOWERS
+  if (skySettings.showMeteors) {
+    const curMonth = skyTime.getMonth();
+    const curDay = skyTime.getDate();
+
+    METEOR_SHOWERS.forEach(shower => {
+      const isPeakActive = shower.peakMonth === curMonth && Math.abs(shower.peakDay - curDay) <= 5;
+      if (isPeakActive) {
+        const coords = [shower.ra, shower.dec];
+        if (Celestial.clip(coords)) {
+          const pt = Celestial.mapProjection(coords);
+          if (pt) {
+            context.save();
+
+            context.strokeStyle = "rgba(255, 60, 100, 0.75)";
+            context.lineWidth = 1.2;
+            context.beginPath();
+            context.arc(pt[0], pt[1], 6, 0, 2 * Math.PI);
+            context.arc(pt[0], pt[1], 12, 0, 2 * Math.PI);
+            context.stroke();
+
+            context.beginPath();
+            for (let i = 0; i < 8; i++) {
+              const angle = (i * Math.PI) / 4;
+              context.moveTo(pt[0] + Math.cos(angle) * 14, pt[1] + Math.sin(angle) * 14);
+              context.lineTo(pt[0] + Math.cos(angle) * 20, pt[1] + Math.sin(angle) * 20);
+            }
+            context.stroke();
+
+            context.fillStyle = "rgba(255, 100, 140, 0.9)";
+            context.font = "bold 9px sans-serif";
+            context.fillText(`${shower.name} Radiant`, pt[0] + 16, pt[1] + 3);
+
+            context.restore();
+
+            if (activeMeteors.length < 5 && Math.random() < 0.12 && !simPaused) {
+              const angle = Math.random() * 2 * Math.PI;
+              activeMeteors.push({
+                x: pt[0] + Math.cos(angle) * 20,
+                y: pt[1] + Math.sin(angle) * 20,
+                vx: Math.cos(angle) * (6 + Math.random() * 6),
+                vy: Math.sin(angle) * (6 + Math.random() * 6),
+                len: 15 + Math.random() * 25,
+                opacity: 0.9,
+                life: 0
+              });
+            }
+          }
+        }
+      }
+    });
+
+    if (activeMeteors.length > 0) {
+      context.save();
+      activeMeteors.forEach((m, idx) => {
+        context.strokeStyle = `rgba(255, 255, 255, ${m.opacity})`;
+        context.lineWidth = 1.8;
+        context.beginPath();
+        context.moveTo(m.x, m.y);
+        context.lineTo(m.x - m.vx * 1.5, m.y - m.vy * 1.5);
+        context.stroke();
+
+        if (!simPaused) {
+          m.x += m.vx;
+          m.y += m.vy;
+          m.opacity -= 0.08;
+          m.life++;
+        }
+      });
+      activeMeteors = activeMeteors.filter(m => m.opacity > 0 && m.x > 0 && m.x < width && m.y > 0 && m.y < height);
+      context.restore();
+    }
+  }
+
+  // 4. COMETS
+  if (skySettings.showComets && Array.isArray(COMETS_DATA)) {
+    COMETS_DATA.forEach(comet => {
+      try {
+        let coords = null;
+        if (typeof comet.getCoords === "function") {
+          coords = comet.getCoords(skyTime);
+        } else if (typeof getCometPosition === "function") {
+          const pos = getCometPosition(comet, skyTime, observer);
+          coords = pos ? [pos[0] * 15, pos[1]] : null;
+        }
+        if (coords && Celestial.clip(coords)) {
+          const pt = Celestial.mapProjection(coords);
+          if (pt) {
+            context.save();
+            context.globalAlpha = 1.0;
+
+            let tailAngle = Math.PI / 4;
+            const solPos = getPlanetPosition("sol", skyTime);
+            if (solPos) {
+              const solCoords = [solPos[0] * 15, solPos[1]];
+              const solPt = Celestial.mapProjection(solCoords);
+              if (solPt) {
+                tailAngle = Math.atan2(pt[1] - solPt[1], pt[0] - solPt[0]);
+              }
+            }
+
+            const tailLen = 30;
+            const tailSpread = 0.22;
+            const gradient = context.createLinearGradient(pt[0], pt[1], pt[0] + Math.cos(tailAngle) * tailLen, pt[1] + Math.sin(tailAngle) * tailLen);
+            gradient.addColorStop(0, "rgba(0, 245, 255, 0.7)");
+            gradient.addColorStop(0.3, "rgba(0, 200, 255, 0.35)");
+            gradient.addColorStop(1, "rgba(255, 255, 255, 0)");
+
+            context.fillStyle = gradient;
+            context.beginPath();
+            context.moveTo(pt[0], pt[1]);
+            context.arc(pt[0], pt[1], tailLen, tailAngle - tailSpread, tailAngle + tailSpread);
+            context.closePath();
+            context.fill();
+
+            const comaGlow = context.createRadialGradient(pt[0], pt[1], 1, pt[0], pt[1], 6);
+            comaGlow.addColorStop(0, "rgba(0, 255, 255, 0.95)");
+            comaGlow.addColorStop(0.4, "rgba(0, 240, 255, 0.6)");
+            comaGlow.addColorStop(1, "rgba(255, 255, 255, 0)");
+            context.fillStyle = comaGlow;
+            context.beginPath();
+            context.arc(pt[0], pt[1], 6, 0, 2 * Math.PI);
+            context.fill();
+
+            context.fillStyle = "#fff";
+            context.beginPath();
+            context.arc(pt[0], pt[1], 1.5, 0, 2 * Math.PI);
+            context.fill();
+
+            // Comet Name Label
+            const isSelectedComet = selectedObject && selectedObject.type === "comet" &&
+              selectedObject.id === (comet.id || comet.name);
+            context.fillStyle = isSelectedComet ? "#00ffff" : "#00f5ff";
+            context.strokeStyle = "#000000";
+            context.lineWidth = 3.5;
+            context.font = isSelectedComet ? "bold italic 12px sans-serif" : "bold italic 10px sans-serif";
+            const cometName = comet.displayName || comet.name || "Comet";
+            context.strokeText(cometName, pt[0] + 10, pt[1] - 2);
+            context.fillText(cometName, pt[0] + 10, pt[1] - 2);
+            context.restore();
+          }
+        }
+      } catch (_e) { }
+    });
+  }
+
+  // 4b. ASTEROIDS (Golden/Amber markers)
+  if (skySettings.showAsteroids) {
+    ASTEROIDS_DATA.forEach(asteroid => {
+      const coords = asteroid.getCoords ? asteroid.getCoords(skyTime) : null;
+      if (coords && Celestial.clip(coords)) {
+        const pt = Celestial.mapProjection(coords);
+        if (pt) {
+          context.save();
+          const isSelected = selectedObject && selectedObject.type === "asteroid" &&
+            selectedObject.id === (asteroid.id || asteroid.name);
+
+          // Golden/Amber marker glow
+          const amberGlow = context.createRadialGradient(pt[0], pt[1], 1, pt[0], pt[1], isSelected ? 8 : 4);
+          amberGlow.addColorStop(0, isSelected ? "rgba(255, 200, 0, 1.0)" : "rgba(255, 180, 0, 0.85)");
+          amberGlow.addColorStop(0.5, isSelected ? "rgba(255, 150, 0, 0.6)" : "rgba(230, 140, 0, 0.4)");
+          amberGlow.addColorStop(1, "rgba(255, 180, 0, 0)");
+
+          context.fillStyle = amberGlow;
+          context.beginPath();
+          context.arc(pt[0], pt[1], isSelected ? 8 : 4, 0, 2 * Math.PI);
+          context.fill();
+
+          // Highlight selection ring
+          if (isSelected) {
+            context.strokeStyle = "rgba(255, 215, 0, 0.9)";
+            context.lineWidth = 1.5;
+            context.beginPath();
+            context.arc(pt[0], pt[1], 10, 0, 2 * Math.PI);
+            context.stroke();
+          }
+
+          context.fillStyle = "#ffffff";
+          context.beginPath();
+          context.arc(pt[0], pt[1], isSelected ? 2.0 : 1.2, 0, 2 * Math.PI);
+          context.fill();
+
+          // Asteroid Amber Label
+          context.fillStyle = isSelected ? "#ffd700" : "rgba(255, 200, 100, 0.85)";
+          context.font = isSelected ? "bold 10px sans-serif" : "9px sans-serif";
+          context.fillText(asteroid.displayName || asteroid.name, pt[0] + 8, pt[1] - 3);
+
+          context.restore();
+        }
+      }
+    });
+  }
+
+  // 5. ACTIVE ECLIPSES (Corona Glow & Blood Moon crimson overlays)
+  if (typeof activeEclipse !== "undefined" && activeEclipse) {
+    if (activeEclipse.type === "solar") {
+      const sol = getPlanetPosition("sol", skyTime);
+      if (sol) {
+        const solCoords = [sol[0] * 15, sol[1]];
+        const pt = Celestial.mapProjection(solCoords);
+        if (pt && Celestial.clip(solCoords)) {
+          context.save();
+          // Draw solar corona glow
+          const coronaGlow = context.createRadialGradient(pt[0], pt[1], 5, pt[0], pt[1], 25);
+          coronaGlow.addColorStop(0, "rgba(255, 255, 255, 0.98)");
+          coronaGlow.addColorStop(0.15, "rgba(255, 230, 160, 0.85)");
+          coronaGlow.addColorStop(0.4, "rgba(0, 230, 255, 0.4)");
+          coronaGlow.addColorStop(0.7, "rgba(0, 100, 255, 0.15)");
+          coronaGlow.addColorStop(1, "rgba(0, 0, 0, 0)");
+
+          context.fillStyle = coronaGlow;
+          context.beginPath();
+          context.arc(pt[0], pt[1], 25, 0, 2 * Math.PI);
+          context.fill();
+
+          // Overlap Moon silhouette
+          context.fillStyle = "#030812";
+          const moon = getPlanetPosition("moon", skyTime);
+          const moonPt = moon ? Celestial.mapProjection([moon[0] * 15, moon[1]]) : pt;
+          context.beginPath();
+          context.arc(moonPt[0], moonPt[1], 5.5, 0, 2 * Math.PI);
+          context.fill();
+          context.restore();
+        }
+      }
+    } else if (activeEclipse.type === "lunar") {
+      const moon = getPlanetPosition("moon", skyTime);
+      if (moon) {
+        const moonCoords = [moon[0] * 15, moon[1]];
+        const pt = Celestial.mapProjection(moonCoords);
+        if (pt && Celestial.clip(moonCoords)) {
+          context.save();
+          // Blood Moon crimson overlay
+          const redShadow = context.createRadialGradient(pt[0], pt[1], 1, pt[0], pt[1], 6.5);
+          redShadow.addColorStop(0, "rgba(230, 20, 20, 0.9)");
+          redShadow.addColorStop(0.5, "rgba(160, 10, 10, 0.65)");
+          redShadow.addColorStop(0.85, "rgba(90, 5, 5, 0.3)");
+          redShadow.addColorStop(1, "rgba(0, 0, 0, 0)");
+
+          context.fillStyle = redShadow;
+          context.beginPath();
+          context.arc(pt[0], pt[1], 6.5, 0, 2 * Math.PI);
+          context.fill();
+          context.restore();
+        }
+      }
+    }
+  }
+
+  // 6. SPACECRAFT (215 missions)
+  try { drawSpacecraftOnSky(); } catch (_e) { }
+}
+
+// ── ECLIPSE ARCHITECTURE (Real-time Detection & Future Prediction Search) ──
+
+function getAngularSeparation(ra1, dec1, ra2, dec2) {
+  const r1 = ra1 * Math.PI / 180;
+  const d1 = dec1 * Math.PI / 180;
+  const r2 = ra2 * Math.PI / 180;
+  const d2 = dec2 * Math.PI / 180;
+  const cosAngle = Math.sin(d1) * Math.sin(d2) + Math.cos(d1) * Math.cos(d2) * Math.cos(r1 - r2);
+  const clampedCos = Math.max(-1.0, Math.min(1.0, cosAngle));
+  return Math.acos(clampedCos) * 180 / Math.PI;
+}
+
+function searchNextEclipse(startDate, type) {
+  let t = new Date(startDate);
+  const maxIterations = 24;
+  for (let i = 0; i < maxIterations; i++) {
+    t = new Date(t.getTime() + 14.765 * 24 * 3600 * 1000);
+    const sPos = getPlanetPosition("sol", t);
+    const mPos = getPlanetPosition("moon", t);
+    if (sPos && mPos) {
+      const sRA = sPos[0] * 15;
+      const sDec = sPos[1];
+      const mRA = mPos[0] * 15;
+      const mDec = mPos[1];
+
+      if (type === "solar") {
+        const sep = getAngularSeparation(sRA, sDec, mRA, mDec);
+        if (sep < 0.8) {
+          return { date: t, kind: sep < 0.53 ? "Total/Annular" : "Partial" };
+        }
+      } else {
+        const shadowRA = (sRA + 180) % 360;
+        const shadowDec = -sDec;
+        const sep = getAngularSeparation(mRA, mDec, shadowRA, shadowDec);
+        if (sep < 1.4) {
+          return { date: t, kind: sep < 0.88 ? "Total/Partial Umbral" : "Penumbral" };
+        }
+      }
+    }
+  }
+  return null;
+}
+
+let activeEclipse = null;
+
+function updateEclipseStatus() {
+  const solarEl = document.getElementById("obs-solar-eclipse");
+  const lunarEl = document.getElementById("obs-lunar-eclipse");
+
+  const sPos = getPlanetPosition("sol", skyTime);
+  const mPos = getPlanetPosition("moon", skyTime);
+
+  activeEclipse = null;
+
+  if (sPos && mPos) {
+    const sRA = sPos[0] * 15;
+    const sDec = sPos[1];
+    const mRA = mPos[0] * 15;
+    const mDec = mPos[1];
+
+    const solarSep = getAngularSeparation(sRA, sDec, mRA, mDec);
+    if (solarSep < 0.54) {
+      activeEclipse = {
+        type: "solar",
+        kind: solarSep < 0.15 ? "Total Solar Eclipse" : (solarSep < 0.38 ? "Annular Solar Eclipse" : "Partial Solar Eclipse"),
+        separation: solarSep
+      };
+    } else {
+      const shadowRA = (sRA + 180) % 360;
+      const shadowDec = -sDec;
+      const lunarSep = getAngularSeparation(mRA, mDec, shadowRA, shadowDec);
+      if (lunarSep < 1.4) {
+        activeEclipse = {
+          type: "lunar",
+          kind: lunarSep < 0.72 ? "Total Lunar Eclipse (Blood Moon)" : (lunarSep < 0.95 ? "Partial Lunar Eclipse" : "Penumbral Lunar Eclipse"),
+          separation: lunarSep
+        };
+      }
+    }
+  }
+
+  if (solarEl) {
+    if (activeEclipse && activeEclipse.type === "solar") {
+      solarEl.innerHTML = `<span style="color: #ff3c64; font-weight: bold;">🔴 ACTIVE: ${activeEclipse.kind}</span>`;
+    } else {
+      const nextSolar = searchNextEclipse(skyTime, "solar");
+      if (nextSolar) {
+        solarEl.textContent = `${nextSolar.date.toLocaleDateString()} (${nextSolar.kind})`;
+      } else {
+        solarEl.textContent = "None in next 2 years";
+      }
+    }
+  }
+
+  if (lunarEl) {
+    if (activeEclipse && activeEclipse.type === "lunar") {
+      lunarEl.innerHTML = `<span style="color: #ff3c64; font-weight: bold;">🔴 ACTIVE: ${activeEclipse.kind}</span>`;
+    } else {
+      const nextLunar = searchNextEclipse(skyTime, "lunar");
+      if (nextLunar) {
+        lunarEl.textContent = `${nextLunar.date.toLocaleDateString()} (${nextLunar.kind})`;
+      } else {
+        lunarEl.textContent = "None in next 2 years";
+      }
+    }
+  }
+}

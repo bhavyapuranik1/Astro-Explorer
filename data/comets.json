@@ -1,0 +1,140 @@
+[
+  {
+    "id": "1p-halley",
+    "name": "1p/halley",
+    "displayName": "1P/Halley (Halley's Comet)",
+    "designation": "1P/Halley",
+    "type": "comet",
+    "magnitude": 28.2,
+    "absoluteMagnitude": 5.5,
+    "slopeParam": 4.0,
+    "period": "75.3 years",
+    "nextPerihelion": "2061-07-28",
+    "orbitalElements": {
+      "epoch": "1986-02-19",
+      "perihelionDate": "1986-02-09T10:59:00Z",
+      "q": 0.585978,
+      "e": 0.9671429,
+      "i": 162.2627,
+      "om": 58.4201,
+      "w": 111.3325,
+      "a": 17.834144
+    },
+    "description": "The most famous periodic comet in history, returning to the inner Solar System every 75–76 years."
+  },
+  {
+    "id": "12p-pons-brooks",
+    "name": "12p/pons-brooks",
+    "displayName": "12P/Pons-Brooks",
+    "designation": "12P/Pons-Brooks",
+    "type": "comet",
+    "magnitude": 4.5,
+    "absoluteMagnitude": 5.0,
+    "slopeParam": 4.0,
+    "period": "71.3 years",
+    "nextPerihelion": "2024-04-21",
+    "orbitalElements": {
+      "epoch": "2024-04-21",
+      "perihelionDate": "2024-04-21T03:00:00Z",
+      "q": 0.7808,
+      "e": 0.9547,
+      "i": 74.19,
+      "om": 255.85,
+      "w": 198.81,
+      "a": 17.24
+    },
+    "description": "A Halley-type periodic comet known for dramatic cryovolcanic outbursts, nicknamed the 'Devil Comet'."
+  },
+  {
+    "id": "67p-churyumov-gerasimenko",
+    "name": "67p/churyumov-gerasimenko",
+    "displayName": "67P/Churyumov-Gerasimenko",
+    "designation": "67P/Churyumov-Gerasimenko",
+    "type": "comet",
+    "magnitude": 15.4,
+    "absoluteMagnitude": 11.4,
+    "slopeParam": 4.0,
+    "period": "6.45 years",
+    "nextPerihelion": "2028-04-19",
+    "orbitalElements": {
+      "epoch": "2021-11-02",
+      "perihelionDate": "2021-11-02T00:50:00Z",
+      "q": 1.2438,
+      "e": 0.6418,
+      "i": 7.04,
+      "om": 50.14,
+      "w": 12.78,
+      "a": 3.463
+    },
+    "description": "The target of ESA's landmark Rosetta mission and Philae lander in 2014."
+  },
+  {
+    "id": "2p-encke",
+    "name": "2p/encke",
+    "displayName": "2P/Encke",
+    "designation": "2P/Encke",
+    "type": "comet",
+    "magnitude": 14.0,
+    "absoluteMagnitude": 9.8,
+    "slopeParam": 4.0,
+    "period": "3.30 years",
+    "nextPerihelion": "2027-02-12",
+    "orbitalElements": {
+      "epoch": "2023-10-22",
+      "perihelionDate": "2023-10-22T14:30:00Z",
+      "q": 0.3361,
+      "e": 0.8482,
+      "i": 11.78,
+      "om": 334.57,
+      "w": 186.54,
+      "a": 2.215
+    },
+    "description": "A periodic comet with the shortest orbital period of any known major comet in the Solar System."
+  },
+  {
+    "id": "13p-olbers",
+    "name": "13p/olbers",
+    "displayName": "13P/Olbers",
+    "designation": "13P/Olbers",
+    "type": "comet",
+    "magnitude": 6.8,
+    "absoluteMagnitude": 5.0,
+    "slopeParam": 4.0,
+    "period": "69.3 years",
+    "nextPerihelion": "2024-06-30",
+    "orbitalElements": {
+      "epoch": "2024-06-30",
+      "perihelionDate": "2024-06-30T01:30:00Z",
+      "q": 1.1756,
+      "e": 0.9303,
+      "i": 44.61,
+      "om": 85.85,
+      "w": 64.41,
+      "a": 16.86
+    },
+    "description": "A Halley-type periodic comet discovered by Heinrich Olbers in 1815, visible in evening skies in mid-2024."
+  },
+  {
+    "id": "c2023-a3",
+    "name": "c/2023 a3 (tsuchinshan-atlas)",
+    "displayName": "C/2023 A3 (Tsuchinshan-ATLAS)",
+    "designation": "C/2023 A3",
+    "type": "comet",
+    "magnitude": 4.2,
+    "absoluteMagnitude": 5.8,
+    "slopeParam": 4.0,
+    "period": "80,000+ years",
+    "nextPerihelion": "2024-09-27",
+    "orbitalElements": {
+      "epoch": "2024-09-27",
+      "perihelionDate": "2024-09-27T17:47:00Z",
+      "q": 0.3914,
+      "e": 1.00012,
+      "i": 139.14,
+      "om": 21.57,
+      "w": 308.49,
+      "a": -3261.0
+    },
+    "description": "A spectacular comet that reached naked-eye brightness during its September–October 2024 perihelion."
+  }
+]

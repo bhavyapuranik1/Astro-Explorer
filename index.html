@@ -64,7 +64,6 @@ gtag('config', 'G-9747XL0FQQ');
 <div id="navbar">
   <div id="tabs">
     <button onclick="showTab('sky', this)"> Sky</button>
-    <button onclick="showTab('asteroids', this)"> Asteroids</button>
     <button onclick="showTab('nasa', this)"> NASA</button>
   </div>
 </div>
@@ -96,7 +95,7 @@ gtag('config', 'G-9747XL0FQQ');
         <input
             type="text"
             id="searchBox"
-            placeholder="Search object (M31, Orion...)">
+            placeholder="Search object (JWST, Hubble, Mars, M31...)">
 
         <button onclick="searchObject()">
             Search
@@ -118,15 +117,315 @@ gtag('config', 'G-9747XL0FQQ');
 
 </div>
 
+<!-- 🎛️ Floating Quick Sky Controls Button & Panel -->
+<button id="quick-sky-controls-toggle" title="Quick Sky Controls">
+  <span>🎛️ Sky Controls</span>
+</button>
+
+<div id="quick-sky-controls-panel" class="quick-panel-hidden">
+  <div class="quick-panel-header">
+    <h3>🎛️ Quick Sky Controls</h3>
+    <button id="quick-panel-close-btn" class="quick-panel-close">✖</button>
+  </div>
+  <div class="quick-panel-body">
+
+    <!-- ⭐ Stars -->
+    <div class="quick-accordion-item">
+      <button class="quick-accordion-header">
+        <span>⭐ Stars</span>
+        <span class="quick-accordion-icon">▼</span>
+      </button>
+      <div class="quick-accordion-content">
+        <div class="quick-setting-row">
+          <label class="switch">
+            <input type="checkbox" data-sky-setting="showStars">
+            <span class="slider"></span>
+          </label>
+          <span>Show Stars</span>
+        </div>
+        <div class="quick-setting-row">
+          <label class="switch">
+            <input type="checkbox" data-sky-setting="showStarLabels">
+            <span class="slider"></span>
+          </label>
+          <span>Star Labels</span>
+        </div>
+        <div class="quick-setting-row range-row">
+          <div class="quick-label-wrap">
+            <span>Star Magnitude</span>
+            <span class="quick-val" data-val-for="starMagnitude">4</span>
+          </div>
+          <input type="range" data-sky-setting="starMagnitude" min="0" max="8" step="0.5">
+        </div>
+        <div class="quick-setting-row range-row">
+          <div class="quick-label-wrap">
+            <span>Star Color Saturation</span>
+            <span class="quick-val" data-val-for="starColorSaturation">1.0</span>
+          </div>
+          <input type="range" data-sky-setting="starColorSaturation" min="0.0" max="2.0" step="0.1">
+        </div>
+        <div class="quick-setting-row">
+          <label class="switch">
+            <input type="checkbox" data-sky-setting="enableTwinkling">
+            <span class="slider"></span>
+          </label>
+          <span>Star Twinkling</span>
+        </div>
+        <div class="quick-setting-row range-row">
+          <div class="quick-label-wrap">
+            <span>Twinkling Speed</span>
+            <span class="quick-val" data-val-for="twinklingSpeed">0.5</span>
+          </div>
+          <input type="range" data-sky-setting="twinklingSpeed" min="0.1" max="2.0" step="0.05">
+        </div>
+        <div class="quick-setting-row range-row">
+          <div class="quick-label-wrap">
+            <span>Twinkling Intensity</span>
+            <span class="quick-val" data-val-for="twinklingIntensity">0.5</span>
+          </div>
+          <input type="range" data-sky-setting="twinklingIntensity" min="0.0" max="1.0" step="0.05">
+        </div>
+      </div>
+    </div>
+
+    <!-- 🌌 Milky Way -->
+    <div class="quick-accordion-item">
+      <button class="quick-accordion-header">
+        <span>🌌 Milky Way</span>
+        <span class="quick-accordion-icon">▼</span>
+      </button>
+      <div class="quick-accordion-content">
+        <div class="quick-setting-row">
+          <label class="switch">
+            <input type="checkbox" data-sky-setting="showMilkyWay">
+            <span class="slider"></span>
+          </label>
+          <span>Show Milky Way</span>
+        </div>
+        <div class="quick-setting-row range-row">
+          <div class="quick-label-wrap">
+            <span>Milky Way Brightness</span>
+            <span class="quick-val" data-val-for="mwBrightness">1.0</span>
+          </div>
+          <input type="range" data-sky-setting="mwBrightness" min="0.0" max="2.0" step="0.05">
+        </div>
+      </div>
+    </div>
+
+    <!-- 🌫 Atmosphere -->
+    <div class="quick-accordion-item">
+      <button class="quick-accordion-header">
+        <span>🌫 Atmosphere</span>
+        <span class="quick-accordion-icon">▼</span>
+      </button>
+      <div class="quick-accordion-content">
+        <div class="quick-setting-row range-row">
+          <div class="quick-label-wrap">
+            <span>Sky Brightness</span>
+            <span class="quick-val" data-val-for="skyBrightness">0.5</span>
+          </div>
+          <input type="range" data-sky-setting="skyBrightness" min="0.0" max="1.0" step="0.05">
+        </div>
+        <div class="quick-setting-row range-row">
+          <div class="quick-label-wrap">
+            <span>Light Pollution (Bortle)</span>
+            <span class="quick-val" data-val-for="lightPollution">9</span>
+          </div>
+          <input type="range" data-sky-setting="lightPollution" min="1" max="9" step="1" value="9">
+        </div>
+        <div class="quick-setting-row range-row">
+          <div class="quick-label-wrap">
+            <span>Air Transparency</span>
+            <span class="quick-val" data-val-for="airTransparency">0.8</span>
+          </div>
+          <input type="range" data-sky-setting="airTransparency" min="0.0" max="1.0" step="0.05">
+        </div>
+        <div class="quick-setting-row">
+          <label class="switch">
+            <input type="checkbox" data-sky-setting="horizonGlow">
+            <span class="slider"></span>
+          </label>
+          <span>Horizon Glow</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 📐 Grid -->
+    <div class="quick-accordion-item">
+      <button class="quick-accordion-header">
+        <span>📐 Grid</span>
+        <span class="quick-accordion-icon">▼</span>
+      </button>
+      <div class="quick-accordion-content">
+        <div class="quick-setting-row">
+          <label class="switch">
+            <input type="checkbox" data-sky-setting="showEquatorialGrid">
+            <span class="slider"></span>
+          </label>
+          <span>Equatorial Grid</span>
+        </div>
+        <div class="quick-setting-row">
+          <label class="switch">
+            <input type="checkbox" data-sky-setting="showCelestialEquator">
+            <span class="slider"></span>
+          </label>
+          <span>Celestial Equator</span>
+        </div>
+        <div class="quick-setting-row">
+          <label class="switch">
+            <input type="checkbox" data-sky-setting="showEcliptic">
+            <span class="slider"></span>
+          </label>
+          <span>Ecliptic</span>
+        </div>
+        <div class="quick-setting-row">
+          <label class="switch">
+            <input type="checkbox" data-sky-setting="showGalacticPlane">
+            <span class="slider"></span>
+          </label>
+          <span>Galactic Plane</span>
+        </div>
+        <div class="quick-setting-row">
+          <label class="switch">
+            <input type="checkbox" data-sky-setting="showHorizonLine">
+            <span class="slider"></span>
+          </label>
+          <span>Horizon Line</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 🏛 Constellations -->
+    <div class="quick-accordion-item">
+      <button class="quick-accordion-header">
+        <span>🏛 Constellations</span>
+        <span class="quick-accordion-icon">▼</span>
+      </button>
+      <div class="quick-accordion-content">
+        <div class="quick-setting-row">
+          <label class="switch">
+            <input type="checkbox" data-sky-setting="showConstellationLines">
+            <span class="slider"></span>
+          </label>
+          <span>Constellation Lines</span>
+        </div>
+        <div class="quick-setting-row">
+          <label class="switch">
+            <input type="checkbox" data-sky-setting="showConstellationNames">
+            <span class="slider"></span>
+          </label>
+          <span>Constellation Labels</span>
+        </div>
+        <div class="quick-setting-row">
+          <label class="switch">
+            <input type="checkbox" data-sky-setting="showConstellationArt">
+            <span class="slider"></span>
+          </label>
+          <span>Constellation Artwork</span>
+        </div>
+        <div class="quick-setting-row">
+          <label class="switch">
+            <input type="checkbox" data-sky-setting="showAsterisms">
+            <span class="slider"></span>
+          </label>
+          <span>Asterisms</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 🪐 Solar System -->
+    <div class="quick-accordion-item">
+      <button class="quick-accordion-header">
+        <span>🪐 Solar System</span>
+        <span class="quick-accordion-icon">▼</span>
+      </button>
+      <div class="quick-accordion-content">
+        <div class="quick-setting-row">
+          <label class="switch">
+            <input type="checkbox" data-sky-setting="showPlanets">
+            <span class="slider"></span>
+          </label>
+          <span>Planets</span>
+        </div>
+        <div class="quick-setting-row">
+          <label class="switch">
+            <input type="checkbox" data-sky-setting="showAsteroids">
+            <span class="slider"></span>
+          </label>
+          <span>Asteroids</span>
+        </div>
+        <div class="quick-setting-row">
+          <label class="switch">
+            <input type="checkbox" data-sky-setting="showComets">
+            <span class="slider"></span>
+          </label>
+          <span>Comets</span>
+        </div>
+        <div class="quick-setting-row">
+          <label class="switch">
+            <input type="checkbox" data-sky-setting="showSatellites">
+            <span class="slider"></span>
+          </label>
+          <span>Satellites</span>
+        </div>
+        <div class="quick-setting-row">
+          <label class="switch">
+            <input type="checkbox" data-sky-setting="showSpacecraft">
+            <span class="slider"></span>
+          </label>
+          <span>Spacecraft</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- 🔭 Telescope Eyepiece Overlay -->
+<div id="telescope-overlay" class="hidden">
+  <div class="eyepiece-mask" id="eyepiece-mask"></div>
+  <div class="eyepiece-crosshair" id="eyepiece-crosshair">
+    <div class="ch-line ch-h"></div>
+    <div class="ch-line ch-v"></div>
+    <div class="ch-circle"></div>
+  </div>
+</div>
+
+<!-- 🔭 Telescope Floating HUD Panel -->
+<div id="telescope-hud" class="hidden">
+  <div class="hud-header">
+    <span>🔭 Eyepiece View</span>
+    <button id="close-hud-btn" onclick="toggleTelescopeMode()">✖</button>
+  </div>
+  <div class="hud-row">
+    <label>Eyepiece FOV:</label>
+    <select id="hud-eyepiece-select">
+      <option value="1.0">Wide (1.0°)</option>
+      <option value="0.5" selected>Medium (0.5°)</option>
+      <option value="0.25">High Power (0.25°)</option>
+    </select>
+  </div>
+  <div class="hud-row">
+    <label>Crosshair:</label>
+    <select id="hud-crosshair-select">
+      <option value="standard" selected>Standard Reticle</option>
+      <option value="off">Off</option>
+    </select>
+  </div>
+  <div class="hud-row">
+    <label>Finder Ring:</label>
+    <input type="checkbox" id="hud-finder-toggle" checked>
+  </div>
+</div>
+
   
 
   
 
   <div id="object-info-panel">
 
-    <button id="close-info-panel">
-✖
-</button>
+    <button id="nav-center-btn" onclick="navCenter()">Center</button>
+    <button id="close-info-panel">✖</button>
 
 <h2 id="info-name">
   No Object Selected
@@ -142,10 +441,10 @@ gtag('config', 'G-9747XL0FQQ');
 
 <p id="info-az"></p>
 
-<div>
-        Facing :
-        <span id="nav-direction">--</span>
-    </div>
+<p id="info-facing">
+    <span>Facing: </span>
+    <span id="nav-direction">--</span>
+</p>
 
 <p id="info-mag"></p>
 
@@ -161,38 +460,66 @@ gtag('config', 'G-9747XL0FQQ');
 
 <p id="info-set"></p>
 
+<p id="info-transit"></p>
+
+<p id="info-distance"></p>
+
 <p id="info-ai"></p>
+
+<p id="info-description" style="font-size: 12px; line-height: 1.4; color: rgba(255,255,255,0.85); margin-top: 8px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 8px;"></p>
+
+<div class="astro-actions-card">
+    <h3>🤖 Astro AI</h3>
+
+    <div class="astro-action-buttons">
+        <button onclick="skyAIConstellation()">🌌 Constellation</button>
+
+<button onclick="skyAIObserveTips()">💡 Recommendation</button>
+
+<button onclick="skyAIExplain()">🤖 Ask Astro AI</button>
+    </div>
+</div>
+    <!-- Observation Assistant Card -->
+    <div class="observation-recommendation" style="margin-top: 15px;">
+      <div class="icon">🔭</div>
+      <div class="content">
+        <div class="title">Observation Recommendation</div>
+        <div class="value" id="obs-recommendation">--</div>
+      </div>
+    </div>
+
+    <div class="observation-card">
+    <div class="obs-row">
+        <span>👁️ Visible Tonight</span>
+        <span id="obs-visible-tonight"></span>
+    </div>
+
+    <div class="obs-row">
+        <span>🕒 Best Time</span>
+        <span id="obs-best-time"></span>
+    </div>
+</div>
+
+<div class="observation-card">
+    <div class="obs-row">
+        <span>🌖 Moon Phase</span>
+        <span id="obs-moon-phase"></span>
+    </div>
+
+    <div class="obs-row">
+        <span>☀️ Solar Eclipse</span>
+        <span id="obs-solar-eclipse"></span>
+    </div>
+
+    <div class="obs-row">
+        <span>🌘 Lunar Eclipse</span>
+        <span id="obs-lunar-eclipse"></span>
+    </div>
+</div>
 
   </div>
 
 </div> <!-- 🔥 SKY TAB CLOSED PROPERLY -->
-
-<!-- ☄️ ASTEROIDS -->
-<div id="asteroids" class="tab-content" style="display:none;">
-  <h2> Near Earth Objects</h2>
-
-  <div class="controls-bar">
-
-    <div class="left-controls">
-      <button id="hazard-filter">
-         Show Hazardous Only
-      </button>
-
-      <button id="newest-filter">
-         Recently Approaching Asteroids
-      </button>
-    </div>
-
-    <input
-      type="text"
-      id="search-input"
-      placeholder=" Search asteroid by name..."
-    >
-
-  </div>
-
-  <div id="asteroid-container"></div>
-</div>
 
 <!-- NASA -->
 <div id="nasa" class="tab-content" style="display:none;">
@@ -368,6 +695,7 @@ Logout
 </button>
 
 <script src="https://cdn.jsdelivr.net/npm/astronomy-engine/astronomy.browser.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/satellite.js/dist/satellite.min.js"></script>
 
 <script src="lib/d3.v3.min.js"></script>
 
@@ -436,42 +764,47 @@ autocapitalize="off"
 
       <div id="settings-sidebar">
 
-        <button class="settings-tab active"
-        data-page="general">
+        <button class="settings-tab active" data-page="general">
           ⚙ General
         </button>
 
-        <button class="settings-tab"
-        data-page="appearance">
+        <button class="settings-tab" data-page="appearance">
           🎨 Appearance
         </button>
 
-        <button class="settings-tab"
-        data-page="ai">
+        <button class="settings-tab" data-page="ai">
           🤖 AI
         </button>
 
         <button class="settings-tab" data-page="memory">
-    🧠 Memory
-</button>
+          🧠 Memory
+        </button>
 
-        <button class="settings-tab"
-        data-page="sky">
+        <button class="settings-tab" data-page="sky">
           🌌 Sky
         </button>
 
-        <button class="settings-tab"
-        data-page="observation">
+        <button class="settings-tab" data-page="grid">
+          🔲 Grids
+        </button>
+
+        <button class="settings-tab" data-page="atmosphere">
+          🌅 Atmosphere
+        </button>
+
+        <button class="settings-tab" data-page="time">
+          ⏱ Time Travel
+        </button>
+
+        <button class="settings-tab" data-page="observation">
           🔭 Observation
         </button>
 
-        <button class="settings-tab"
-        data-page="account">
+        <button class="settings-tab" data-page="account">
           👤 Account
         </button>
 
-        <button class="settings-tab"
-        data-page="about">
+        <button class="settings-tab" data-page="about">
           ℹ About
         </button>
 
@@ -686,23 +1019,18 @@ Current Model
 </p>
 
 <select id="ai-model">
-
-<option>
-GPT-5
-</option>
-
-<option disabled>
-Claude (Coming Soon)
-</option>
-
-<option disabled>
-Gemini (Coming Soon)
-</option>
-
-<option disabled>
-DeepSeek (Coming Soon)
-</option>
-
+  <option value="openai/gpt-4o-mini">⭐ GPT-4o Mini (Default)</option>
+  <option value="google/gemini-3.6-flash">Gemini 3.6 Flash</option>
+  <option value="anthropic/claude-sonnet-4">Claude 4 Sonnet</option>
+  <option value="openai/gpt-5">GPT-5</option>
+  <option value="google/gemini-3.5-flash">Gemini 3.5 Flash</option>
+  <option value="google/gemini-2.5-pro">Gemini 2.5 Pro</option>
+  <option value="openai/gpt-5-mini">GPT-5 Mini</option>
+  <option value="google/gemini-2.5-flash">Gemini 2.5 Flash</option>
+  <option value="deepseek/deepseek-r1">DeepSeek R1</option>
+  <option value="deepseek/deepseek-chat-v3">DeepSeek V3</option>
+  <option value="qwen/qwen3-235b-a22b">Qwen 3 235B</option>
+  <option value="meta-llama/llama-4-maverick">Llama 4 Maverick</option>
 </select>
 
 </div>
@@ -923,6 +1251,34 @@ checked>
 
 </div>
 
+<!-- Asterisms -->
+ <div class="setting-row">
+<label class="switch">
+<input
+type="checkbox"
+id="toggle-asterisms"
+checked>
+<span class="slider"></span>
+</label>
+
+<span>Show Asterisms (Big Dipper, Teapot...)</span>
+
+</div>
+
+<!-- Asterism Names -->
+ <div class="setting-row">
+<label class="switch">
+<input
+type="checkbox"
+id="toggle-asterism-names"
+checked>
+<span class="slider"></span>
+</label>
+
+<span>Show Asterism Names</span>
+
+</div>
+
 <!-- Stars -->
  <div class="setting-row">
 <label class="switch">
@@ -979,6 +1335,13 @@ checked>
 <span>Show Planets</span>
 
 </div>
+
+<div class="settings-card" style="margin-top: 20px; text-align: center;">
+  <button id="reset-sky-settings-btn" class="reset-settings-btn" style="background: rgba(255, 60, 60, 0.15); border: 1px solid rgba(255, 60, 60, 0.4); color: #ff6b6b; padding: 10px 18px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s ease;">
+    🔄 Reset Sky Settings
+  </button>
+</div>
+
 </div>
 
 <div class="settings-card">
@@ -988,7 +1351,7 @@ checked>
 <input
 type="range"
 id="star-magnitude"
-min="1"
+min="0"
 max="8"
 step="0.5">
 
@@ -1026,162 +1389,598 @@ step="0.1">
 
 </div>
 
+<div class="settings-card">
+  <h3>🛰️ Advanced Layers</h3>
+  <div class="setting-row">
+    <label class="switch">
+      <input type="checkbox" id="toggle-orbits" checked>
+      <span class="slider"></span>
+    </label>
+    <span>Show Orbit Paths</span>
+  </div>
+  <div class="setting-row">
+    <label class="switch">
+      <input type="checkbox" id="toggle-satellites" checked>
+      <span class="slider"></span>
+    </label>
+    <span>Show Satellites (ISS)</span>
+  </div>
+  <div class="setting-row">
+    <label class="switch">
+      <input type="checkbox" id="toggle-spacecraft" checked>
+      <span class="slider"></span>
+    </label>
+    <span>Show Spacecraft Probes (215 Missions)</span>
+  </div>
+  <div class="setting-row">
+    <label class="switch">
+      <input type="checkbox" id="toggle-meteors" checked>
+      <span class="slider"></span>
+    </label>
+    <span>Show Meteor Showers</span>
+  </div>
+  <div class="setting-row">
+    <label class="switch">
+      <input type="checkbox" id="toggle-comets" checked>
+      <span class="slider"></span>
+    </label>
+    <span>Show Comets</span>
+  </div>
+  <div class="setting-row">
+    <label class="switch">
+      <input type="checkbox" id="toggle-asteroids" checked>
+      <span class="slider"></span>
+    </label>
+    <span>Show Asteroids</span>
+  </div>
 </div>
+
+</div>
+        <!-- GRID / REFERENCE LINES -->
+        <div class="settings-page" id="grid-page">
+
+          <h2>🔲 Grid &amp; Reference Lines</h2>
+
+          <div class="settings-card">
+            <h3>📐 Coordinate Grid</h3>
+
+            <div class="setting-row">
+              <label class="switch">
+                <input type="checkbox" id="toggle-equatorial-grid">
+                <span class="slider"></span>
+              </label>
+              <span>Equatorial Grid</span>
+            </div>
+
+          </div>
+
+          <div class="settings-card">
+            <h3>🌐 Reference Lines</h3>
+
+            <div class="setting-row">
+              <label class="switch">
+                <input type="checkbox" id="toggle-ecliptic">
+                <span class="slider"></span>
+              </label>
+              <span style="color:#44cc88">Ecliptic</span>
+            </div>
+
+            <div class="setting-row">
+              <label class="switch">
+                <input type="checkbox" id="toggle-celestial-equator">
+                <span class="slider"></span>
+              </label>
+              <span style="color:#4488ff">Celestial Equator</span>
+            </div>
+
+            <div class="setting-row">
+              <label class="switch">
+                <input type="checkbox" id="toggle-galactic-plane">
+                <span class="slider"></span>
+              </label>
+              <span style="color:#cc6644">Galactic Plane</span>
+            </div>
+
+          </div>
+
+          <div class="settings-card">
+            <h3>🌅 Horizon &amp; Zenith</h3>
+
+            <div class="setting-row">
+              <label class="switch">
+                <input type="checkbox" id="toggle-horizon-line">
+                <span class="slider"></span>
+              </label>
+              <span>Horizon Line</span>
+            </div>
+
+          </div>
+
+        </div>
+
+        <!-- ATMOSPHERE -->
+        <div class="settings-page" id="atmosphere-page">
+
+          <h2>🌅 Atmosphere &amp; Light Pollution</h2>
+
+          <div class="settings-card">
+            <h3>📐 Atmospheric Effects</h3>
+
+            <div class="setting-row">
+              <label class="switch">
+                <input type="checkbox" id="toggle-horizon-glow" checked>
+                <span class="slider"></span>
+              </label>
+              <span>Twilight &amp; Horizon Glow</span>
+            </div>
+
+          </div>
+
+          <div class="settings-card">
+            <h3>💡 Sky &amp; Light Settings</h3>
+
+            <div class="setting-row" style="flex-direction: column; align-items: stretch; gap: 8px;">
+              <div style="display: flex; justify-content: space-between;">
+                <span>Sky Brightness</span>
+                <span id="sky-brightness-value">0.5</span>
+              </div>
+              <input type="range" id="sky-brightness" min="0.0" max="1.0" step="0.05" value="0.5">
+            </div>
+
+          </div>
+
+          <div class="settings-card">
+            <h3>🌃 Environment &amp; Transparency</h3>
+
+            <div class="setting-row" style="flex-direction: column; align-items: stretch; gap: 8px;">
+              <div style="display: flex; justify-content: space-between;">
+                <span>Light Pollution (Bortle Scale)</span>
+                <span id="light-pollution-value">9</span>
+              </div>
+              <input type="range" id="light-pollution" min="1" max="9" step="1" value="9">
+            </div>
+
+            <div class="setting-row" style="flex-direction: column; align-items: stretch; gap: 8px;">
+              <div style="display: flex; justify-content: space-between;">
+                <span>Air Transparency</span>
+                <span id="air-transparency-value">0.8</span>
+              </div>
+              <input type="range" id="air-transparency" min="0.0" max="1.0" step="0.05" value="0.8">
+            </div>
+
+          </div>
+
+          <div class="settings-card">
+            <h3>✨ Visual Effects</h3>
+
+            <div class="setting-row">
+              <label class="switch">
+                <input type="checkbox" id="toggle-twinkling" checked>
+                <span class="slider"></span>
+              </label>
+              <span>Enable Star Twinkling</span>
+            </div>
+
+            <div class="setting-row" style="flex-direction: column; align-items: stretch; gap: 8px;">
+              <div style="display: flex; justify-content: space-between;">
+                <span>Twinkling Speed</span>
+                <span id="twinkling-speed-value">0.5</span>
+              </div>
+              <input type="range" id="twinkling-speed" min="0.1" max="2.0" step="0.05" value="0.5">
+            </div>
+
+            <div class="setting-row" style="flex-direction: column; align-items: stretch; gap: 8px;">
+              <div style="display: flex; justify-content: space-between;">
+                <span>Twinkling Intensity</span>
+                <span id="twinkling-intensity-value">0.5</span>
+              </div>
+              <input type="range" id="twinkling-intensity" min="0.0" max="1.0" step="0.05" value="0.5">
+            </div>
+
+            <div class="setting-row" style="flex-direction: column; align-items: stretch; gap: 8px;">
+              <div style="display: flex; justify-content: space-between;">
+                <span>Star Color Saturation</span>
+                <span id="star-color-saturation-value">1.0</span>
+              </div>
+              <input type="range" id="star-color-saturation" min="0.0" max="2.0" step="0.1" value="1.0">
+            </div>
+
+            <div class="setting-row">
+              <label class="switch">
+                <input type="checkbox" id="toggle-dso-glow" checked>
+                <span class="slider"></span>
+              </label>
+              <span>Deep Sky Object Glow</span>
+            </div>
+
+            <div class="setting-row" style="flex-direction: column; align-items: stretch; gap: 8px;">
+              <div style="display: flex; justify-content: space-between;">
+                <span>DSO Glow Intensity</span>
+                <span id="dso-glow-intensity-value">0.5</span>
+              </div>
+              <input type="range" id="dso-glow-intensity" min="0.0" max="1.0" step="0.05" value="0.5">
+            </div>
+
+            <div class="setting-row" style="flex-direction: column; align-items: stretch; gap: 8px;">
+              <div style="display: flex; justify-content: space-between;">
+                <span>Milky Way Brightness</span>
+                <span id="mw-brightness-slider-value">1.0</span>
+              </div>
+              <input type="range" id="mw-brightness-slider" min="0.0" max="2.0" step="0.05" value="1.0">
+            </div>
+
+          </div>
+
+        </div>
+
+        <!-- TIME TRAVEL -->
+        <div class="settings-page" id="time-page">
+
+          <h2>⏱️ Time Travel & Warp Controls</h2>
+
+          <!-- Live time readout -->
+          <div class="settings-card" style="text-align: center;">
+            <h3>🕐 Simulation Time Display</h3>
+            <div id="sim-time-display" style="font-family: monospace; font-size: 18px; color: cyan; font-weight: bold; letter-spacing: 0.5px; margin: 10px 0;"></div>
+          </div>
+
+          <!-- Date picker input + Apply -->
+          <div class="settings-card">
+            <h3>📅 Set Specific Date & Time</h3>
+            <div style="display: flex; gap: 8px;">
+              <input type="datetime-local" id="sky-datetime" style="flex: 1; padding: 8px; background: rgba(0,0,0,0.5); border: 1px solid rgba(0,255,255,0.25); border-radius: 8px; color: #fff; font-size: 14px; outline: none;">
+              <button onclick="applySkyTime()" style="padding: 8px 16px; background: linear-gradient(135deg, #00f5ff, #00bfff); border: none; border-radius: 8px; color: #000; font-weight: bold; cursor: pointer; transition: all 0.25s;">Apply</button>
+            </div>
+          </div>
+
+          <!-- Spinners -->
+          <div class="settings-card">
+            <h3>⏱️ Stellarium Spinners</h3>
+            <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.4); border: 1px solid rgba(0,255,255,0.15); border-radius: 12px; padding: 12px;">
+              <!-- Date Spinner -->
+              <div style="display: flex; align-items: center; gap: 4px;">
+                <div style="display: flex; flex-direction: column; align-items: center;">
+                  <button class="time-spinner-btn" onclick="adjustSimTime('year', 1)">▲</button>
+                  <span id="spin-year" style="font-family: monospace; font-size: 13px; font-weight: 700; color: #fff;">2026</span>
+                  <button class="time-spinner-btn" onclick="adjustSimTime('year', -1)">▼</button>
+                </div>
+                <span style="color: rgba(255,255,255,0.4); font-size: 11px;">-</span>
+                <div style="display: flex; flex-direction: column; align-items: center;">
+                  <button class="time-spinner-btn" onclick="adjustSimTime('month', 1)">▲</button>
+                  <span id="spin-month" style="font-family: monospace; font-size: 13px; font-weight: 700; color: #fff;">07</span>
+                  <button class="time-spinner-btn" onclick="adjustSimTime('month', -1)">▼</button>
+                </div>
+                <span style="color: rgba(255,255,255,0.4); font-size: 11px;">-</span>
+                <div style="display: flex; flex-direction: column; align-items: center;">
+                  <button class="time-spinner-btn" onclick="adjustSimTime('day', 1)">▲</button>
+                  <span id="spin-day" style="font-family: monospace; font-size: 13px; font-weight: 700; color: #fff;">17</span>
+                  <button class="time-spinner-btn" onclick="adjustSimTime('day', -1)">▼</button>
+                </div>
+              </div>
+
+              <!-- Center Reset -->
+              <div style="color: rgba(0,255,255,0.6); font-size: 16px; margin: 0 4px; cursor: pointer;" onclick="simResetNow()" title="Reset to Realtime">
+                ↺
+              </div>
+
+              <!-- Time Spinner -->
+              <div style="display: flex; align-items: center; gap: 4px;">
+                <div style="display: flex; flex-direction: column; align-items: center;">
+                  <button class="time-spinner-btn" onclick="adjustSimTime('hour', 1)">▲</button>
+                  <span id="spin-hour" style="font-family: monospace; font-size: 13px; font-weight: 700; color: #fff;">16</span>
+                  <button class="time-spinner-btn" onclick="adjustSimTime('hour', -1)">▼</button>
+                </div>
+                <span style="color: rgba(255,255,255,0.4); font-size: 11px;">:</span>
+                <div style="display: flex; flex-direction: column; align-items: center;">
+                  <button class="time-spinner-btn" onclick="adjustSimTime('minute', 1)">▲</button>
+                  <span id="spin-minute" style="font-family: monospace; font-size: 13px; font-weight: 700; color: #fff;">21</span>
+                  <button class="time-spinner-btn" onclick="adjustSimTime('minute', -1)">▼</button>
+                </div>
+                <span style="color: rgba(255,255,255,0.4); font-size: 11px;">:</span>
+                <div style="display: flex; flex-direction: column; align-items: center;">
+                  <button class="time-spinner-btn" onclick="adjustSimTime('second', 1)">▲</button>
+                  <span id="spin-second" style="font-family: monospace; font-size: 13px; font-weight: 700; color: #fff;">28</span>
+                  <button class="time-spinner-btn" onclick="adjustSimTime('second', -1)">▼</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Simulation playback / controls -->
+          <div class="settings-card">
+            <h3>⚡ Simulation Controls</h3>
+            <div style="display: flex; gap: 8px;">
+              <button id="stellarium-play-btn" onclick="toggleSimPlay()" style="flex: 1; padding: 10px; font-weight: bold; background: rgba(0,255,100,0.15); border: 1px solid rgba(0,255,100,0.35); color: #00ff64; border-radius: 8px; cursor: pointer;">⏸ Pause</button>
+              <button onclick="simResetNow()" style="flex: 1; padding: 10px; font-weight: bold; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15); color: #ccc; border-radius: 8px; cursor: pointer;">↺ Reset to Now</button>
+            </div>
+          </div>
+
+          <!-- Speed multipliers -->
+          <div class="settings-card">
+            <h3>⚡ Warp Speed presets</h3>
+            <div style="display: flex; gap: 6px;">
+              <button class="speed-btn active" onclick="setSimSpeed(1,this)" data-speed="1" style="flex: 1; padding: 6px; font-size: 12px; background: rgba(0,255,255,0.15); border: 1px solid rgba(0,255,255,0.35); color: cyan; border-radius: 6px; font-weight: bold; cursor: pointer;">1×</button>
+              <button class="speed-btn" onclick="setSimSpeed(60,this)" data-speed="60" style="flex: 1; padding: 6px; font-size: 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #bbb; border-radius: 6px; cursor: pointer;">60×</button>
+              <button class="speed-btn" onclick="setSimSpeed(3600,this)" data-speed="3600" style="flex: 1; padding: 6px; font-size: 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #bbb; border-radius: 6px; cursor: pointer;">1h×</button>
+              <button class="speed-btn" onclick="setSimSpeed(86400,this)" data-speed="86400" style="flex: 1; padding: 6px; font-size: 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #bbb; border-radius: 6px; cursor: pointer;">1d×</button>
+            </div>
+          </div>
+
+        </div>
+
         <!-- OBSERVATION -->
+        <div class="settings-page" id="observation-page">
 
-        <div class="settings-page"
-        id="observation-page">
+          <h2>🔭 Observation & Telescope Mode</h2>
 
-          <h2>
-            Observation
-          </h2>
+          <div class="settings-card">
+            <h3>🔭 Telescope Simulation</h3>
+            <div class="setting-row" style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+              <label class="switch">
+                <input type="checkbox" id="settings-telescope-toggle">
+                <span class="slider"></span>
+              </label>
+              <span>Enable Telescope Eyepiece Mode</span>
+            </div>
+            <div class="setting-row" style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+              <label style="color: rgba(255,255,255,0.7); min-width: 120px;">Eyepiece Selection</label>
+              <select id="settings-eyepiece-select"
+                style="background: rgba(0, 0, 0, 0.6); border: 1px solid rgba(0, 255, 255, 0.2); color: #fff; border-radius: 4px; padding: 4px 8px; font-size: 14px; outline: none; margin-left: auto;">
+                <option value="1.0">25mm (1.0° FOV)</option>
+                <option value="0.5" selected>10mm (0.5° FOV)</option>
+                <option value="0.25">4mm (0.25° FOV)</option>
+              </select>
+            </div>
+            <div class="setting-row" style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+              <label style="color: rgba(255,255,255,0.7); min-width: 120px;">Crosshair Style</label>
+              <select id="settings-crosshair-select"
+                style="background: rgba(0, 0, 0, 0.6); border: 1px solid rgba(0, 255, 255, 0.2); color: #fff; border-radius: 4px; padding: 4px 8px; font-size: 14px; outline: none; margin-left: auto;">
+                <option value="standard">Standard Crosshair</option>
+                <option value="reticle">Target Reticle</option>
+                <option value="off">Off</option>
+              </select>
+            </div>
+            <div class="setting-row" style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+              <label class="switch">
+                <input type="checkbox" id="settings-finder-toggle" checked>
+                <span class="slider"></span>
+              </label>
+              <span>Show Outer Finder Scope Ring (4.0°)</span>
+            </div>
+          </div>
+
+          <div class="settings-card">
+            <h3>🔴 Visual Adaptation</h3>
+            <div class="setting-row" style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+              <label class="switch">
+                <input type="checkbox" id="settings-night-toggle">
+                <span class="slider"></span>
+              </label>
+              <span>Enable Night Vision Mode (Crimson Filter)</span>
+            </div>
+          </div>
+
+          <div class="settings-card">
+            <h3>📐 Path &amp; Trajectory Visualizers</h3>
+            <div class="setting-row" style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+              <label class="switch">
+                <input type="checkbox" id="settings-trails-toggle" checked>
+                <span class="slider"></span>
+              </label>
+              <span>Enable Object Trails</span>
+            </div>
+            <div class="setting-row" style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+              <label class="switch">
+                <input type="checkbox" id="settings-futurepath-toggle" checked>
+                <span class="slider"></span>
+              </label>
+              <span>Future Path Prediction (24h)</span>
+            </div>
+            <div class="setting-row" style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+              <label class="switch">
+                <input type="checkbox" id="settings-risepath-toggle" checked>
+                <span class="slider"></span>
+              </label>
+              <span>Show Rise Path</span>
+            </div>
+            <div class="setting-row" style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+              <label class="switch">
+                <input type="checkbox" id="settings-setpath-toggle" checked>
+                <span class="slider"></span>
+              </label>
+              <span>Show Set Path</span>
+            </div>
+            <div class="setting-row" style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+              <label class="switch">
+                <input type="checkbox" id="settings-transitpath-toggle" checked>
+                <span class="slider"></span>
+              </label>
+              <span>Show Transit Path</span>
+            </div>
+          </div>
+
+          <!-- 📍 OBSERVER LOCATION -->
+          <div class="settings-card">
+            <h3>📍 Observer Location</h3>
+
+            <div id="obs-location-display"
+              style="text-align: center; padding: 10px; margin-bottom: 12px; background: rgba(0,255,255,0.05); border: 1px solid rgba(0,255,255,0.2); border-radius: 8px; font-size: 13px; color: cyan; min-height: 38px; display: flex; align-items: center; justify-content: center; gap: 6px;">
+              📍 Loading location...
+            </div>
+
+            <button onclick="detectGPSLocation()" id="gps-detect-btn"
+              style="width: 100%; padding: 10px; margin-bottom: 12px; background: linear-gradient(135deg, rgba(0,255,255,0.15), rgba(100,0,255,0.15)); border: 1px solid rgba(0,255,255,0.35); border-radius: 8px; color: cyan; font-weight: 700; font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.3s;">
+              🛰️ Auto-Detect My Location (GPS)
+            </button>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
+              <div>
+                <label
+                  style="font-size: 11px; color: rgba(255,255,255,0.5); display: block; margin-bottom: 4px;">Latitude
+                  (°N)</label>
+                <input type="number" id="obs-lat-input" step="0.0001" min="-90" max="90"
+                  style="width: 100%; padding: 7px; background: rgba(0,0,0,0.5); border: 1px solid rgba(0,255,255,0.2); border-radius: 6px; color: #fff; font-size: 13px; box-sizing: border-box;">
+              </div>
+              <div>
+                <label
+                  style="font-size: 11px; color: rgba(255,255,255,0.5); display: block; margin-bottom: 4px;">Longitude
+                  (°E)</label>
+                <input type="number" id="obs-lon-input" step="0.0001" min="-180" max="180"
+                  style="width: 100%; padding: 7px; background: rgba(0,0,0,0.5); border: 1px solid rgba(0,255,255,0.2); border-radius: 6px; color: #fff; font-size: 13px; box-sizing: border-box;">
+              </div>
+            </div>
+
+            <div style="margin-bottom: 10px;">
+              <label
+                style="font-size: 11px; color: rgba(255,255,255,0.5); display: block; margin-bottom: 4px;">Elevation
+                (metres)</label>
+              <input type="number" id="obs-elev-input" value="0" min="0" max="8848"
+                style="width: 100%; padding: 7px; background: rgba(0,0,0,0.5); border: 1px solid rgba(0,255,255,0.2); border-radius: 6px; color: #fff; font-size: 13px; box-sizing: border-box;">
+            </div>
+
+            <button onclick="applyObserverLocation()"
+              style="width: 100%; padding: 9px; background: rgba(0,255,100,0.15); border: 1px solid rgba(0,255,100,0.35); border-radius: 8px; color: #00ff64; font-weight: 700; font-size: 13px; cursor: pointer; transition: all 0.3s;">
+              ✅ Apply Location
+            </button>
+          </div>
 
         </div>
 
         <!-- ACCOUNT -->
-         <div class="settings-page"
-id="account-page">
+        <div class="settings-page" id="account-page">
 
-        <h2>👤 Account</h2>
+          <h2>👤 Account</h2>
 
-<!-- Account -->
+          <!-- Account -->
 
-<div class="setting-card">
+          <div class="setting-card">
 
-<h3>👤 Account</h3>
+            <h3>👤 Account</h3>
 
-<div class="account-profile">
+            <div class="account-profile">
 
-<img
-id="account-photo"
-src="https://ui-avatars.com/api/?name=User"
-class="account-avatar">
+              <img id="account-photo" src="https://ui-avatars.com/api/?name=User" class="account-avatar">
 
-<div class="account-details">
+              <div class="account-details">
 
-<p>
+                <p>
 
-<strong id="account-name">
+                  <strong id="account-name">
 
-Guest User
+                    Guest User
 
-</strong>
+                  </strong>
 
-</p>
+                </p>
 
-<p id="account-email">
+                <p id="account-email">
 
-Not Signed In
+                  Not Signed In
 
-</p>
+                </p>
 
-<p>
+                <p>
 
-Status:
-<span id="account-status">
+                  Status:
+                  <span id="account-status">
 
-🔴 Signed Out
+                    🔴 Signed Out
 
-</span>
+                  </span>
 
-</p>
+                </p>
 
-<p>
+                <p>
 
 
-<span id="account-type">
+                  <span id="account-type">
 
-Cloud Account
+                    Cloud Account
 
-</span>
+                  </span>
 
-</p>
+                </p>
 
-</div>
+              </div>
 
-</div>
+            </div>
 
-<button id="manage-account-btn">
+            <button id="manage-account-btn">
 
-⚙ Manage Profile
+              ⚙ Manage Profile
 
-</button>
+            </button>
 
-</div>
+          </div>
 
-<!-- Cloud -->
+          <!-- Cloud -->
 
-<div class="setting-card">
+          <div class="setting-card">
 
-<h3>☁ Cloud Sync</h3>
+            <h3>☁ Cloud Sync</h3>
 
-<p>
+            <p>
 
-Status:
-<span id="cloud-status">
+              Status:
+              <span id="cloud-status">
 
-🟢 Synced
+                🟢 Synced
 
-</span>
+              </span>
 
-</p>
+            </p>
 
-<p>
+            <p>
 
-Last Sync:
-<span id="last-sync">
+              Last Sync:
+              <span id="last-sync">
 
-Never
+                Never
 
-</span>
+              </span>
 
-</p>
+            </p>
 
-<button id="sync-now-btn">
+            <button id="sync-now-btn">
 
-Sync Now
+              Sync Now
 
-</button>
+            </button>
 
-</div>
+          </div>
 
-<!-- Data -->
+          <!-- Data -->
 
-<div class="setting-card">
+          <div class="setting-card">
 
-<h3>📦 Data</h3>
+            <h3>📦 Data</h3>
 
-<p>
+            <p>
 
-Backup your Astro AI data.
+              Backup your Astro AI data.
 
-</p>
+            </p>
 
-<button id="export-account-data">
+            <button id="export-account-data">
 
-⬇ Export Astro Data
+              ⬇ Export Astro Data
 
-</button>
+            </button>
 
-<button id="import-account-data">
+            <button id="import-account-data">
 
-⬆ Import Astro Data
+              ⬆ Import Astro Data
 
-</button>
+            </button>
 
-<input
-type="file"
-id="import-account-file"
-accept=".json"
-style="display:none;">
+            <input type="file" id="import-account-file" accept=".json" style="display:none;">
 
-</div>
+          </div>
 
-</div>
+        </div>
+
         <!-- ABOUT -->
-
-        <div class="settings-page"
-        id="about-page">
+        <div class="settings-page" id="about-page">
 
           <h2>
             About Astro Explorer
@@ -1189,93 +1988,93 @@ style="display:none;">
 
           <div class="setting-card">
 
-<h3>🚀 About Astro Explorer</h3>
+            <h3>🚀 About Astro Explorer</h3>
 
-<p>
+            <p>
 
-Astro Explorer is an astronomy web application
-designed for sky exploration, celestial object
-search, NASA content and an intelligent
-Astro AI assistant.
+              Astro Explorer is an astronomy web application
+              designed for sky exploration, celestial object
+              search, NASA content and an intelligent
+              Astro AI assistant.
 
-</p>
+            </p>
 
-</div>
+          </div>
 
-<div class="setting-card">
+          <div class="setting-card">
 
-<h3> Features</h3>
+            <h3> Features</h3>
 
-<ul>
+            <ul>
 
-<li> Interactive Sky Map</li>
+              <li> Interactive Sky Map</li>
 
-<li> Astro AI Assistant</li>
+              <li> Astro AI Assistant</li>
 
-<li> Smart Memory</li>
+              <li> Smart Memory</li>
 
-<li> NASA APOD</li>
+              <li> NASA APOD</li>
 
-<li> Asteroid Explorer</li>
+              <li> Asteroid Explorer</li>
 
-<li> Cloud Sync</li>
+              <li> Cloud Sync</li>
 
-<li> Observation Tools</li>
+              <li> Observation Tools</li>
 
-</ul>
+            </ul>
 
-</div>
+          </div>
 
-<div class="setting-card">
+          <div class="setting-card">
 
-<h3> Developer</h3>
+            <h3> Developer</h3>
 
-<p>
+            <p>
 
-Developed by
+              Developed by
 
-<b>Bhavya Puranik</b>
+              <b>Bhavya Puranik</b>
 
-</p>
+            </p>
 
-<p>
+            <p>
 
-Project
+              Project
 
-<b>Astro Explorer</b>
+              <b>Astro Explorer</b>
 
-</p>
+            </p>
 
-<p>
+            <p>
 
-Made with
+              Made with
 
- HTML, CSS, JavaScript & Firebase
+              HTML, CSS, JavaScript & Firebase
 
-</p>
+            </p>
 
-</div>
-<div class="setting-card">
+          </div>
+          <div class="setting-card">
 
-<h3>📜 Information</h3>
+            <h3>📜 Information</h3>
 
-<p>
+            <p>
 
-Version
+              Version
 
-<b>2.6 Beta</b>
+              <b>2.6 Beta</b>
 
-</p>
+            </p>
 
-<p>
+            <p>
 
-Built for learning astronomy,
-sky observation and AI-powered
-space exploration.
+              Built for learning astronomy,
+              sky observation and AI-powered
+              space exploration.
 
-</p>
+            </p>
 
-</div>
+          </div>
 
         </div>
 

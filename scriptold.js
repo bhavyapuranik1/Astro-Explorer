@@ -1,0 +1,10153 @@
+
+const LOCAL_API_KEY =
+localStorage.getItem("OPENROUTER_API_KEY") || "";
+const isLocal =
+  location.hostname === "localhost" ||
+  location.hostname === "127.0.0.1" ||
+  location.protocol === "file:";
+
+  const apiKey = localStorage.getItem("OPENROUTER_API_KEY");
+
+const useCloud = !apiKey;
+
+console.log("Mode:", useCloud ? "☁️ Cloud" : "🔑 API Key");
+var currentHDImage = "";
+let showHazardOnly = false;
+let showNewestOnly = false;
+let searchQuery = "";
+let searchObjects = [];
+let messierObjects = [];
+let lgObjects = [];
+let animationId = null;
+let starLabel = null;
+let planetLabel = null;
+let isRotating = false;
+let skyTime = new Date(); // 🔥 main simulation time
+let lastSelectedPlanet = null;
+let lastUpdateTime = 0;
+let allObjects = [];
+let starNames = {};
+let planetLabels = [];
+let dsoSearchLabel = null;
+let searchedObjectName = "";
+let selectedObject = null;
+window.compassHeading = 0;
+let followObject = false;
+let lastFollowRA = null;
+let lastFollowDEC = null;
+let smoothFollowRA = null;
+let smoothFollowDEC = null;
+let currentAIObject = null;
+let researchMode = false;
+let attachments = [];
+let uploadedImageBase64 = "";
+let uploadedFileContent = "";
+let uploadedFileName = "";
+let lastQuestion = "";
+let conversations = [];
+let currentConversationId = null;
+let nasaMemoryCache = {};
+let pendingMemory = null;
+let editingMemory = null;
+let pendingStructuredMemory = null;
+let celestialSettings = null;
+let compassScale;
+let currentAzimuth = 0;
+let compassHeading = 0;
+
+
+const AstroSettings = {
+  defaults: {
+    fontSize: "16",
+    accentColor: "#00f5ff",
+    bubbleStyle: "rounded",
+    messageWidth: "85",
+    animations: true,
+    responseLength: "medium",
+    creativity: "Balanced",
+    aiModel: "GPT-5",
+    saveChatHistory: true,
+    cloudSync: true,
+    skySettings: {
+      showConstellationLines: true,
+      showConstellationNames: true,
+      showStars: true,
+      showDSOs: true,
+      showMilkyWay: true,
+      showPlanets: true,
+      showStarLabels: true,
+      showPlanetLabels: true,
+      showDSOLabels: true,
+      showMarker: true,
+      showCoordinates: true,
+      defaultZoom: 1,
+      followObject: true,
+      smoothAnimations: true,
+      timeSpeed: 1,
+      starMagnitude: 4,
+      dsoMagnitude: 4
+    }
+  },
+  data: {},
+  load() {
+    this.data = JSON.parse(JSON.stringify(this.defaults));
+    let saved = null;
+    try {
+      saved = JSON.parse(localStorage.getItem("astro_settings_consolidated"));
+    } catch (e) {
+      console.warn("Corrupted settings found, resetting to defaults", e);
+    }
+    if (saved && typeof saved === "object") {
+      this.merge(this.data, saved);
+    } else {
+      const legacyKeys = {
+        fontSize: "fontSize",
+        accentColor: "accentColor",
+        bubbleStyle: "bubbleStyle",
+        messageWidth: "messageWidth",
+        animations: "animations",
+        responseLength: "responseLength",
+        creativity: "creativity"
+      };
+      for (const [settingsKey, localStorageKey] of Object.entries(legacyKeys)) {
+        const val = localStorage.getItem(localStorageKey);
+        if (val !== null) {
+          if (settingsKey === "animations") {
+            this.data[settingsKey] = val === "true";
+          } else {
+            this.data[settingsKey] = val;
+          }
+        }
+      }
+      try {
+        const savedSky = JSON.parse(localStorage.getItem("skySettings"));
+        if (savedSky && typeof savedSky === "object") {
+          this.merge(this.data.skySettings, savedSky);
+        }
+      } catch (e) {}
+    }
+    this.syncToGlobals();
+  },
+  merge(target, source) {
+    for (const key in source) {
+      if (source.hasOwnProperty(key)) {
+        if (source[key] !== null && typeof source[key] === "object" && !Array.isArray(source[key])) {
+          if (!target[key] || typeof target[key] !== "object") {
+            target[key] = {};
+          }
+          this.merge(target[key], source[key]);
+        } else {
+          target[key] = source[key];
+        }
+      }
+    }
+  },
+  save() {
+    try {
+      localStorage.setItem("astro_settings_consolidated", JSON.stringify(this.data));
+    } catch (e) {
+      console.error("Failed to save settings", e);
+    }
+  },
+  get(path) {
+    const parts = path.split(".");
+    let current = this.data;
+    for (const part of parts) {
+      if (current === undefined || current === null) return undefined;
+      current = current[part];
+    }
+    return current;
+  },
+  set(path, value) {
+    const parts = path.split(".");
+    let current = this.data;
+    for (let i = 0; i < parts.length - 1; i++) {
+      const part = parts[i];
+      if (current[part] === undefined || current[part] === null || typeof current[part] !== "object") {
+        current[part] = {};
+      }
+      current = current[part];
+    }
+    const lastPart = parts[parts.length - 1];
+    if (current[lastPart] !== value) {
+      current[lastPart] = value;
+      this.syncToGlobals();
+      this.save();
+    }
+  },
+  syncToGlobals() {
+    if (typeof skySettings === "object") {
+      Object.assign(skySettings, this.data.skySettings);
+    }
+  }
+};
+
+const COMPASS_MARGIN = 28;
+
+const compassDirs = {
+
+    N: 0,
+    E: 90,
+    S: 180,
+    W: 270
+
+};
+
+
+
+let nasaCache =
+
+JSON.parse(
+
+localStorage.getItem("NASA_CACHE")
+
+|| "{}"
+
+);
+
+let observer =
+  new Astronomy.Observer(
+    23,
+    77,
+    0
+  );
+
+
+const starNameMap = {
+  "sirius": "hd 48915",
+  "vega": "hd 172167",
+  "betelgeuse": "hd 39801",
+  "rigel": "hd 34085",
+  "polaris": "hd 8890"
+};
+
+const constAlias = {
+  "orion": "ori",
+  "ursa major": "ursa",
+  "uma": "ursa",
+  "ursa minor": "umi",
+  "cassiopeia": "cas",
+  "scorpius": "sco",
+  "cancer": "cnc",
+  "leo": "leo"
+};
+
+const planetMap = {
+  mercury: "mer",
+  venus: "ven",
+  earth: "ter",
+  mars: "mar",
+  jupiter: "jup",
+  saturn: "sat",
+  uranus: "ura",
+  neptune: "nep",
+  pluto: "plu",
+
+  ceres: "cer",
+  vesta: "ves",
+  pallas: "pal",
+
+  eris: "eri",
+  makemake: "mak",
+  haumea: "hau",
+
+  sun: "sol",
+  moon: "lun"
+};
+
+const reversePlanetMap = {
+  mer: "mercury",
+  ven: "venus",
+  ter: "earth",
+  mar: "mars",
+  jup: "jupiter",
+  sat: "saturn",
+  ura: "uranus",
+  nep: "neptune",
+  plu: "pluto",
+
+  cer: "ceres",
+  ves: "vesta",
+  pal: "pallas",
+
+  eri: "eris",
+  mak: "makemake",
+  hau: "haumea",
+
+  sol: "sun",
+  lun: "moon"
+};
+
+const PLANETS = [
+    "sun",
+    "moon",
+    "mercury",
+    "venus",
+    "mars",
+    "jupiter",
+    "saturn",
+    "uranus",
+    "neptune",
+    "pluto"
+];
+
+const planetSymbols={
+
+sun:"☉",
+
+moon:"☾",
+
+mercury:"☿",
+
+venus:"♀",
+
+mars:"♂",
+
+jupiter:"♃",
+
+saturn:"♄",
+
+uranus:"♅",
+
+neptune:"♆",
+
+pluto:"♇"
+
+};
+
+const planetLabelColors = {
+    sun: "#fff200",      // Bright Yellow
+    mercury: "#d8d8d8", // Light Gray
+    venus: "#fff200",   // Yellow
+    moon: "#fff200",    // Yellow
+    mars: "#ff9800",    // Orange
+    jupiter: "#f5b642", // Golden Orange
+    saturn: "#f4c542",  // Gold
+    uranus: "#4dd9ff",  // Cyan
+    neptune: "#5b5bff", // Blue
+    pluto: "#d8d8d8"    // Light Gray
+};
+
+let planetMarkers = {};
+
+function createPlanetMarkers(){
+
+    const overlay =
+        document.getElementById("planetOverlay");
+
+    PLANETS.forEach(name=>{
+
+        const div =
+            document.createElement("div");
+
+        div.className = "planet-marker";
+
+        div.innerHTML = planetSymbols[name];
+
+        // ✅ Planet-wise colour
+        div.style.color =
+            planetLabelColors[name.toLowerCase()] || "#ffffff";
+
+            // 🌟 Glow strength by planet
+switch(name.toLowerCase()){
+
+    case "sun":
+        div.style.textShadow =
+        "0 0 4px currentColor,0 0 8px currentColor,0 0 14px currentColor";
+        break;
+
+    case "moon":
+        div.style.textShadow =
+        "0 0 4px currentColor,0 0 8px currentColor,0 0 14px currentColor";
+        break;
+
+    case "venus":
+        div.style.textShadow =
+        "0 0 3px currentColor,0 0 7px currentColor,0 0 12px currentColor";
+        break;
+
+    default:
+        div.style.textShadow =
+        "0 0 2px currentColor,0 0 5px currentColor";
+}
+
+        overlay.appendChild(div);
+
+        planetMarkers[name] = div;
+    });
+
+}
+
+let lastProjX = null;
+let lastProjY = null;
+let lastSkyTime = null;
+
+function updatePlanetMarkers(projChanged) {
+
+   if (!skySettings.showPlanets) {
+
+        Object.values(planetMarkers).forEach(div => {
+            div.style.display = "none";
+        });
+
+        return;
+    }
+
+    Object.values(planetMarkers).forEach(div => {
+        div.style.display = "block";
+    });
+
+    if (!projChanged) return;
+
+    PLANETS.forEach(name => {
+
+        const pos = getPlanetPosition(
+            name,
+            skyTime
+        );
+
+        if (!pos) return;
+
+        let pt = null;
+        try {
+            pt = Celestial.mapProjection([
+                pos[0] * 15,
+                pos[1]
+            ]);
+        } catch(e) {}
+
+        if (!pt) return;
+
+        const div = planetMarkers[name];
+
+        if (!div) return;
+
+        div.style.left = pt[0] + "px";
+        div.style.top = pt[1] + "px";
+
+    });
+
+}
+
+
+
+const objectDescriptions = {
+
+  sirius:
+    "Sirius is the brightest star in the night sky and is located in the constellation Canis Major.",
+
+  andromeda:
+    "The Andromeda Galaxy is the nearest major galaxy to the Milky Way and is expected to collide with our galaxy in billions of years.",
+
+  orion:
+    "Orion is one of the most recognizable constellations in the night sky.",
+
+  jupiter:
+    "Jupiter is the largest planet in the Solar System and has dozens of moons.",
+
+  saturn:
+    "Saturn is famous for its bright ring system made of ice and rock particles."
+
+};
+
+const wikiNameMap = {
+
+  m31: "Andromeda Galaxy",
+
+  m42: "Orion Nebula",
+
+  m45: "Pleiades",
+
+  m13: "Hercules Globular Cluster",
+
+  m57: "Ring Nebula",
+
+  m8: "Lagoon Nebula",
+
+  m20: "Trifid Nebula",
+
+  m51: "Whirlpool Galaxy",
+
+  m101: "Pinwheel Galaxy",
+
+  m1: "Crab Nebula"
+};
+
+const objectMorphology = {
+
+  m31: "SA(s)b",
+  m33: "SA(s)cd",
+
+  m51: "SA(s)bc",
+  m81: "SA(s)ab",
+
+  lmc: "SB(s)m",
+  smc: "dIrr",
+
+  m87: "E0",
+  m32: "E2",
+
+  m1: "SNR",
+  m42: "HII"
+};
+
+let astroMemory = JSON.parse(
+
+localStorage.getItem("astroMemory")
+
+) || {
+
+    memories: [],
+    theories: [],
+    observations: [],
+    telescopeSessions: [],
+
+    files: []
+
+};
+
+async function refreshNASA(date){
+
+try{
+
+const url=
+
+`https://api.nasa.gov/planetary/apod?api_key=7jYgA8NDOyNHfLpSbuEP2uncSWByYecDXKkYa6bJ&date=${date}`;
+
+const res=
+
+await fetchWithRetry(url);
+
+const data=
+
+await res.json();
+
+nasaMemoryCache[date]=data;
+
+nasaCache[date]=data;
+
+localStorage.setItem(
+
+"NASA_CACHE",
+
+JSON.stringify(nasaCache)
+
+);
+
+}
+catch(e){
+
+console.log(e);
+
+}
+
+}
+
+function extractStructuredMemory(text){
+
+    const t = text.trim();
+
+    const memory = {
+
+    type: "Memory",
+
+    category: "general",
+
+    key: "",
+
+    value: t
+
+};
+
+    const rules = [
+
+      // 📚 Theory
+{
+    category: "Theory",
+    key: "Theory",
+    patterns: [
+        /remember theory:\s*(.+)/i,
+        /theory:\s*(.+)/i,
+        /i have a theory (.+)/i,
+        /my theory is (.+)/i,
+        /(.+) is a theory/i,
+        /i think (.+)/i,
+        /i believe (.+)/i,
+
+        /meri theory (.+)/i,
+        /mera maanna hai (.+)/i
+    ]
+},
+
+// 🔭 Observation
+{
+    category: "Observation",
+    key: "Observation",
+    patterns: [
+
+        /remember observation:\s*(.+)/i,
+        /observation:\s*(.+)/i,
+
+        /i observed (.+)/i,
+        /i saw (.+)/i,
+        /i viewed (.+)/i,
+        /i detected (.+)/i,
+        /i captured (.+)/i,
+
+        /today i observed (.+)/i,
+        /tonight i observed (.+)/i,
+
+        /maine observe kiya (.+)/i,
+        /maine dekha (.+)/i,
+        /aaj maine dekha (.+)/i,
+        /i photographed (.+)/i,
+
+      
+
+    ]
+},
+
+// 🔭 Telescope Session
+
+
+        // 👤 Name
+        {
+            category:"profile",
+            key:"name",
+            patterns:[
+                /my name is (.+)/i,
+                /i am (.+)/i,
+                /mera naam (.+)/i,
+                /my nickname is (.+)/i,
+/people call me (.+)/i,
+/everyone calls me (.+)/i,
+/i'm called (.+)/i,
+/mujhe (.+) bulate hain/i
+            ]
+        },
+
+        // 🌍 Language
+        {
+            category:"profile",
+            key:"language",
+            patterns:[
+                /i speak (.+)/i,
+                /my language is (.+)/i,
+                /meri language (.+)/i,
+                /main (.+) bolta/i,
+                /main (.+) bolti/i,
+                /i usually speak (.+)/i,
+/i mostly speak (.+)/i,
+/i prefer (.+) language/i,
+/meri preferred language (.+)/i
+                
+            ]
+        },
+
+        // ❤️ Favourite Planet
+        {
+            category:"preference",
+            key:"favourite_planet",
+            patterns:[
+                /favorite planet is (.+)/i,
+                /favourite planet is (.+)/i,
+                /my favourite planet is (.+)/i,
+                /my favorite planet is (.+)/i,
+                /mera favourite planet (.+)/i,
+                /mera favorite planet (.+)/i,
+                /i love (.+)/i,
+/i really like (.+)/i,
+/(.+) is my favourite planet/i,
+/(.+) is my favorite planet/i,
+/saturn is my favourite/i,
+/saturn is my favorite/i
+            ]
+        },
+
+        // 🌙 Favourite Satellite
+        {
+            category:"preference",
+            key:"favourite_satellite",
+            patterns:[
+                /favorite satellite is (.+)/i,
+                /favourite satellite is (.+)/i,
+                /my favourite satellite is (.+)/i,
+                /my favorite satellite is (.+)/i,
+                /mera favourite satellite (.+)/i,
+                /(\w+) is my favourite satellite/i,
+/i love (.+) satellite/i
+            ]
+        },
+
+        // 🌌 Favourite Galaxy
+        {
+            category:"preference",
+            key:"favourite_galaxy",
+            patterns:[
+                /favorite galaxy is (.+)/i,
+                /favourite galaxy is (.+)/i,
+                /my favourite galaxy is (.+)/i,
+                /mera favourite galaxy (.+)/i,
+                /(\w+) is my favourite galaxy/i,
+/i love (.+) galaxy/i
+            ]
+        },
+
+        // ⭐ Favourite Star
+        {
+            category:"preference",
+            key:"favourite_star",
+            patterns:[
+                /favorite star is (.+)/i,
+                /favourite star is (.+)/i,
+                /my favourite star is (.+)/i,
+                /mera favourite star (.+)/i,
+                /(\w+) is my favourite star/i,
+/i love (.+) star/i
+            ]
+        },
+
+        // ☄️ Favourite Comet
+        {
+            category:"preference",
+            key:"favourite_comet",
+            patterns:[
+                /favorite comet is (.+)/i,
+                /favourite comet is (.+)/i,
+                /my favourite comet is (.+)/i
+            ]
+        },
+
+        // 🛰 Favourite Mission
+        {
+            category:"preference",
+            key:"favourite_mission",
+            patterns:[
+                /favorite mission is (.+)/i,
+                /favourite mission is (.+)/i,
+                /my favourite mission is (.+)/i
+            ]
+        },
+
+        // 🔭 Telescope
+        {
+    category: "equipment",
+    key: "telescope",
+    patterns: [
+
+        /my telescope is (.+)/i,
+
+        /i use (?:a |an |my )?(.+?) telescope\.?$/i,
+        /i have (?:a |an |my )?(.+?) telescope\.?$/i,
+        /i own (?:a |an |my )?(.+?) telescope\.?$/i,
+        /i bought (?:a |an |my )?(.+?) telescope\.?$/i,
+
+        /using (?:a |an |my )?(.+?) telescope/i,
+        /i am using (?:a |an |my )?(.+?) telescope/i,
+        /i currently use (?:a |an |my )?(.+?) telescope/i,
+        /i have been using (?:a |an |my )?(.+?) telescope/i,
+
+        /mere paas (.+?) telescope hai/i,
+        /mere paas (.+?) telescope/i,
+        /main (.+?) telescope use karta/i,
+        /main (.+?) telescope use karti/i,
+        /remember telescope:\s*(.+)/i,
+
+    ]
+},
+
+        // 📷 Camera
+        {
+    category: "equipment",
+    key: "camera",
+    patterns: [
+
+        /my camera is (.+)/i,
+
+        /i use (?:a |an |my )?(.+?) camera\.?$/i,
+        /i have (?:a |an |my )?(.+?) camera\.?$/i,
+        /i own (?:a |an |my )?(.+?) camera\.?$/i,
+        /i bought (?:a |an |my )?(.+?) camera\.?$/i,
+
+        /using (?:a |an |my )?(.+?) camera/i,
+        /i am using (?:a |an |my )?(.+?) camera/i,
+        /i currently use (?:a |an |my )?(.+?) camera/i,
+        /i have been using (?:a |an |my )?(.+?) camera/i,
+
+        /i shoot with (.+)/i,
+
+        /mere paas (.+?) camera hai/i,
+        /mere paas (.+?) camera/i,
+        /main (.+?) camera use karta/i,
+        /main (.+?) camera use karti/i
+
+    ]
+
+    
+},
+
+{
+    category: "equipment",
+    key: "binoculars",
+    patterns: [
+
+        /remember binoculars:\s*(.+)/i,
+
+        /my binoculars are (.+)/i,
+        /my binocular is (.+)/i,
+
+        /i use (?:a |an |my )?(.+?) binoculars?\.?$/i,
+        /i have (?:a |an |my )?(.+?) binoculars?\.?$/i,
+        /i own (?:a |an |my )?(.+?) binoculars?\.?$/i,
+        /i bought (?:a |an |my )?(.+?) binoculars?\.?$/i,
+
+        /using (?:a |an |my )?(.+?) binoculars?/i,
+        /i am using (?:a |an |my )?(.+?) binoculars?/i,
+        /i currently use (?:a |an |my )?(.+?) binoculars?/i,
+        /i have been using (?:a |an |my )?(.+?) binoculars?/i,
+
+        /mere paas (.+?) binoculars? hai/i,
+        /mere paas (.+?) binoculars?/i,
+        /main (.+?) binoculars? use karta/i,
+        /main (.+?) binoculars? use karti/i
+
+    ]
+},
+
+{
+    category: "equipment",
+    key: "eyepiece",
+    patterns: [
+
+        /remember eyepiece:\s*(.+)/i,
+
+        /my eyepiece is (.+)/i,
+
+        /i use (?:a |an |my )?(.+?) eyepiece\.?$/i,
+        /i have (?:a |an |my )?(.+?) eyepiece\.?$/i,
+        /i own (?:a |an |my )?(.+?) eyepiece\.?$/i,
+        /i bought (?:a |an |my )?(.+?) eyepiece\.?$/i,
+
+        /using (?:a |an |my )?(.+?) eyepiece/i,
+        /i am using (?:a |an |my )?(.+?) eyepiece/i,
+        /i currently use (?:a |an |my )?(.+?) eyepiece/i,
+        /i have been using (?:a |an |my )?(.+?) eyepiece/i,
+
+        /mere paas (.+?) eyepiece hai/i,
+        /mere paas (.+?) eyepiece/i,
+        /main (.+?) eyepiece use karta/i,
+        /main (.+?) eyepiece use karti/i
+
+    ]
+},
+
+{
+    category: "Telescope",
+    key: "Telescope",
+    patterns: [
+
+        
+        /remember telescope session:\s*(.+)/i,
+        /telescope session:\s*(.+)/i
+    ]
+},
+    ];
+
+    for(const rule of rules){
+
+        for(const pattern of rule.patterns){
+
+            const match = t.match(pattern);
+
+            if(match){
+
+              memory.type = rule.category;
+
+                memory.category = rule.category;
+                memory.key = rule.key;
+                memory.value = match[1].trim();
+
+                return memory;
+
+            }
+
+        }
+
+    }
+
+    return memory;
+
+}
+
+function findDuplicateMemory(memory){
+
+  console.log("Checking:", memory);
+console.table(getAllMemoryItems());
+
+    return getAllMemoryItems().find(m => {
+
+        if(!m.key || !memory.key)
+            return false;
+
+        return (
+
+            m.key.trim().toLowerCase() ===
+            memory.key.trim().toLowerCase()
+
+        );
+
+    });
+
+}
+
+function findDuplicateInArray(array, text){
+
+    return (array || []).find(item =>
+
+        item.text.trim().toLowerCase() ===
+        text.trim().toLowerCase()
+
+    );
+
+}
+
+function saveMemory(memory, importance = 1){
+
+    if(!astroMemory.memories)
+        astroMemory.memories=[];
+
+    const structured =
+        typeof memory==="object"
+        ? memory
+        : extractStructuredMemory(memory);
+        console.log("Input:", memory);
+console.log("Structured:", structured);
+
+    const duplicate =
+        findDuplicateMemory(structured);
+
+    if(duplicate){
+
+        duplicate.value = structured.value;
+        duplicate.text  = structured.value;
+        duplicate.updatedAt =
+            new Date().toISOString();
+
+        localStorage.setItem(
+            "astroMemory",
+            JSON.stringify(astroMemory)
+        );
+
+        saveCloudMemory();
+        updateMemorySettings();
+        renderMemoryList();
+
+        return;
+    }
+
+   const item = {
+
+    id: Date.now(),
+
+    text: structured.value,
+
+    category: structured.category,
+
+    key: structured.key,
+
+    value: structured.value,
+
+    importance,
+
+    time: new Date().toISOString(),
+
+    pinned: false,
+
+    favorite: false,
+
+    updatedAt: new Date().toISOString()
+
+};
+
+if (structured.category === "Theory") {
+
+    astroMemory.theories ??= [];
+    astroMemory.theories.push(item);
+
+}
+
+else if (structured.category === "Observation") {
+
+    astroMemory.observations ??= [];
+    astroMemory.observations.push(item);
+
+}
+
+else if (structured.category === "Telescope") {
+
+    astroMemory.telescopeSessions ??= [];
+    astroMemory.telescopeSessions.push(item);
+
+}
+else {
+
+    astroMemory.memories.push(item);
+
+}
+
+    localStorage.setItem(
+        "astroMemory",
+        JSON.stringify(astroMemory)
+    );
+
+    saveCloudMemory();
+    updateMemorySettings();
+    renderMemoryList();
+}
+
+
+function saveTheory(text, skipDuplicate = false) {
+
+  console.log("🔥 saveTheory()");
+
+  if (!astroMemory.theories) {
+    astroMemory.theories = [];
+  }
+
+  const duplicate = (astroMemory.theories || []).find(item =>
+    item.text.trim().toLowerCase() ===
+    text.trim().toLowerCase()
+);
+
+if (duplicate && !skipDuplicate) {
+
+    showMemorySuggestion({
+
+        type: "Theory",
+        category: "Theory",
+        key: "Theory",
+        value: text
+
+    });
+
+    return;
+}
+  astroMemory.theories.push({
+
+    id: Date.now(),
+
+    text,
+
+    time: new Date().toISOString(),
+
+    pinned: false,
+
+    favorite: false,
+
+    updatedAt: new Date().toISOString()
+
+});
+
+console.log("Theory Count:", astroMemory.theories.length);
+console.log(astroMemory.theories);
+
+  localStorage.setItem(
+
+    "astroMemory",
+
+    JSON.stringify(astroMemory)
+  );
+  updateGeneralSettings();
+  updateMemorySettings();
+renderMemoryList();
+}
+
+
+function saveObservation(text, skipDuplicate = false){
+
+  if (!astroMemory.observations) {
+    astroMemory.observations = [];
+  }
+
+  const duplicate = findDuplicateInArray(
+    astroMemory.observations,
+    text
+);
+
+if (duplicate && !skipDuplicate) {
+
+    showMemorySuggestion({
+
+    type: "Observation",
+
+    category: "Observation",
+
+    key: "Observation",
+
+    value: text
+
+});
+
+    return;
+
+}
+
+  astroMemory.observations.push({
+
+    id: Date.now(),
+
+    text,
+
+    time: new Date().toISOString(),
+
+    pinned: false,
+
+    favorite: false,
+
+    updatedAt: new Date().toISOString()
+
+});
+
+  localStorage.setItem(
+
+    "astroMemory",
+
+    JSON.stringify(astroMemory)
+  );
+  updateGeneralSettings();
+  updateMemorySettings();
+renderMemoryList();
+}
+
+
+function saveTelescopeSession(text, skipDuplicate = false){
+
+  if (!astroMemory.telescopeSessions) {
+    astroMemory.telescopeSessions = [];
+  }
+
+  const duplicate = findDuplicateInArray(
+    astroMemory.telescopeSessions,
+    text
+);
+
+if (duplicate && !skipDuplicate) {
+
+    showMemorySuggestion({
+
+    type: "Telescope",
+
+    category: "Telescope",
+
+    key: "Telescope",
+
+    value: text
+
+});
+
+    return;
+
+}
+
+  astroMemory.telescopeSessions.push({
+
+    id: Date.now(),
+
+    text,
+
+    time: new Date().toISOString(),
+
+    pinned: false,
+
+    favorite: false,
+
+    updatedAt: new Date().toISOString()
+
+});
+
+  localStorage.setItem(
+
+    "astroMemory",
+
+    JSON.stringify(astroMemory)
+  );
+  updateGeneralSettings();
+  updateMemorySettings();
+renderMemoryList();
+}
+
+function loadAllMemories() {
+
+  return `
+
+General Memories:
+${
+  astroMemory.memories
+    ?.map(m => "- " + m.text)
+    .join("\n") || "None"
+}
+
+Theories:
+${
+  astroMemory.theories
+    ?.map(t => "- " + t.text)
+    .join("\n") || "None"
+}
+
+Observations:
+${
+  astroMemory.observations
+    ?.map(o => "- " + o.text)
+    .join("\n") || "None"
+}
+
+Telescope Sessions:
+${
+  astroMemory.telescopeSessions
+    ?.map(s => "- " + s.text)
+    .join("\n") || "None"
+}
+
+Files:
+${
+  astroMemory.files
+    ?.map(f => "- " + f.name)
+    .join("\n") || "None"
+}
+`;
+
+
+}
+function deleteMemory() {
+
+  astroMemory = {
+
+    memories: [],
+
+    theories: [],
+
+    observations: [],
+
+    telescopeSessions: []
+
+  };
+
+  localStorage.setItem(
+
+    "astroMemory",
+
+    JSON.stringify(astroMemory)
+  );
+}
+const astroSystemPrompt = `
+You are Astro AI,
+an advanced astronomy educator and astronomy assistant.
+
+Give detailed,
+scientifically accurate,
+multi-paragraph explanations.
+
+Explain astronomy concepts deeply but in simple language.
+
+Always behave like an astronomy teacher.
+
+Maintain conversational context.
+
+If the user asks follow-up questions,
+understand the previous topic automatically.
+
+Respond naturally in English,
+Hindi,
+or Hinglish.
+
+Avoid overly short answers.
+
+You have persistent memory.
+
+If Saved User Memory exists,
+you must remember it across conversations.
+
+Never say you cannot remember previous chats.
+
+Treat Saved User Memory as permanently remembered user information.
+`;
+
+
+let lastTopic = "";
+let conversationObjects = [];
+const astroKnowledgeGraph = {
+
+  
+
+  "black hole": [
+
+    "event horizon",
+    "singularity",
+    "hawking radiation",
+    "accretion disk"
+  ],
+
+  "neutron star": [
+
+    "pulsar",
+    "magnetar",
+    "supernova"
+  ],
+
+  "galaxy": [
+
+    "spiral galaxy",
+    "elliptical galaxy",
+    "dark matter"
+  ],
+
+  "supernova": [
+
+    "neutron star",
+    "black hole",
+    "stellar evolution"
+  ]
+
+  
+};
+const telescopeProfiles = {
+
+  "Celestron NexStar 8SE": {
+
+    aperture: "203mm",
+
+    type:
+      "Schmidt-Cassegrain",
+
+    strengths: [
+
+      "planetary observation",
+
+      "deep sky observation",
+
+      "astrophotography"
+    ]
+  }
+};
+
+function raToDeg(ra) {
+  const [h, m, s] = ra.split(":").map(Number);
+  return (h + m/60 + s/3600) * 15;
+}
+
+function decToDeg(dec) {
+  const sign = dec.startsWith("-") ? -1 : 1;
+  const [d, m, s] = dec.replace("-", "").split(":").map(Number);
+  return sign * (d + m/60 + s/3600);
+}
+
+
+
+function showTab(tabId, el) {
+
+  console.log("TAB =", tabId);
+
+  // 🔹 Hide all tabs
+  document.querySelectorAll(".tab-content").forEach(tab => {
+    tab.style.display = "none";
+  });
+
+  // 🔹 Show selected tab
+  document.getElementById(tabId).style.display = "block";
+
+  // 🔹 Active button styling
+  document.querySelectorAll("#tabs button").forEach(btn => {
+    btn.classList.remove("active");
+  });
+
+  if (el) el.classList.add("active");
+
+  // 🤖 Astro AI only on Sky tab
+  const aiPanel = document.getElementById("ai-panel");
+  const openAIBtn = document.getElementById("open-ai");
+
+  if (tabId === "sky") {
+
+    if (aiPanel.style.display === "none") {
+      openAIBtn.style.display = "block";
+    } else {
+      aiPanel.style.display = "flex";
+      openAIBtn.style.display = "none";
+    }
+
+  } else {
+
+    aiPanel.style.display = "none";
+    openAIBtn.style.display = "none";
+
+  }
+
+  // 🔹 NASA + Asteroids
+  if (tabId === "nasa" || tabId === "asteroids") {
+    loadNASA();
+  }
+
+  // 🌌 SKY TAB
+  if (tabId === "sky") {
+
+    console.log("SHOWTAB SKY");
+
+    initSkySettings();
+
+    if (!window.skyLoaded) {
+
+        initSky();
+        window.skyLoaded = true;
+
+        // First load ke baad resize
+        setTimeout(() => {
+
+    const sky = document.getElementById("skyContainer");
+
+    sky.style.top = "50px";
+    sky.style.height = "calc(100% - 50px)";
+
+    Celestial.resize();
+
+},300);
+
+    } else {
+
+        // Tab dubara open hua
+        Celestial.resize();
+
+        console.log(
+            "After reopen:",
+            document.getElementById("skyContainer").getBoundingClientRect()
+        );
+
+    }
+
+}
+}
+function createAsteroidCard(asteroid, isNewest = false) {
+    const isHazardous = asteroid.is_potentially_hazardous_asteroid;
+    const approachData = asteroid.close_approach_data[0];
+    if (!approachData) return null;
+
+    const speed = Math.round(approachData.relative_velocity.kilometers_per_hour);
+    const missDistance = Math.round(approachData.miss_distance.kilometers);
+    const size = Math.round(asteroid.estimated_diameter.meters.estimated_diameter_max);
+
+    // ✅ USE STORED SCORE
+    const finalScore = asteroid.dangerScore;
+
+    const approachDate = approachData.close_approach_date;
+
+    const card = document.createElement("div");
+    card.className = "asteroid-card";
+
+    card.innerHTML = `
+      <div class="asteroid-badge ${isHazardous ? 'hazard' : isNewest ? 'new' : ''}">
+          ${isHazardous ? 'Hazardous' : isNewest ? 'New' : ''}
+      </div>
+
+      <h3>${asteroid.name}</h3>
+      <p>🚀 Speed: ${speed} km/h</p>
+      <p>📏 Size: ${size} m</p>
+      <p>🌍 Distance: ${missDistance} km</p>
+      <p>📅 Date: ${approachDate}</p>
+      <p>🔥 Danger Score: ${finalScore}</p>
+    `;
+
+    // 🎨 COLOR SYSTEM
+    if (finalScore > 120) {
+      card.style.background = "linear-gradient(135deg, #2b0000, #ff1a1a)";
+      card.style.boxShadow = "0 0 15px red";
+      card.style.color = "white";
+    }
+    else if (finalScore > 70) {
+      card.style.background = "linear-gradient(135deg, #1a0033, #8000ff)";
+      card.style.boxShadow = "0 0 15px violet";
+      card.style.color = "white";
+    }
+    else {
+      card.style.background = "linear-gradient(135deg, #002b1a, #00cc66)";
+      card.style.boxShadow = "0 0 15px green";
+      card.style.color = "white";
+    }
+
+    return card;
+}
+
+// 🔥 helper
+function fetchWithTimeout(url, timeout = 8000) {
+  return Promise.race([
+    fetch(url),
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("Timeout")), timeout)
+    )
+  ]);
+}
+
+
+
+// PREFETCH HELPERS
+function formatDate(date) {
+  return date.toISOString().split("T")[0];
+}
+
+function getAdjacentDates(dateStr) {
+  const date = new Date(dateStr);
+
+  const prev = new Date(date);
+  prev.setDate(date.getDate() - 1);
+
+  const next = new Date(date);
+  next.setDate(date.getDate() + 1);
+
+  return {
+    prev: formatDate(prev),
+    next: formatDate(next)
+  };
+}
+
+function isFuture(dateStr) {
+  return new Date(dateStr) > skyTime;
+}
+
+function prefetchAPOD(date) {
+  if (nasaCache[date]) return;
+
+  const url = `https://api.nasa.gov/planetary/apod?api_key=7jYgA8NDOyNHfLpSbuEP2uncSWByYecDXKkYa6bJ&date=${date}`;
+
+  fetch(url)
+    .then(res => res.json())
+    .then(data => {
+      nasaCache[date] = data;
+
+      if (data.media_type === "image") {
+        const img = new Image();
+        img.src = data.url;
+      }
+    })
+    .catch(() => {});
+}
+
+async function fetchWithRetry(url, options = {}, retries = 3) {
+
+  for (let i = 0; i < retries; i++) {
+
+    try {
+
+      const response = await fetch(url, options);
+
+      if (response.ok) {
+        return response;
+      }
+
+    } catch (err) {
+      console.log("Retry:", i + 1);
+    }
+
+    await new Promise(resolve => setTimeout(resolve, 1000));
+  }
+
+  throw new Error("NASA API unavailable");
+}
+function cleanNASAOldCache(){
+
+const keys = Object.keys(nasaCache);
+
+if(keys.length <= 30) return;
+
+keys.sort();
+
+while(keys.length > 30){
+
+delete nasaCache[keys.shift()];
+
+}
+
+localStorage.setItem(
+"NASA_CACHE",
+JSON.stringify(nasaCache)
+);
+
+}
+
+
+function loadNASA() {
+  const img = document.getElementById("apod-img");
+  const title = document.getElementById("apod-title");
+  const desc = document.getElementById("apod-desc");
+  const dateInput = document.getElementById("date-picker");
+  const videoContainer = document.getElementById("video-container");
+
+  const selectedDate = dateInput?.value;
+  const today = new Date().toISOString().split("T")[0];
+
+  if (selectedDate && selectedDate > today) {
+    alert("Future date is not allowed 🚫");
+    return;
+  }
+
+  if(selectedDate && nasaMemoryCache[selectedDate]){
+
+renderNASA(
+nasaMemoryCache[selectedDate]
+);
+
+setTimeout(()=>{
+
+refreshNASA(selectedDate);
+
+},100);
+
+const { prev, next } = getAdjacentDates(selectedDate);
+
+Promise.all([
+
+prefetchAPOD(prev),
+
+!isFuture(next)
+? prefetchAPOD(next)
+: Promise.resolve()
+
+]);
+return;
+
+}
+
+  if (selectedDate && nasaCache[selectedDate]) {
+    const cached = nasaCache[selectedDate];
+
+    if (!cached || cached.code) {
+      if (desc) desc.innerText = "Data not available for this date ❌";
+      return;
+    }
+
+    renderNASA(cached);
+
+    const { prev, next } = getAdjacentDates(selectedDate);
+    prefetchAPOD(prev);
+    if (!isFuture(next)) prefetchAPOD(next);
+  } else if (selectedDate) {
+
+    if (desc) desc.innerText = "Checking availability... 🔍";
+
+    let url = `https://api.nasa.gov/planetary/apod?api_key=7jYgA8NDOyNHfLpSbuEP2uncSWByYecDXKkYa6bJ&date=${selectedDate}`;
+
+    fetchWithRetry(url)
+      .then(res => {
+        if (!res.ok) throw new Error("API Error");
+        return res.json();
+      })
+      .then(data => {
+        if (!data || data.code) {
+          if (desc) desc.innerText = "Data not available ❌";
+          return;
+        }
+
+        nasaCache[selectedDate] = data;
+
+        nasaMemoryCache[selectedDate] = data;
+
+        localStorage.setItem(
+
+"NASA_CACHE",
+
+JSON.stringify(nasaCache)
+
+);
+
+cleanNASAOldCache();
+        const preload = new Image();
+
+preload.src = data.hdurl || data.url;
+        renderNASA(data);
+        showToast("📦 Loaded from cache");
+
+        const { prev, next } = getAdjacentDates(selectedDate);
+        prefetchAPOD(prev);
+        if (!isFuture(next)) prefetchAPOD(next);
+      })
+      .catch(() => {
+        if (desc) desc.innerText = "Data not available ❌";
+      });
+  }
+
+  function renderNASA(data) {
+    if (data.media_type === "image") {
+      currentHDImage = data.hdurl || data.url;
+
+      if (videoContainer) videoContainer.innerHTML = "";
+
+      if (img) {
+        img.style.display = "block";
+
+        const preImg = new Image();
+        preImg.src = data.url;
+
+        preImg.onload = () => {
+          img.src = data.url;
+          img.style.opacity = "1";
+        };
+      }
+
+      if (title) title.innerText = data.title;
+      if (desc) desc.innerText = data.explanation;
+    } else if (data.media_type === "video") {
+      if (img) img.style.display = "none";
+
+      let videoURL = data.url;
+
+      // 🎯 YouTube / embeddable
+      if (videoURL.includes("youtube.com") || videoURL.includes("youtu.be")) {
+        if (videoURL.includes("watch?v=")) {
+          videoURL = videoURL.replace("watch?v=", "embed/");
+        }
+
+        if (videoContainer) {
+          videoContainer.innerHTML = `
+            <iframe src="${videoURL}" frameborder="0" allowfullscreen></iframe>
+          `;
+
+          videoContainer.style.opacity = "0";
+          videoContainer.style.transition = "opacity 0.3s ease";
+
+          requestAnimationFrame(() => {
+            videoContainer.style.opacity = "1";
+          });
+        }
+      } else {
+        // ❌ fallback restore
+        if (videoContainer) {
+          videoContainer.innerHTML = `
+            <div style="padding:20px; text-align:center;">
+              <p>⚠️ This video cannot be embedded</p>
+              <a href="${videoURL}" target="_blank">▶️ Watch Video</a>
+            </div>
+          `;
+        }
+      }
+
+      if (title) title.innerText = data.title + " 🎥";
+      if (desc) desc.innerText = data.explanation;
+    }
+  }
+  
+
+  // ☄️ ASTEROIDS (FIXED 🔥)
+  fetchWithRetry("https://api.nasa.gov/neo/rest/v1/feed?api_key=7jYgA8NDOyNHfLpSbuEP2uncSWByYecDXKkYa6bJ")
+  .then(res => res.json())
+  .then(data => {
+
+    const container = document.getElementById("asteroid-container");
+    container.innerHTML = "";
+
+    // 🔥 FLATTEN
+    let asteroids = Object.values(data.near_earth_objects).flat();
+
+    // 🔥 CLEAN (remove invalid)
+    asteroids = asteroids.filter(a => a.close_approach_data.length > 0);
+
+    // 🔍 SEARCH
+    if (searchQuery) {
+      asteroids = asteroids.filter(obj =>
+        obj.name.toLowerCase().includes(searchQuery)
+      );
+    }
+
+    // ⚠️ HAZARD
+    if (showHazardOnly) {
+      asteroids = asteroids.filter(a => a.is_potentially_hazardous_asteroid);
+    }
+
+    asteroids.forEach(a => {
+  const approachData = a.close_approach_data[0];
+
+  const speed = Number(approachData.relative_velocity.kilometers_per_hour);
+  const missDistance = Number(approachData.miss_distance.kilometers);
+  const size = a.estimated_diameter.meters.estimated_diameter_max;
+  const distanceFactor = missDistance / 1000000;
+
+  const dangerScore = Math.round(
+    (speed / 1000) +
+    (size * 0.2) -
+    (distanceFactor * 2)
+  );
+
+  a.dangerScore = Math.max(0, dangerScore);
+});
+
+// 🔥 STEP 2: sort
+asteroids.sort((a, b) => b.dangerScore - a.dangerScore);
+
+// 🌍 CLOSEST
+    if (showNewestOnly) {
+      asteroids = asteroids.slice(0, 10);
+    }
+
+
+    // 🔥 FIND CLOSEST
+    let closest = asteroids[0];
+
+    asteroids.forEach(obj => {
+      const dist = Number(obj.close_approach_data[0].miss_distance.kilometers);
+      const minDist = Number(closest.close_approach_data[0].miss_distance.kilometers);
+
+      if (dist < minDist) {
+        closest = obj;
+      }
+    });
+
+    // 🔥 CREATE CARDS
+    asteroids.forEach((obj, index) => {
+
+      const isNewest = index < 5;
+      const isHazard = obj.is_potentially_hazardous_asteroid;
+
+      const card = createAsteroidCard(obj, isNewest);
+
+      if (!card) return;
+
+      // 🥇 TOP 3
+if (index === 0) {
+  const text = showHazardOnly
+    ? "🔥 TOP HAZARD"
+    : "🔥 MOST DANGEROUS";
+
+  card.innerHTML += `<p style="color: yellow; font-weight: bold;">
+    ${text}
+  </p>`;
+}
+else if (index === 1) {
+  const text = showHazardOnly
+    ? "⚠️ HIGH HAZARD"
+    : "⚡ HIGH THREAT";
+
+  card.innerHTML += `<p style="color: orange; font-weight: bold;">
+    ${text}
+  </p>`;
+}
+else if (index === 2) {
+  const text = showHazardOnly
+    ? "⚠️ MODERATE HAZARD"
+    : "⚠️ ELEVATED RISK";
+
+  card.innerHTML += `<p style="color: lightgreen; font-weight: bold;">
+    ${text}
+  </p>`;
+}
+
+      // 🎯 highlight
+      if (obj.name === closest.name) card.classList.add("closest-card");
+      if (isHazard) card.classList.add("hazard-card");
+
+      // 🔥 YAHAN LAGANA HAI (TEST)
+
+      // 🟩 MODAL
+      card.addEventListener("click", () => {
+
+         const modal = document.getElementById("asteroid-modal");
+    const modalBody = document.getElementById("modal-body");
+
+        const approachData = obj.close_approach_data[0];
+        if (!approachData) return;
+
+        const speed = Math.round(approachData.relative_velocity.kilometers_per_hour);
+        const missDistance = Math.round(approachData.miss_distance.kilometers);
+        const approachDate = approachData.close_approach_date;
+
+        modalBody.innerHTML = `
+          <h2>${obj.name}</h2>
+          <p>🚀 Speed: ${speed} km/h</p>
+          <p>📏 Diameter: ${Math.round(obj.estimated_diameter.meters.estimated_diameter_max)} m</p>
+          <p>🌍 Miss Distance: ${missDistance} km</p>
+          <p>📅 Approach Date: ${approachDate}</p>
+          <p>⚠️ Hazard: ${isHazard ? "Yes" : "No"}</p>
+        `;
+
+        modal.classList.add("show");
+
+      }); // 🔵 event end
+
+      container.appendChild(card);
+
+    }); // 🔵 forEach end
+    
+
+    });
+  }
+  function buildSkyConfig() {
+
+    console.log("showConstellationNames =", skySettings.showConstellationNames);
+
+    console.log(
+        "Value:",
+        skySettings.showConstellationLines,
+        "Type:",
+        typeof skySettings.showConstellationLines
+    );
+
+    return {
+        container: "skyContainer",
+        width: document.getElementById("skyContainer").clientWidth,
+        height: document.getElementById("skyContainer").clientHeight,
+        projection: "equirectangular",
+        datapath: "data/",
+        zoomlevel: skySettings.defaultZoom,
+
+        stars:{
+            show: skySettings.showStars,
+            limit: skySettings.starMagnitude,
+            names: skySettings.showStarLabels,
+            proper:true
+        },
+
+        constellations:{
+            show: skySettings.showConstellationNames,
+            names: skySettings.showConstellationNames,
+            lines: skySettings.showConstellationLines
+        },
+
+        dsos:{
+            show: skySettings.showDSOs,
+            names: skySettings.showDSOLabels,
+            limit: skySettings.dsoMagnitude,
+            name:"id"
+        },
+
+        planets:{
+            show:false
+        },
+
+        mw:{
+            show: skySettings.showMilkyWay,
+            opacity:0.5
+        }
+    };
+
+    console.log(config);
+
+    return config;
+}
+ 
+
+function refreshSky() {
+
+    Celestial.apply(buildSkyConfig());
+
+}
+  
+
+function initSky() {
+
+    Celestial.display(buildSkyConfig());
+
+    //Celestial.add("lg.json");
+
+    celestialSettings = Celestial.settings();
+
+}
+
+
+
+
+let marker;
+let searchHighlight = null;
+let currentTarget = null;
+
+function createMarker() {
+
+    const container = document.getElementById("skyContainer");
+
+    if (!marker) {
+
+        marker = document.createElement("div");
+
+        marker.className = "sky-crosshair";
+
+        marker.innerHTML = `
+    <div class="cross-top"></div>
+    <div class="cross-right"></div>
+    <div class="cross-bottom"></div>
+    <div class="cross-left"></div>
+`;
+
+        container.appendChild(marker);
+
+    }
+
+    if (currentTarget) {
+
+        const pt = Celestial.mapProjection(currentTarget);
+
+        if (pt) {
+
+            marker.style.left = pt[0] + "px";
+            marker.style.top  = pt[1] + "px";
+
+        }
+
+    }
+
+}
+
+
+
+let tracking = false;
+let smoothX = null;
+let smoothY = null;
+let skyLoopId = null;
+let skyContainerRect = null;
+
+function updateSkyContainerRect() {
+  const container = document.getElementById("skyContainer");
+  if (container) {
+    skyContainerRect = container.getBoundingClientRect();
+  }
+}
+
+window.addEventListener("resize", updateSkyContainerRect);
+
+function trackMarker() {
+  if (!marker || !currentTarget) return;
+  smoothX = null;
+  smoothY = null;
+  tracking = true;
+}
+
+function globalSkyAnimationLoop() {
+  try {
+    // Update sky container rect cache if not loaded yet
+    if (!skyContainerRect) {
+      updateSkyContainerRect();
+    }
+
+    // 1. Check if projection center or time changed
+    let currentProj = null;
+    try {
+      currentProj = Celestial.mapProjection([0, 0]);
+    } catch(e) {}
+
+    const projChanged = !currentProj || 
+                        lastProjX !== currentProj[0] || 
+                        lastProjY !== currentProj[1] || 
+                        !lastSkyTime || 
+                        Math.abs(skyTime - lastSkyTime) >= 1000;
+
+    if (projChanged) {
+      if (currentProj) {
+        lastProjX = currentProj[0];
+        lastProjY = currentProj[1];
+      }
+      lastSkyTime = new Date(skyTime);
+    }
+
+    // 2. Update Planet Markers & Labels
+    updatePlanetMarkers(projChanged);
+    updatePlanetLabelPositions(projChanged);
+
+    // 3. Update Tracking Marker if tracking is active
+    if (tracking && marker && currentTarget) {
+      let pt = null;
+      if (Array.isArray(currentTarget)) {
+        try {
+          pt = Celestial.mapProjection(currentTarget);
+        } catch(err) {
+          pt = null;
+        }
+        
+        if (pt && !isNaN(pt[0]) && !isNaN(pt[1])) {
+          if (smoothX === null) {
+            smoothX = pt[0];
+            smoothY = pt[1];
+          }
+
+          smoothX += (pt[0] - smoothX) * 0.2;
+          smoothY += (pt[1] - smoothY) * 0.2;
+
+          marker.style.left = smoothX + "px";
+          marker.style.top  = smoothY + "px";
+
+          if (searchHighlight) {
+            searchHighlight.style.left = smoothX + "px";
+            searchHighlight.style.top  = smoothY + "px";
+          }
+
+          if (searchedObjectName) {
+            if (!dsoSearchLabel) {
+              createDSOSearchLabel(searchedObjectName, smoothX, smoothY);
+            } else {
+              dsoSearchLabel.style.left = smoothX + "px";
+              dsoSearchLabel.style.top  = smoothY + "px";
+            }
+          }
+
+          if (planetLabel && skyContainerRect) {
+            planetLabel.style.left = (smoothX + skyContainerRect.left + 3) + "px";
+            planetLabel.style.top = (smoothY + skyContainerRect.top - 3) + "px";
+          }
+
+          if (starLabel) {
+            starLabel.style.left = smoothX + "px";
+            starLabel.style.top  = smoothY + "px";
+          }
+        }
+      }
+    } else {
+      smoothX = null;
+      smoothY = null;
+    }
+  } catch (error) {
+    console.error("Error in globalSkyAnimationLoop:", error);
+  }
+
+  skyLoopId = requestAnimationFrame(globalSkyAnimationLoop);
+}
+
+
+async function loadObjects() {
+
+   starNames = await fetch("data/starnames.json")
+    .then(r => r.json());
+
+  console.log("Star names loaded:", Object.keys(starNames).length);
+
+  const m = await fetch("data/messier.json").then(r => r.json());
+  const lg = await fetch("data/lg.json").then(r => r.json());
+  const dsoExtra = await fetch("data/dsos.json").then(r => r.json());
+  const brightDSO = await fetch("data/dsos.bright.json").then(r => r.json());
+  const ngcData = await fetch("data/ngc-ic-messier-catalog.json").then(r => r.json());
+
+  const cleanCatalog = ngcData.map(o => {
+
+  if (!o.ra || !o.dec) return null;
+
+  return {
+
+  name:
+(
+  o.messier ||
+  o.name ||
+  ""
+)
+.toLowerCase()
+.replace(/\s+/g, ""),
+
+id:
+(
+  o.messier ||
+  o.name ||
+  ""
+)
+.toLowerCase()
+.replace(/\s+/g, ""),
+
+    ra: raToDeg(o.ra),
+
+    dec: decToDeg(o.dec),
+
+    type: "dso",
+
+    mag:
+      o.mag || "N/A",
+
+    constellation:
+      o.const || "N/A",
+
+    size:
+      o.dim || "N/A",
+
+    morph:
+  o.morph || "N/A"
+  };
+
+}).filter(Boolean);
+
+  const cleanMessier = m.features.map(o => {
+
+  console.log(o.properties);
+
+  return {
+
+    name: o.id.toLowerCase(),
+
+    id: o.id.toLowerCase(),
+
+    ra: o.geometry.coordinates[0],
+
+    dec: o.geometry.coordinates[1],
+
+    type: "dso",
+
+    mag:
+      o.properties?.mag ||
+
+      "N/A",
+
+    constellation:
+      o.properties?.con ||
+
+      "N/A",
+
+    size:
+      o.properties?.dim ||
+
+      "N/A",
+
+ morph:
+
+  o.properties?.morph ||
+
+  objectMorphology[
+    o.id.toLowerCase()
+  ] ||
+
+  "N/A"
+  };
+});
+
+  const cleanLG = lg.features.map(o => ({
+    name: o.id.toLowerCase(),
+    id: o.id.toLowerCase(),
+    ra: o.geometry.coordinates[0],
+    dec: o.geometry.coordinates[1],
+    type: "dso"
+  }));
+
+  const cleanExtra = dsoExtra.features.map(o => ({
+
+  name: (
+    o.id ||
+    o.properties?.name ||
+    o.properties?.desig ||
+    ""
+  ).toLowerCase(),
+
+  id: (
+    o.id ||
+    o.properties?.name ||
+    o.properties?.desig ||
+    ""
+  ).toLowerCase(),
+
+  ra: o.geometry.coordinates[0],
+  dec: o.geometry.coordinates[1],
+
+  type: "dso",
+
+  morph:
+    o.properties?.morph ||
+    "N/A",
+
+  mag:
+    o.properties?.mag ||
+    "N/A",
+
+  size:
+    o.properties?.dim ||
+    "N/A"
+}))
+.filter(o => o.name); // 🔥 filter out objects without any name/id
+const cleanBright = brightDSO.features.flatMap(o => {
+
+  const arr = [];
+
+  // 🔥 MAIN ID
+  if (o.id) {
+
+    arr.push({
+
+      name: o.id.toLowerCase(),
+
+      id: o.id.toLowerCase(),
+
+      ra: o.geometry.coordinates[0],
+
+      dec: o.geometry.coordinates[1],
+
+      type: "dso",
+
+      morph:
+        o.properties?.morph ||
+        "N/A",
+
+      mag:
+        o.properties?.mag ||
+        "N/A",
+
+      size:
+        o.properties?.dim ||
+        "N/A"
+    });
+  }
+
+  // 🔥 DESIGNATION
+  if (o.properties?.desig) {
+
+    arr.push({
+
+      name:
+        o.properties.desig.toLowerCase(),
+
+      id:
+        o.properties.desig.toLowerCase(),
+
+      ra:
+        o.geometry.coordinates[0],
+
+      dec:
+        o.geometry.coordinates[1],
+
+      type: "dso",
+
+      morph:
+        o.properties?.morph ||
+        "N/A",
+
+      mag:
+        o.properties?.mag ||
+        "N/A",
+
+      size:
+        o.properties?.dim ||
+        "N/A"
+    });
+  }
+
+  return arr;
+});
+
+ allObjects = [
+  ...cleanCatalog,
+  ...cleanMessier,
+  ...cleanLG,
+  ...cleanExtra,
+  ...cleanBright,
+];
+
+  console.log("Messier loaded:", m.features.length);
+
+  // 🔥 SEARCH BASE
+  searchObjects = [...allObjects];
+
+  console.log(
+  "IC Objects:",
+  searchObjects.filter(o => o.name.startsWith("ic"))
+);
+
+  // ⭐ CONSTELLATIONS AUTO ADD
+
+const planetData = await fetch("data/planets.json").then(r => r.json());
+
+const cleanPlanets = Object.entries(planetData).map(([key, p]) => {
+
+  const fullName = p.name.toLowerCase(); // venus
+  const shortId  = p.id.toLowerCase();   // ven
+
+  return {
+    name: fullName,   // 🔥 for search + calc
+    id: shortId,      // 🔥 for Celestial
+    type: "planet"
+  };
+});
+searchObjects.push(...cleanPlanets);
+
+console.log("Planets added:", cleanPlanets.length);
+
+const constData = await fetch("data/constellations.json").then(r => r.json());
+console.log("CONST RAW:", constData);
+const constEntries = constData.features;
+
+searchObjects.push(...constEntries.map(c => ({
+  name: c.id.toLowerCase(),                 // "umi"
+  id: c.id.toLowerCase(),
+
+  fullName: c.properties.name.toLowerCase(), // "ursa minor"
+
+  ra: c.geometry.coordinates[0],
+  dec: c.geometry.coordinates[1],
+
+  type: "constellation"
+})));
+
+console.log("Constellations added:", constEntries.length);
+
+
+
+const starData = await fetch("data/stars.json").then(r => r.json());
+
+const cleanStars = starData.features
+  .filter(s => s.properties.mag < 5)
+
+  .map(s => {
+
+    const hip = s.id;
+
+    return {
+
+      id: hip,
+
+      name:
+        starNames[hip]?.name?.toLowerCase()
+
+        || ("star-" + hip),
+
+      ra:
+        s.geometry.coordinates[0],
+
+      dec:
+        s.geometry.coordinates[1],
+
+      type: "star",
+
+      mag:
+        s.properties?.mag ||
+
+        "N/A",
+
+      constellation:
+        s.properties?.con ||
+
+        "N/A",
+
+      bv:
+        s.properties?.bv ||
+
+        null
+    };
+});
+
+searchObjects.push(...cleanStars);
+
+console.log(
+  "Stars added:",
+  cleanStars.length
+);
+}
+function detectLocation() {
+
+  if (!navigator.geolocation) {
+
+    alert(
+      "Geolocation not supported"
+    );
+
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition(
+
+    (pos) => {
+
+      const lat =
+        pos.coords.latitude;
+
+      const lon =
+        pos.coords.longitude;
+
+      console.log(
+        "Location:",
+        lat,
+        lon
+      );
+
+      // 🔥 UPDATE OBSERVER
+      observer =
+        new Astronomy.Observer(
+          lat,
+          lon,
+          0
+        );
+
+    },
+
+    (err) => {
+
+      console.log(err);
+
+      alert(
+        "Location permission denied"
+      );
+    }
+  );
+}
+
+
+
+function getPlanetPosition(name, date) {
+
+  const bodyMap = {
+    sun: Astronomy.Body.Sun,
+    moon: Astronomy.Body.Moon,
+
+    mercury: Astronomy.Body.Mercury,
+    venus: Astronomy.Body.Venus,
+    earth: Astronomy.Body.Earth,
+
+    mars: Astronomy.Body.Mars,
+    jupiter: Astronomy.Body.Jupiter,
+    saturn: Astronomy.Body.Saturn,
+    uranus: Astronomy.Body.Uranus,
+    neptune: Astronomy.Body.Neptune,
+
+    pluto: Astronomy.Body.Pluto,
+
+    ceres: Astronomy.Body.Ceres,
+    vesta: Astronomy.Body.Vesta,
+    pallas: Astronomy.Body.Pallas,
+
+  eris: Astronomy.Body.Eris,
+  makemake: Astronomy.Body.Makemake,
+  haumea: Astronomy.Body.Humea
+
+  };
+
+  const body = bodyMap[name.toLowerCase()];
+  if (!body) return null;
+
+  const observer = new Astronomy.Observer(23, 77, 0); // India
+
+  const equ = Astronomy.Equator(body, date, observer, true, true);
+
+  return [equ.ra, equ.dec];
+}
+// 🔍 SEARCH FUNCTION
+currentTarget = null;
+searchedObjectName = "";
+function searchObject() {
+
+  // 🔥 RESET
+  if (animationId) {
+    cancelAnimationFrame(animationId);
+    animationId = null;
+  }
+
+  if (marker) {
+  marker.remove();
+  marker = null; // 🔥 IMPORTANT
+}
+
+
+if (searchHighlight) {
+
+    searchHighlight.remove();
+
+    searchHighlight = null;
+
+}
+
+  document.getElementById("highlight-marker")?.remove();
+
+  tracking = false;
+  currentTarget = null;
+
+  if (starLabel) {
+    starLabel.remove();
+    starLabel = null;
+  }
+
+  if (dsoSearchLabel) {
+  dsoSearchLabel.remove();
+  dsoSearchLabel = null;
+}
+
+searchedObjectName = "";
+
+  // 🔍 INPUT
+  let query = document.getElementById("searchBox").value;
+  let searchTerm = query.toLowerCase().trim();
+
+  searchTerm = searchTerm.replace(/\s+/g, " ");
+
+  if (constAlias[searchTerm]) {
+    searchTerm = constAlias[searchTerm];
+  }
+
+  const cleanSearch = searchTerm.replace(/\s+/g, "");
+  const cleanQuery  = query.toLowerCase().replace(/\s+/g, "");
+
+  console.log("Searching for:", cleanSearch);
+
+  let obj = null;
+
+  // ⭐ 1. CONSTELLATION
+  obj = searchObjects.find(o => {
+    if (o.type !== "constellation") return false;
+
+    const short = o.name;
+    const full  = (o.fullName || "").replace(/\s+/g, "");
+
+    if (cleanSearch === short) return true;
+    if (cleanQuery === full) return true;
+
+    return false;
+  });
+
+  // ⭐ 2. STAR
+  if (!obj) {
+    obj = searchObjects.find(o => {
+      if (o.type !== "star") return false;
+
+      const name = o.name || "";
+      const id   = o.id?.toString() || "";
+
+      if (!isNaN(cleanSearch) && id === cleanSearch) return true;
+      if (name === cleanSearch) return true;
+
+      return false;
+    });
+  }
+
+  // 🌌 3. DSO
+if (!obj) {
+
+  obj = searchObjects.find(o => {
+
+    if (o.type !== "dso") return false;
+
+    // 🔥 NORMALIZED
+   const normalize = str =>
+  (str || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+
+const name = normalize(o.name);
+const id   = normalize(o.id);
+
+const search = normalize(cleanSearch);
+
+    // 🔥 MATCHES
+    return (
+      name === search ||
+      id === search
+    );
+  });
+}
+
+  // 🪐 4. PLANET
+  if (!obj) {
+  obj = searchObjects.find(o => {
+    if (o.type !== "planet") return false;
+
+    return (
+      o.name === cleanSearch ||               // venus
+      planetMap[o.name] === cleanSearch ||   // ven
+      reversePlanetMap[cleanSearch] === o.name // ven → venus
+    );
+  });
+}
+  // ❌ NOT FOUND
+  if (!obj) {
+    alert("Object not found ❌");
+    return;
+  }
+
+  console.log("Found:", obj);
+  selectedObject = obj;
+  updateObjectInfo(obj);
+  document.getElementById("object-info-panel").style.display = "block";
+  updateDynamicInfo();
+  
+
+  // 🌌 DSO
+  // 🌌 DSO
+// 🌌 DSO
+// 🌌 DSO
+if (obj.type === "dso") {
+
+    lastSelectedPlanet = null;
+isRotating = true;
+
+currentTarget = [obj.ra, obj.dec];
+searchedObjectName = obj.name;
+
+smoothRotate(currentTarget, 1000).then(() => {
+
+    isRotating = false;
+
+    createMarker();
+    
+    trackMarker();
+
+});
+
+    return;
+}
+
+
+// 🪐 PLANET
+// 🪐 PLANET
+if (obj.type === "planet") {
+
+    isRotating = true;
+
+    const planetName = reversePlanetMap[obj.id] || obj.name;
+
+    lastSelectedPlanet = planetName;
+    followObject = true;
+
+    const pos = getPlanetPosition(planetName, skyTime);
+
+    if (!pos) {
+        console.log("Planet calc failed:", planetName);
+        isRotating = false;
+        return;
+    }
+
+    const raDeg = pos[0] * 15;
+    const dec   = pos[1];
+
+    // 🔥 SET TARGET FIRST
+    currentTarget = [raDeg, dec];
+
+    smoothRotate(currentTarget, 1000).then(() => {
+
+        isRotating = false;
+
+        createMarker();
+        
+        trackMarker();
+
+    });
+
+    return;
+}
+
+
+// ⭐ CONSTELLATION
+if (obj.type === "constellation") {
+
+    lastSelectedPlanet = null;
+    isRotating = true;
+
+    // 🔥 SET TARGET FIRST
+    currentTarget = [obj.ra, obj.dec];
+
+    smoothRotate(currentTarget, 1000).then(() => {
+
+        isRotating = false;
+
+        createMarker();
+        
+        trackMarker();
+
+    });
+
+    return;
+}
+
+
+// ⭐ STAR
+if (obj.type === "star") {
+
+    lastSelectedPlanet = null;
+    isRotating = true;
+
+    // 🔥 SET TARGET FIRST
+    currentTarget = [obj.ra, obj.dec];
+
+    smoothRotate(currentTarget, 1000).then(() => {
+
+        isRotating = false;
+
+        createMarker();
+        
+        trackMarker();
+
+        const pt = Celestial.mapProjection(currentTarget);
+
+        if (pt) {
+
+            createStarSearchLabel(
+                obj.name,
+                pt[0],
+                pt[1]
+            );
+
+        }
+
+    });
+
+    return;
+}
+}
+function smoothRotate(target, duration = 1000) {
+    return new Promise(resolve => {
+        isRotating = true;
+        
+        // Utilize D3-celestial's native transition system for smooth, hardware-accelerated movement
+        Celestial.rotate({
+            center: target,
+            duration: duration
+        });
+
+        setTimeout(() => {
+            isRotating = false;
+            resolve();
+        }, duration + 50);
+    });
+}
+
+
+
+
+function applySkyTime() {
+
+  const input =
+    document.getElementById("sky-datetime");
+
+  if (!input.value) return;
+
+  skyTime = new Date(input.value);
+
+selectedObject = selectedObject;
+
+updateDynamicInfo();
+
+  // 🔥 CLEAR LABELS
+  if (starLabel) {
+    starLabel.remove();
+    starLabel = null;
+  }
+
+  if (dsoSearchLabel) {
+    dsoSearchLabel.remove();
+    dsoSearchLabel = null;
+  }
+
+  // 🔥 REAL SKY DATE
+ // 🔥 Update sky date only
+Celestial.skyview({
+    date: skyTime
+});
+
+}
+function createStarSearchLabel(name, x, y) {
+
+  // 🔥 REMOVE OLD
+  if (starLabel) {
+    starLabel.remove();
+    starLabel = null;
+  }
+
+  const label = document.createElement("div");
+
+  label.className = "star-search-label";
+
+  label.innerText = name.toUpperCase();
+
+  label.style.position = "absolute";
+
+  // ⭐ DIFFERENT COLOR FROM PLANETS
+  label.style.color = "#00ffcc";
+
+  label.style.fontSize = "14px";
+  label.style.fontWeight = "bold";
+
+  label.style.pointerEvents = "none";
+  label.style.zIndex = "9999";
+
+  // ✨ GLOW
+  label.style.textShadow =
+    "0 0 8px #00ffcc";
+
+  // 🎯 POSITION
+  label.style.left = x + "px";
+  label.style.top  = y + "px";
+
+  label.style.transform =
+    "translate(-50%, -120%)";
+
+  document
+    .getElementById("skyContainer")
+    .appendChild(label);
+
+  starLabel = label;
+}
+
+function updatePlanetLabelPositions(projChanged) {
+
+    if (!projChanged) return;
+
+  planetLabels.forEach(p => {
+
+    const pos =
+      getPlanetPosition(p.name, skyTime);
+
+    if (!pos) return;
+
+    const raDeg = pos[0] * 15;
+    const dec   = pos[1];
+
+    let pt = null;
+    try {
+      pt = Celestial.mapProjection([
+        raDeg,
+        dec
+      ]);
+    } catch(e) {}
+
+    if (!pt) return;
+
+    p.el.style.left =
+      (pt[0] + 10) + "px";
+
+    p.el.style.top =
+      (pt[1] - 10) + "px";
+  });
+}
+
+function createPlanetLabel(name, pt) {
+
+  if (planetLabel) {
+    planetLabel.remove();
+    planetLabel = null;
+  }
+
+  const container = document.getElementById("skyContainer");
+  
+
+  const label = document.createElement("div");
+  label.className = "planet-label";
+  label.innerText = name;
+
+  label.style.color =
+    planetLabelColors[name.toLowerCase()] || "#ffffff";
+
+    // 👇 YE ADD KARO
+label.style.fontSize = "18px";
+label.style.fontWeight = "700";
+label.style.whiteSpace = "nowrap";
+
+// 🌟 Glow strength by planet
+const glow =
+(
+    fullName || name
+).toLowerCase();
+
+if(
+    glow==="sun" ||
+    glow==="moon"
+){
+
+    label.style.textShadow =
+    "0 0 3px currentColor,0 0 6px currentColor,0 0 10px currentColor";
+
+}
+else if(glow==="venus"){
+
+    label.style.textShadow =
+    "0 0 3px currentColor,0 0 6px currentColor";
+
+}
+else{
+
+    label.style.textShadow =
+    "0 0 2px currentColor,0 0 4px currentColor";
+
+}
+
+label.style.zIndex = "30"; 
+  label.style.position = "absolute";
+  label.style.fontSize = "18px";
+  label.style.fontWeight = "bold";
+  label.style.zIndex = "9999";
+
+  // 🔥 OFFSET FIX
+ label.style.left = (pt[0] + 3) + "px";
+label.style.top  = (pt[1] - 3) + "px";
+  document.getElementById("skyContainer").appendChild(label); // 🔥 CHANGE HERE
+
+  planetLabel = label;
+}
+
+function createAllPlanetLabels() {
+
+  // remove old
+  planetLabels.forEach(l => l.remove());
+  planetLabels = [];
+
+  Object.keys(planetMap).forEach(name => {
+
+    const fullName = name;
+
+    const pos = getPlanetPosition(fullName, skyTime);
+    if (!pos) return;
+
+    const raDeg = pos[0] * 15;
+    const dec = pos[1];
+
+    const pt = Celestial.mapProjection([raDeg, dec]);
+    if (!pt) return;
+
+    const rect = document.getElementById("skyContainer").getBoundingClientRect();
+
+    const label = document.createElement("div");
+    label.className = "planet-label"; 
+    label.innerText = fullName;
+    label.className = "planet-label";
+
+label.style.whiteSpace = "nowrap";
+label.style.display = "inline-block";
+
+    label.style.position = "absolute";
+    label.style.color =
+    planetLabelColors[fullName.toLowerCase()] || "#ffffff";
+    // 👇 YE ADD KARO
+label.style.fontSize = "18px";
+label.style.fontWeight = "700";
+label.style.whiteSpace = "nowrap";
+
+const glow =
+(
+    fullName || name
+).toLowerCase();
+
+if(
+    glow==="sun" ||
+    glow==="moon"
+){
+
+    label.style.textShadow =
+    "0 0 3px currentColor,0 0 6px currentColor,0 0 10px currentColor";
+
+}
+else if(glow==="venus"){
+
+    label.style.textShadow =
+    "0 0 3px currentColor,0 0 6px currentColor";
+
+}
+else{
+
+    label.style.textShadow =
+    "0 0 2px currentColor,0 0 4px currentColor";
+
+}
+    label.style.fontSize = "18px";
+    label.style.zIndex = "20";
+
+    label.style.left = (pt[0] + 3) + "px";
+label.style.top  = (pt[1] - 3) + "px";
+
+    document.getElementById("skyContainer").appendChild(label);
+
+    planetLabels.push({
+      el: label,
+      name: fullName
+    });
+  });
+}
+
+
+function createDSOSearchLabel(name, x, y) {
+
+  // 🔥 REMOVE OLD
+  if (dsoSearchLabel) {
+    dsoSearchLabel.remove();
+    dsoSearchLabel = null;
+  }
+
+  const cleanName =
+    name.toLowerCase().replace(/\s+/g, "");
+
+  // 🔥 CHECK ALL SVG TEXTS
+  const svgTexts = Array.from(
+    document.querySelectorAll("#skyContainer text")
+  );
+
+  const alreadyVisible = svgTexts.some(el => {
+
+  const txt =
+    el.textContent
+      .toLowerCase()
+      .replace(/\s+/g, "");
+
+  return (
+    txt === cleanName ||
+    txt.startsWith(cleanName)
+  );
+});
+
+  // 🔥 ALREADY ON MAP
+  if (alreadyVisible) return;
+
+  // 🔥 CREATE LABEL
+  const label = document.createElement("div");
+
+  label.className = "dso-search-label";
+
+  label.innerText = name.toUpperCase();
+
+  label.style.position = "absolute";
+  label.style.color = "cyan";
+  label.style.fontSize = "14px";
+  label.style.fontWeight = "bold";
+  label.style.pointerEvents = "none";
+  label.style.zIndex = "9999";
+
+  // 🔥 PERFECT POSITION
+  label.style.left = x + "px";
+  label.style.top  = y + "px";
+
+  label.style.transform =
+    "translate(-50%, -120%)";
+
+  // 🔥 INSIDE SKY
+  document
+    .getElementById("skyContainer")
+    .appendChild(label);
+
+  dsoSearchLabel = label;
+}
+
+async function fetchObjectInfo(objectName) {
+
+  const lowerName =
+    objectName.toLowerCase();
+
+  // 🔥 CUSTOM NAME MAP
+  if (
+    wikiNameMap[lowerName]
+  ) {
+
+    objectName =
+      wikiNameMap[lowerName];
+  }
+
+  // 🔥 MESSIER OBJECTS
+  else if (
+    lowerName.startsWith("m")
+  ) {
+
+    objectName =
+      lowerName.toUpperCase() +
+      " object";
+  }
+
+  // 🔥 NGC OBJECTS
+  else if (
+    lowerName.startsWith("ngc")
+  ) {
+
+    objectName =
+      lowerName.toUpperCase() +
+      " galaxy";
+  }
+
+  // 🔥 IC OBJECTS
+  else if (
+    lowerName.startsWith("ic")
+  ) {
+
+    objectName =
+      lowerName.toUpperCase() +
+      " nebula";
+  }
+
+  try {
+
+    const response = await fetch(
+      `https://en.wikipedia.org/api/rest_v1/page/summary/${objectName}`
+    );
+
+    console.log(response.status);
+console.log(await response.clone().text());
+
+    const data = await response.json();
+
+    
+
+    document.getElementById(
+      "info-ai"
+    ).innerText =
+
+      data.extract ||
+
+      "No information found.";
+
+  }
+
+  catch(err) {
+
+    console.log(err);
+
+    document.getElementById(
+      "info-ai"
+    ).innerText =
+
+      "Information fetch failed.";
+  }
+}
+function updateObjectInfo(obj) {
+  
+  currentAIObject = obj;
+
+  const cleanName =
+    obj.name.toLowerCase();
+
+  // 🔥 NAME
+  document.getElementById(
+    "info-name"
+  ).innerText =
+    obj.name.toUpperCase();
+
+  // 🔥 TYPE
+  document.getElementById(
+    "info-type"
+  ).innerText =
+    "Type: " + obj.type;
+
+  // 🔥 RA/DEC NOW HANDLED
+  // BY updateDynamicInfo()
+
+  document.getElementById(
+    "info-ra"
+  ).innerText = "";
+
+  document.getElementById(
+    "info-dec"
+  ).innerText = "";
+
+  // 🔥 DESCRIPTION
+
+  document.getElementById(
+  "info-mag"
+).innerText =
+
+  "Magnitude: " +
+  (obj.mag || "N/A");
+
+document.getElementById(
+  "info-constellation"
+).innerText =
+
+  "Constellation: " +
+  (obj.constellation || "N/A");
+
+document.getElementById(
+  "info-size"
+).innerText =
+
+  "Size: " +
+  (obj.size || "N/A");
+
+let structure =
+  obj.morph || "N/A";
+
+const morphMap = {
+
+  // 🌌 SPIRAL
+  "SA(s)b":
+    "Spiral Galaxy",
+
+  "SA(s)cd":
+    "Spiral Galaxy",
+
+  "SA(s)c":
+    "Spiral Galaxy",
+
+  "SA(s)a":
+    "Spiral Galaxy",
+
+  "SBa":
+    "Barred Spiral Galaxy",
+
+  "SBb":
+    "Barred Spiral Galaxy",
+
+  "SBc":
+    "Barred Spiral Galaxy",
+
+  "SB(s)m":
+    "Barred Spiral Galaxy",
+
+  "SB(s)c":
+    "Barred Spiral Galaxy",
+
+  "SB(s)b":
+    "Barred Spiral Galaxy",
+
+  "SB(rs)b":
+    "Barred Spiral Galaxy",
+
+  "SAB":
+    "Intermediate Spiral Galaxy",
+
+  // 🌌 ELLIPTICAL
+  "E0":
+    "Elliptical Galaxy",
+
+  "E1":
+    "Elliptical Galaxy",
+
+  "E2":
+    "Elliptical Galaxy",
+
+  "E3":
+    "Elliptical Galaxy",
+
+  "E4":
+    "Elliptical Galaxy",
+
+  "E5":
+    "Elliptical Galaxy",
+
+  "E6":
+    "Elliptical Galaxy",
+
+  "E7":
+    "Elliptical Galaxy",
+
+  // 🌌 IRREGULAR
+  "Irr":
+    "Irregular Galaxy",
+
+  "dIrr":
+    "Dwarf Irregular Galaxy",
+
+  // 🌟 OPEN CLUSTERS
+  "I2m":
+    "Open Star Cluster",
+
+  "II2r":
+    "Open Star Cluster",
+
+  "III2p":
+    "Open Star Cluster",
+
+  "III1m":
+    "Open Star Cluster",
+
+  // 🌟 GLOBULAR
+  "III":
+    "Globular Cluster",
+
+  "IV":
+    "Globular Cluster",
+
+  "V":
+    "Globular Cluster",
+
+  // ☁️ NEBULAE
+  "HII":
+    "Emission Nebula",
+
+  "SNR":
+    "Supernova Remnant"
+};
+
+if (
+  morphMap[structure]
+) {
+
+  structure =
+    morphMap[structure];
+}
+
+document.getElementById(
+  "info-morph"
+).innerText =
+
+  "Structure: " +
+  structure;
+
+
+// 🪐 PLANETS
+let temperature = "N/A";
+
+// 🪐 PLANETS
+const planetTemps = {
+
+  mercury: "440K",
+
+  venus: "737K",
+
+  earth: "288K",
+
+  mars: "210K",
+
+  jupiter: "165K",
+
+  saturn: "134K",
+
+  uranus: "76K",
+
+  neptune: "72K",
+
+  pluto: "44K",
+
+  moon: "220K",
+
+  sun: "5778K"
+};
+
+// 🪐 PLANETS
+if (
+  obj.type === "planet"
+) {
+
+  temperature =
+
+    planetTemps[
+      obj.name.toLowerCase()
+    ] || "N/A";
+}
+
+// 🌟 STARS
+else if (
+  obj.type === "star"
+) {
+
+  const bv =
+    parseFloat(obj.bv);
+
+  if (!isNaN(bv)) {
+
+    temperature =
+
+      Math.round(
+
+        4600 *
+
+        (
+          (1 / ((0.92 * bv) + 1.7)) +
+
+          (1 / ((0.92 * bv) + 0.62))
+        )
+
+      ) + "K";
+  }
+}
+
+document.getElementById(
+  "info-temp"
+).innerText =
+
+  "Temperature: " +
+  temperature;
+
+}
+
+function updateDynamicInfo() {
+
+  if (!selectedObject) return;
+
+  let ra = selectedObject.ra;
+  let dec = selectedObject.dec;
+
+  // 🪐 PLANETS
+  if (selectedObject.type === "planet") {
+
+    const pos = getPlanetPosition(
+      selectedObject.name,
+      skyTime
+    );
+
+    if (!pos) return;
+
+    // 🔥 REAL UPDATED VALUES
+    ra = pos[0] * 15;
+    dec = pos[1];
+    // 🔥 UPDATE LIVE MARKER TARGET
+currentTarget = [ra, dec];
+  }
+
+  // 🔥 NOW UPDATE PANEL
+  document.getElementById(
+    "info-ra"
+  ).innerText =
+
+    "RA: " +
+    ra.toFixed(2);
+
+  document.getElementById(
+    "info-dec"
+  ).innerText =
+
+    "DEC: " +
+    dec.toFixed(2);
+
+  // 🌍 OBSERVER
+  
+
+    let riseText = "N/A";
+let setText  = "N/A";
+
+try {
+
+  const bodyMap = {
+
+    sun: Astronomy.Body.Sun,
+    moon: Astronomy.Body.Moon,
+
+    mercury: Astronomy.Body.Mercury,
+    venus: Astronomy.Body.Venus,
+
+    mars: Astronomy.Body.Mars,
+    jupiter: Astronomy.Body.Jupiter,
+    saturn: Astronomy.Body.Saturn,
+
+    uranus: Astronomy.Body.Uranus,
+    neptune: Astronomy.Body.Neptune,
+    pluto: Astronomy.Body.Pluto
+  };
+
+  const body =
+    bodyMap[
+      selectedObject.name.toLowerCase()
+    ];
+
+  if (body) {
+
+   const astroTime =
+  Astronomy.MakeTime(skyTime);
+
+const rise =
+  Astronomy.SearchRiseSet(
+    body,
+    observer,
+    +1,
+    astroTime,
+    2
+  );
+
+const set =
+  Astronomy.SearchRiseSet(
+    body,
+    observer,
+    -1,
+    astroTime,
+    2
+  );
+    if (rise) {
+
+  riseText = formatTime(
+
+    rise.date
+      ? rise.date
+      : rise
+  );
+}
+
+if (set) {
+
+  setText = formatTime(
+
+    set.date
+      ? set.date
+      : set
+  );
+}
+  }
+
+}
+catch(err) {
+
+  console.log(
+    "Rise/Set error:",
+    err
+  );
+}
+
+  // 🔥 HORIZON CALC
+  const hor =
+    Astronomy.Horizon(
+      skyTime,
+      observer,
+      ra / 15,
+      dec,
+      "normal"
+    );
+
+    let facing = "";
+
+const az = hor.azimuth;
+currentAzimuth = hor.azimuth;
+
+if (az >= 337.5 || az < 22.5)
+    facing = "N";
+else if (az < 67.5)
+    facing = "NE";
+else if (az < 112.5)
+    facing = "E";
+else if (az < 157.5)
+    facing = "SE";
+else if (az < 202.5)
+    facing = "S";
+else if (az < 247.5)
+    facing = "SW";
+else if (az < 292.5)
+    facing = "W";
+else
+    facing = "NW";
+
+document.getElementById("nav-direction").innerText = facing;
+
+  // 🔥 ALTITUDE
+  document.getElementById(
+    "info-alt"
+  ).innerText =
+
+    "Altitude: " +
+    hor.altitude.toFixed(2) +
+    "°";
+
+  // 🔥 AZIMUTH
+  document.getElementById(
+    "info-az"
+  ).innerText =
+
+    "Azimuth: " +
+    hor.azimuth.toFixed(2) +
+    "°";
+
+    document.getElementById(
+  "info-rise"
+).innerText =
+
+  "Rise: " + riseText;
+
+document.getElementById(
+  "info-set"
+).innerText =
+
+  "Set: " + setText;
+  // 🧭 Navigation HUD
+
+}
+
+function formatTime(date) {
+
+  return date.toLocaleTimeString(
+    [],
+    {
+      hour: "2-digit",
+      minute: "2-digit"
+    }
+  );
+}
+function dynamicInfoLoop() {
+
+  // 🔥 ADVANCE SIMULATION TIME
+  skyTime = new Date(
+    skyTime.getTime() + 1000
+  );
+
+  /*Celestial.skyview({
+       date: skyTime
+    });*/
+
+    
+
+  updateDynamicInfo();
+
+  
+
+
+  
+  if (
+  followObject &&
+  selectedObject &&
+  selectedObject.type === "planet"
+) {
+
+  const pos = getPlanetPosition(
+    selectedObject.name,
+    skyTime
+  );
+
+  if (pos) {
+
+    const raDeg = pos[0] * 15;
+    const dec   = pos[1];
+
+    // 🔥 FIRST TIME
+    if (
+      lastFollowRA === null ||
+      lastFollowDEC === null
+    ) {
+
+      lastFollowRA = raDeg;
+      lastFollowDEC = dec;
+    }
+
+    // 🔥 DRIFT CHECK
+    const raDiff =
+      Math.abs(raDeg - lastFollowRA);
+
+    const decDiff =
+      Math.abs(dec - lastFollowDEC);
+
+    // 🔥 ONLY ROTATE IF BIG ENOUGH
+    if (
+      raDiff > 0.05 ||
+      decDiff > 0.05
+    ) {
+
+      if (
+  smoothFollowRA === null ||
+  smoothFollowDEC === null
+) {
+
+  smoothFollowRA = raDeg;
+  smoothFollowDEC = dec;
+}
+
+// 🔥 SMOOTH INTERPOLATION
+smoothFollowRA +=
+  (raDeg - smoothFollowRA) * 0.1;
+
+smoothFollowDEC +=
+  (dec - smoothFollowDEC) * 0.1;
+
+// 🔥 ROTATE USING SMOOTHED VALUES
+
+console.trace("ROTATE");
+Celestial.rotate({
+
+  center: [
+    smoothFollowRA,
+    smoothFollowDEC
+  ],
+
+  duration: 100
+});
+
+lastFollowRA = raDeg;
+lastFollowDEC = dec;
+
+      lastFollowRA = raDeg;
+      lastFollowDEC = dec;
+    }
+  }
+}
+}
+
+function updateLastTopic(userInput) {
+  lastTopic = userInput;
+}
+
+function renderAttachments(){
+
+const container =
+document.getElementById(
+"attachment-preview"
+);
+
+container.innerHTML="";
+
+attachments.forEach((file,index)=>{
+
+const chip =
+document.createElement("div");
+
+chip.className =
+"attachment-chip";
+
+if(file.type==="image"){
+
+chip.innerHTML=`
+
+<div class="attachment-image">
+
+<img
+src="${file.data}"
+>
+
+<span
+class="remove-attachment"
+data-index="${index}"
+>
+
+✖
+
+</span>
+
+</div>
+
+`;
+
+}
+
+else{
+
+chip.innerHTML=`
+
+<div class="attachment-file">
+
+📄 ${file.name}
+
+<span
+class="remove-attachment"
+data-index="${index}"
+>
+
+✖
+
+</span>
+
+</div>
+
+`;
+
+}
+
+container.appendChild(chip);
+
+});
+
+document
+.querySelectorAll(".remove-attachment")
+.forEach(btn=>{
+
+btn.onclick=()=>{
+
+attachments.splice(
+
+btn.dataset.index,
+
+1
+
+);
+
+renderAttachments();
+
+};
+
+});
+
+}
+
+function createConversationContext(userInput) {
+
+  return `
+Previous Topic:
+${lastTopic}
+
+Current User Message:
+${userInput}
+`;
+}
+
+
+function buildAstroPrompt(userMessage, objectData) {
+
+  return `
+Selected Object Information:
+
+Name: ${objectData?.name || "Unknown"}
+Type: ${objectData?.type || "Unknown"}
+Constellation: ${objectData?.constellation || "Unknown"}
+Magnitude: ${objectData?.magnitude || "Unknown"}
+Distance: ${objectData?.distance || "Unknown"}
+RA: ${objectData?.ra || "Unknown"}
+DEC: ${objectData?.dec || "Unknown"}
+
+User Question:
+${userMessage}
+`;
+}
+
+document.addEventListener("DOMContentLoaded", async () => {
+
+  
+
+
+  const auth = window.auth;
+const provider = window.provider;
+const db = window.db;
+
+const doc = window.doc;
+const setDoc = window.setDoc;
+const getDoc = window.getDoc;
+const addDoc = window.addDoc;
+const getDocs = window.getDocs;
+const deleteDoc = window.deleteDoc;
+
+const signInWithPopup = window.signInWithPopup;
+const signOut = window.signOut;
+
+document
+.getElementById("save-api-key")
+.onclick=()=>{
+
+const key=
+document
+.getElementById("user-api-key")
+.value
+.trim();
+
+localStorage.setItem(
+"OPENROUTER_API_KEY",
+key
+);
+
+hideAPIKeyModal();
+
+alert("API Key saved.");
+
+};
+
+document
+.getElementById("remove-api-key")
+.onclick=()=>{
+
+  localStorage.removeItem("OPENROUTER_API_KEY");
+
+  document
+  .getElementById("user-api-key")
+  .value="";
+
+  alert("API Key removed.");
+
+};
+
+
+
+  detectLocation();
+  applyAppearanceSettings();
+  applyAccentColor();
+  applyAISettings();
+  updateMemorySettings();
+renderMemoryList();
+applyAppearanceSettings();
+  const dateInput = document.getElementById("date-picker");
+  const loadBtn = document.getElementById("load-btn");
+  const prevBtn = document.getElementById("prev-btn");
+  const nextBtn = document.getElementById("next-btn");
+
+  const downloadBtn = document.getElementById("download-btn");
+  const filterBtn = document.getElementById("hazard-filter");
+  const newestBtn = document.getElementById("newest-filter");
+  const modal = document.getElementById("asteroid-modal");
+const modalBody = document.getElementById("modal-body");
+const modalContent = document.getElementById("modal-content");
+const searchInput = document.getElementById("search-input");
+const closeModalBtn = document.getElementById("close-modal");
+
+if (closeModalBtn && modal) {
+    closeModalBtn.onclick = () => {
+        modal.classList.remove("show");
+    };
+}
+
+modal.addEventListener("click", (e) => {
+    if (e.target === modal) {
+        modal.classList.remove("show");
+    }
+});
+
+  if (searchInput) {
+    searchInput.addEventListener("input", (e) => {
+      searchQuery = e.target.value.toLowerCase();
+      loadNASA();
+    });
+  }
+
+  if (newestBtn) {
+    newestBtn.innerText = "🌍 Recently Approaching Asteroids";
+
+    newestBtn.addEventListener("click", () => {
+      showNewestOnly = !showNewestOnly;
+      newestBtn.innerText = showNewestOnly
+        ? "🌍 Recent Approaches ON"
+        : "🌍 Recently Approaching Asteroids";
+      loadNASA();
+    });
+  }
+
+  if (filterBtn) {
+    filterBtn.innerText = "⚠️ Show Hazardous Only";
+    filterBtn.addEventListener("click", () => {
+      showHazardOnly = !showHazardOnly;
+      filterBtn.innerText = showHazardOnly ? "⚠️ Hazard ON" : "⚠️ Show Hazardous";
+      loadNASA();
+    });
+  }
+
+  if (downloadBtn) {
+    downloadBtn.addEventListener("click", () => {
+      if (!currentHDImage) {
+        alert("No image ❌");
+        return;
+      }
+      const link = document.createElement("a");
+      link.href = currentHDImage;
+      link.download = "nasa-image.jpg";
+      link.click();
+    });
+  }
+
+  document.addEventListener("keydown", (e) => {
+    if (!dateInput) return;
+    if (document.activeElement === dateInput) return;
+
+    if (e.key === "ArrowLeft") {
+      let d = new Date(dateInput.value);
+      d.setDate(d.getDate() - 1);
+      dateInput.value = d.toISOString().split("T")[0];
+      loadNASA();
+    }
+
+    if (e.key === "ArrowRight") {
+      let d = new Date(dateInput.value);
+      d.setDate(d.getDate() + 1);
+      const today = new Date().toISOString().split("T")[0];
+      if (d.toISOString().split("T")[0] > today) return;
+      dateInput.value = d.toISOString().split("T")[0];
+      loadNASA();
+    }
+
+    if (e.key === "Enter") loadNASA();
+  });
+
+  if (dateInput) {
+    dateInput.value = new Date().toISOString().split("T")[0];
+  }
+
+  if (loadBtn) loadBtn.addEventListener("click", loadNASA);
+
+  if (prevBtn) prevBtn.addEventListener("click", () => {
+    let d = new Date(dateInput.value);
+    d.setDate(d.getDate() - 1);
+    dateInput.value = d.toISOString().split("T")[0];
+    loadNASA();
+  });
+
+  if (nextBtn) prevBtn && nextBtn.addEventListener("click", () => {
+  let d = new Date(dateInput.value);
+  d.setDate(d.getDate() + 1);
+  const today = new Date().toISOString().split("T")[0];
+  if (d.toISOString().split("T")[0] > today) return;
+  dateInput.value = d.toISOString().split("T")[0];
+  loadNASA();
+});
+
+// 🔥 IMPORTANT
+loadNASA();
+
+if (!window.skyLoaded) {
+  initSky();
+
+  // ✅ delay yahin lagana hai (DIRECT CALL hata)
+    loadObjects().then(() => {
+
+  createAllPlanetLabels();
+
+createPlanetMarkers();
+
+requestAnimationFrame(globalSkyAnimationLoop);
+
+setInterval(
+    dynamicInfoLoop,
+    1000
+);
+
+  window.skyLoaded = true;
+});
+}
+
+addAIMessage(
+  "Hello 🌌 I am Astro AI. Ask me anything about space.",
+  "Astro AI"
+);
+
+const input = document.getElementById("ai-input");
+
+input.addEventListener("input", () => {
+
+    input.style.height = "auto";
+
+    input.style.height = input.scrollHeight + "px";
+
+});
+
+
+
+document
+  .getElementById("ai-send")
+  .addEventListener("click", async () => {
+
+    const input =
+      document.getElementById("ai-input");
+
+    const question =
+    
+      input.value.trim();
+      // 🔥 REMEMBER COMMAND
+
+      lastQuestion = question;
+
+// 🔥 REMEMBER COMMAND
+
+if (
+    question.toLowerCase().startsWith("remember:") ||
+    isMemoryRequest(question)
+) {
+
+    let memoryText = question;
+
+    if (question.toLowerCase().startsWith("remember:")) {
+
+        memoryText = question
+            .replace(/remember:/i, "")
+            .trim();
+
+    }
+
+    memoryText = extractMemory(memoryText);
+
+const structuredMemory =
+    extractStructuredMemory(memoryText);
+
+saveMemory(structuredMemory);
+
+    addAIMessage(
+        "🧠 I've remembered that for future conversations.",
+        "Astro AI"
+    );
+
+    return;
+}
+// 🔥 FORGET COMMAND
+
+// 🔥 FORGET COMMAND
+// 🔥 THEORY MEMORY
+
+if (
+  question.toLowerCase().startsWith("remember theory:")
+) {
+
+  const text = question
+    .replace(/remember theory:/i, "")
+    .trim();
+
+  saveTheory(text);
+
+  addAIMessage(
+
+    "Theory saved 😈🔥",
+
+    "Astro AI"
+  );
+
+  return;
+}
+
+
+// 🔥 OBSERVATION LOG
+
+if (
+  question.toLowerCase().startsWith("log observation:")
+) {
+
+  const text = question
+    .replace(/log observation:/i, "")
+    .trim();
+
+  saveObservation(text);
+
+  addAIMessage(
+
+    "Observation logged 🔭😄🔥",
+
+    "Astro AI"
+  );
+
+  return;
+}
+
+
+// 🔥 TELESCOPE SESSION
+
+if (
+  question.toLowerCase().startsWith("start telescope session:")
+) {
+
+  const text = question
+    .replace(/start telescope session:/i, "")
+    .trim();
+
+  saveTelescopeSession(text);
+
+  addAIMessage(
+
+    "Telescope session saved 🌌😮🔥",
+
+    "Astro AI"
+  );
+
+  return;
+}
+
+// 🔥 RESEARCH MODE ON
+
+if (
+  question.toLowerCase() ===
+  "enable research mode"
+) {
+
+  researchMode = true;
+
+  addAIMessage(
+
+    "Research mode enabled 🧠😈🔥",
+
+    "Astro AI"
+  );
+
+  return;
+}
+
+
+// 🔥 RESEARCH MODE OFF
+
+if (
+  question.toLowerCase() ===
+  "disable research mode"
+) {
+
+  researchMode = false;
+
+  addAIMessage(
+
+    "Research mode disabled 😄🔥",
+
+    "Astro AI"
+  );
+
+  return;
+}
+// 🔥 OBSERVATION SUMMARY
+
+if (
+  question.toLowerCase() ===
+  "summarize my observations"
+) {
+
+  const observations =
+
+    astroMemory.observations
+      ?.map(o => "• " + o.text)
+      .join("\n");
+
+  addAIMessage(
+
+    observations ||
+
+    "No observations logged 😮🔥",
+
+    "Astro AI"
+  );
+
+  return;
+}
+
+if (
+  question.toLowerCase().startsWith("forget")
+) {
+
+  deleteMemory();
+
+  addAIMessage(
+
+    "All memories deleted 😮🔥",
+
+    "Astro AI"
+  );
+
+  return;
+}
+
+    if (!question) return;
+
+    
+
+if (
+    !isMemoryRequest(question) &&
+    shouldSuggestMemory(question)
+) {
+
+    pendingMemory = question;
+
+}
+
+    addAIMessage(
+      question,
+      "You"
+    );
+    saveMessage(
+  "You",
+  question
+);
+
+    input.value = "";
+    input.style.height = "auto";
+
+    
+
+    try {
+      const uploadedAttachments = [...attachments];
+
+      if (attachments.length > 0) {
+
+    let attachmentHtml = "";
+
+    attachments.forEach(file => {
+
+        if (file.type === "image") {
+
+            attachmentHtml += `
+<img
+src="${file.data}"
+style="
+max-width:180px;
+border-radius:12px;
+margin-top:8px;
+">
+`;
+
+        } else {
+
+            attachmentHtml += `
+📄 ${file.name}<br>
+`;
+
+        }
+
+    });
+
+    addAIMessage(
+attachmentHtml,
+"You"
+);
+
+const uploadedAttachments = [...attachments];
+
+attachments = [];
+
+renderAttachments();
+
+
+      }
+
+    
+
+      const loader =
+    showThinkingLoader();
+
+     const contextPrompt =
+  createConversationContext(
+    question
+  );
+
+const relatedMemories =
+
+    astroMemory.memories
+        ?.map(memory => {
+
+            if (memory.key && memory.value) {
+
+                return `${memory.key}: ${memory.value}`;
+
+            }
+
+            return memory.text;
+
+        })
+        .join("\n") || "None";
+
+    let userInterestProfile = "";
+
+if (
+  relatedMemories
+    .toLowerCase()
+    .includes("black hole")
+) {
+
+  userInterestProfile +=
+
+`
+User is highly interested in black holes.
+Focus more deeply on relativistic physics.
+`;
+}
+
+if (
+  relatedMemories
+    .toLowerCase()
+    .includes("neutron")
+) {
+
+  userInterestProfile +=
+
+`
+User is highly interested in neutron stars and compact objects.
+`;
+}
+
+const objectPrompt =
+
+
+  buildAstroPrompt(
+    question,
+    currentAIObject
+  );
+
+  let telescopeAdvice = "";
+
+if (
+  currentAIObject
+) {
+
+  telescopeAdvice = `
+
+Observation Assistance:
+
+Suggest:
+- telescope suitability
+- eyepiece recommendations
+- visibility conditions
+- observation difficulty
+- astrophotography potential
+- best observing methods
+- ideal observation timing
+- atmospheric seeing considerations
+- beginner observing advice
+`;
+}
+
+
+// 🌌 KNOWLEDGE GRAPH REASONING
+let relatedConcepts = "";
+
+Object.keys(
+  astroKnowledgeGraph
+).forEach(key => {
+
+  if (
+    question
+      .toLowerCase()
+      .includes(key)
+  ) {
+
+    relatedConcepts +=
+
+`
+${key} relates to:
+${astroKnowledgeGraph[key]
+  .join(", ")}
+`;
+
+  }
+});
+
+let proactiveInsights = "";
+
+if (
+  question
+    .toLowerCase()
+    .includes("black hole")
+) {
+
+  proactiveInsights += `
+
+Additional Insight:
+
+You may also discuss:
+- neutron stars
+- Hawking radiation
+- gravitational lensing
+- spacetime curvature
+`;
+}
+
+if (
+  question
+    .toLowerCase()
+    .includes("galaxy")
+) {
+
+  proactiveInsights += `
+
+Additional Insight:
+
+You may also discuss:
+- dark matter
+- galaxy evolution
+- supermassive black holes
+- galactic collisions
+`;
+}
+const advancedTopics = [
+
+  "kerr",
+  "relativity",
+  "tensor",
+  "metric",
+  "quantum",
+  "singularity",
+  "hawking"
+];
+
+const autoResearchMode =
+
+  advancedTopics.some(topic =>
+
+    question
+      .toLowerCase()
+      .includes(topic)
+  );
+
+  
+
+  let attachmentPrompt = "";
+
+uploadedAttachments.forEach(file => {
+
+if(file.type === "file"){
+
+attachmentPrompt += `
+
+File Name:
+${file.name}
+
+File Content:
+
+${file.data.substring(0, 3000)}
+
+`;
+
+}
+
+});
+const attachmentSummary = `
+
+The user may upload BOTH text files and images.
+
+You MUST analyze ALL uploaded content together.
+
+If images are uploaded:
+- Analyze every image individually.
+- Compare images when appropriate.
+
+If text files are uploaded:
+- Read every file.
+- Extract important information.
+
+If BOTH images and files exist:
+- Combine information from BOTH.
+- Relate file contents to the uploaded images.
+- Never ignore either one.
+- Produce one combined report.
+
+`;
+
+const finalPrompt = `
+
+${attachmentSummary}
+
+${
+uploadedAttachments.some(file => file.type === "image")
+? `
+One or more astronomical images were uploaded.
+
+Analyze EVERY uploaded image individually.
+
+If text files are also uploaded:
+
+- Read every uploaded file.
+- Correlate every image with every uploaded file.
+- Never ignore uploaded images.
+- Never ignore uploaded files.
+- Produce one combined report.
+
+Also analyze:
+
+- celestial objects
+- stars
+- galaxies
+- planets
+- nebulae
+- image quality
+- blur
+- noise
+- astrophotography quality
+- possible telescope capture details
+- image sharpness
+- exposure balance
+- contrast quality
+- possible atmospheric distortion
+- possible telescope or camera type
+
+Give a dedicated astrophotography analysis section.
+`
+: ""
+}
+
+Saved User Memory:
+
+${loadAllMemories()}
+
+Relevant Memories:
+
+${relatedMemories || "None"}
+
+${userInterestProfile}
+
+${astroSystemPrompt}
+
+${contextPrompt}
+
+${objectPrompt}
+
+${telescopeAdvice}
+
+${relatedConcepts}
+
+${proactiveInsights}
+
+${
+researchMode ||
+autoResearchMode
+? `
+Use advanced astrophysics,
+scientific terminology,
+equations,
+deep theoretical explanations,
+and research-level discussion.
+`
+: ""
+}
+
+Provide a scientifically accurate and well-structured response.
+
+The response length MUST follow the user's selected Response Length setting.
+
+If the setting is SHORT:
+- Keep the reply under 120 words.
+- Use no headings.
+- Use no bullet points unless absolutely necessary.
+
+If the setting is MEDIUM:
+- Keep the reply around 250-500 words.
+- Use headings only when useful.
+
+If the setting is DETAILED:
+- Provide a comprehensive explanation.
+- Use Markdown headings.
+- Use bullet points, tables, examples, and scientific reasoning where appropriate.
+
+If the user asks for comparisons:
+- Use comparison tables or structured bullet points.
+
+If images are uploaded:
+- Analyze each image carefully.
+- Mention notable astronomical objects, image quality, possible equipment, and observational details.
+
+If files are uploaded:
+- Read every uploaded file carefully.
+- Extract important information.
+- Summarize key findings.
+
+If both images and files are uploaded:
+- Correlate information from all uploaded content.
+- Produce one combined analysis.
+- Never ignore any uploaded content.
+
+When appropriate:
+- Expand into related astronomy concepts.
+- Suggest observational tips.
+- Mention telescope suitability.
+- Mention astrophotography advice.
+- Mention scientific implications.
+
+Use proper Markdown headings, bullet points, tables, and equations where useful.
+
+Avoid unnecessary repetition.
+
+Keep the response engaging, educational, scientifically accurate, and well structured.
+`;
+
+const responseLength =
+localStorage.getItem("responseLength")
+|| "medium";
+
+const defaultAISettings = {
+    responseLength: "medium",
+    creativity: "balanced"
+};
+
+const creativity =
+localStorage.getItem("creativity")
+|| "balanced";
+
+let creativityInstruction = "";
+
+switch (localStorage.getItem("creativity") || "balanced") {
+
+case "precise":
+
+creativityInstruction = `
+You are an expert astronomy scientist.
+
+Always:
+- Be concise and factual.
+- Avoid storytelling.
+- Avoid unnecessary analogies.
+- Use precise scientific terminology.
+- Focus on accuracy over style.
+`;
+
+break;
+
+case "balanced":
+
+creativityInstruction = `
+You are a friendly astronomy educator.
+
+Always:
+- Explain concepts clearly.
+- Use simple language.
+- Give examples when helpful.
+- Keep the answer engaging.
+- Maintain scientific accuracy.
+`;
+
+break;
+
+case "creative":
+
+creativityInstruction = `
+You are an inspiring astronomy educator like Carl Sagan or Neil deGrasse Tyson.
+
+Instead of sounding like a textbook:
+
+- Start with an engaging hook.
+- Explain concepts through storytelling.
+- Use vivid analogies.
+- Create curiosity and wonder.
+- Help the reader visualize space.
+- Speak naturally as if talking to a curious person.
+- Avoid sounding robotic.
+- Avoid unnecessary headings unless the user requests them.
+- Use memorable examples from space.
+- End with an interesting fact or question whenever appropriate.
+
+- Do not sound like a textbook.
+- Write as if you are talking directly to the user.
+- Use headings only when they genuinely improve readability.
+- Begin with a surprising question or an imaginative scenario instead of a definition.
+
+- Keep every scientific fact accurate.
+`;
+
+break;
+
+}
+
+let responseInstruction = "";
+
+switch(responseLength){
+
+case "short":
+
+responseInstruction = `
+IMPORTANT:
+Reply in a maximum of 5 short sentences.
+Do NOT use headings.
+Do NOT use bullet points.
+Keep the answer under 120 words.
+`;
+
+break;
+
+case "medium":
+
+responseInstruction = `
+Provide a balanced explanation.
+Keep the answer around 250-500 words.
+Use headings only if needed.
+`;
+
+break;
+
+case "long":
+
+responseInstruction = `
+Provide a comprehensive explanation.
+Use Markdown headings.
+Use tables where appropriate.
+Explain concepts step by step.
+Include scientific reasoning and examples.
+`;
+
+break;
+
+}
+
+const memoryContext = buildMemoryContext(question);
+
+const finalUserPrompt = `
+
+Relevant User Memory:
+
+${memoryContext || "None"}
+
+${finalPrompt}
+
+`;
+      const endpoint = useCloud
+? "https://astro-exp-seven.vercel.app/api/chat"
+: "https://openrouter.ai/api/v1/chat/completions";
+
+const headers = useCloud
+
+?{
+
+    "Content-Type":"application/json"
+
+}
+
+:{
+
+    "Authorization":
+
+    "Bearer " +
+
+    localStorage.getItem("OPENROUTER_API_KEY"),
+
+    "Content-Type":"application/json",
+
+    "HTTP-Referer":location.origin,
+
+    "X-Title":"Astro AI"
+
+};
+let temperature = 0.8;
+
+switch(localStorage.getItem("creativity")){
+
+case "precise":
+temperature = 0.2;
+break;
+
+case "balanced":
+temperature = 0.7;
+break;
+
+case "creative":
+temperature = 1.0;
+break;
+
+}
+
+console.log("===== MAIN CHAT =====");
+console.log("Endpoint:", endpoint);
+console.log("useCloud:", useCloud);
+
+const response = await fetch(endpoint,{
+
+    method:"POST",
+
+    headers,
+
+    body:JSON.stringify({
+
+        model:"openai/gpt-4o-mini",
+
+       messages:[
+
+    {
+        role:"system",
+        content:`
+${creativityInstruction}
+
+${responseInstruction}
+`
+    },
+
+    {
+        role:"user",
+        content:[
+
+            {
+                type:"text",
+                text:finalUserPrompt
+            },
+
+            {
+                type:"text",
+                text:attachmentPrompt
+            },
+
+            ...uploadedAttachments
+            .filter(f=>f.type==="image")
+            .map(f=>({
+                type:"image_url",
+                image_url:{
+                    url:f.data
+                }
+            }))
+
+        ]
+    }
+
+],
+
+        temperature,
+        max_tokens:3000
+
+    })
+
+});
+
+      console.log("Status:", response.status);
+console.log("OK:", response.ok);
+
+const raw = await response.clone().text();
+console.log("RAW RESPONSE:");
+console.log(raw);
+
+      const data =
+        await response.json();
+
+      
+
+
+
+      let reply =
+        "No response.";
+
+      if (data.error) {
+
+        reply =
+          "API Error: " +
+          data.error.message;
+      }
+
+      else if (
+        data.choices &&
+        data.choices.length > 0
+      ) {
+
+        reply =
+
+          data.choices[0]
+          .message.content;
+      }
+      // 🔥 Remove accidental Base64 image output
+if (
+    reply.includes("data:image") ||
+    /^[A-Za-z0-9+/=\s]{5000,}$/.test(reply.replace(/\s/g, ""))
+) {
+
+    reply = "🖼️ Image analyzed successfully.";
+}
+
+      updateLastTopic(question);
+      conversationObjects.push({
+
+  question,
+
+  object:
+    currentAIObject?.name ||
+
+    "Unknown",
+
+  time:
+    new Date().toISOString()
+});
+      removeThinkingLoader(loader);
+
+await typeAIMessage(reply);
+
+if (pendingMemory) {
+
+    pendingStructuredMemory =
+        extractStructuredMemory(pendingMemory);
+
+    showMemorySuggestion(
+        pendingStructuredMemory
+    );
+
+    pendingMemory = null;
+
+}
+
+
+
+
+
+
+saveMessage("Astro AI", reply);
+
+saveMessage("Astro AI", reply);
+
+generateConversationTitle(
+question,
+reply
+);
+
+attachments = [];
+renderAttachments();
+      const cleanReply =
+
+  reply.replace(/[#*`>-]/g, "");
+
+//speakResponse(cleanReply);
+    }
+
+    catch(err) {
+
+      console.log(err);
+
+      addAIMessage(
+
+        "AI request failed.",
+
+        "Astro AI"
+      );
+    }
+});
+
+
+const attachBtn =
+document.getElementById("attach-btn");
+
+const attachMenu =
+document.getElementById("attach-menu");
+
+attachBtn.onclick=()=>{
+
+attachMenu.classList.toggle("show");
+
+};
+
+document
+.getElementById("image-option")
+.onclick=()=>{
+
+const input=
+document.getElementById("astro-image");
+
+input.accept="image/*";
+
+input.click();
+
+attachMenu.classList.remove("show");
+
+};
+
+document
+.getElementById("file-option")
+.onclick=()=>{
+
+const input=
+document.getElementById("astro-image");
+
+input.accept=".pdf,.txt,.doc,.docx,.js,.html,.css,.json,.md,.py,.java,.cpp,.c,.zip,.rar";
+
+input.click();
+
+attachMenu.classList.remove("show");
+
+};
+document.getElementById("memory-filter")
+?.addEventListener("change", () => {
+
+    renderMemoryList();
+
+});
+
+document.getElementById("memory-search")
+?.addEventListener("input", () => {
+
+    renderMemoryList();
+
+});
+
+
+document
+.getElementById("observation-option")
+.onclick=()=>{
+
+alert("Coming Soon 🔭");
+
+attachMenu.classList.remove("show");
+
+};
+
+document
+.getElementById("research-option")
+.onclick = () => {
+
+if (researchMode) {
+
+  addAIMessage(
+    "Research mode disabled 😄🔥",
+    "Astro AI"
+  );
+
+  researchMode = false;
+
+}
+
+else {
+
+  addAIMessage(
+    "Research mode enabled 🧠😈🔥",
+    "Astro AI"
+  );
+
+  researchMode = true;
+
+}
+
+attachMenu.classList.remove("show");
+
+};
+
+document.onclick=(e)=>{
+
+if(
+!attachMenu.contains(e.target)
+&&
+e.target!==attachBtn
+){
+
+attachMenu.classList.remove("show");
+
+}
+
+};
+
+// ================= EDIT MEMORY OUTSIDE CLICK =================
+
+document
+.getElementById("edit-memory-overlay")
+?.addEventListener("click", e => {
+
+    if (e.target.id === "edit-memory-overlay") {
+
+        document
+        .getElementById("edit-memory-overlay")
+        .classList.remove("show");
+
+        editingMemory = null;
+
+    }
+
+});
+
+// ================= CHAT HISTORY OUTSIDE CLICK =================
+
+document
+.getElementById("history-overlay")
+?.addEventListener("click", e => {
+
+    if (e.target.id === "history-overlay") {
+
+        document
+        .getElementById("history-overlay")
+        .style.display = "none";
+
+    }
+
+
+});
+compassScale =
+document.getElementById(
+"compassScale"
+);
+
+buildCompass();
+
+}); // 🔥 DOMContentLoaded END
+
+document
+.getElementById("cancel-edit-memory")
+?.addEventListener("click",()=>{
+
+document
+.getElementById("edit-memory-overlay")
+.classList.remove("show");
+
+editingMemory = null;
+
+});
+
+document
+.getElementById("save-edit-memory")
+?.addEventListener("click",()=>{
+
+if(!editingMemory) return;
+
+editingMemory.text =
+
+document
+.getElementById("edit-memory-text")
+.value
+.trim();
+
+editingMemory.updatedAt =
+
+new Date().toISOString();
+
+localStorage.setItem(
+
+"astroMemory",
+
+JSON.stringify(astroMemory)
+
+);
+
+saveCloudMemory();
+
+updateMemorySettings();
+
+renderMemoryList();
+
+document
+.getElementById("edit-memory-overlay")
+.classList.remove("show");
+
+editingMemory = null;
+
+});
+
+function addAIMessage(text, sender) {
+
+  const msg =
+    document.createElement("div");
+
+    msg.className = "message";
+
+    const width =
+localStorage.getItem("messageWidth")
+|| "85";
+
+msg.style.maxWidth =
+width + "%";
+
+msg.style.padding = "12px";
+
+const bubble =
+localStorage.getItem("bubbleStyle")
+|| "rounded";
+
+msg.style.borderRadius =
+
+bubble==="rounded"
+
+? "16px"
+
+: "4px";
+
+msg.style.margin = "10px";
+
+msg.style.lineHeight = "1.6";
+
+msg.style.wordWrap = "break-word";
+
+msg.style.whiteSpace = "normal";
+
+msg.style.boxShadow =
+  "0 0 10px rgba(0,0,0,0.3)";
+
+  msg.style.marginBottom = "10px";
+
+  if (sender === "You") {
+
+  msg.style.background =
+    "#2563eb";
+
+  msg.style.color =
+    "white";
+
+  msg.style.marginLeft =
+    "auto";
+
+  msg.style.marginWidth =
+    "30%";
+
+}
+
+else {
+
+  msg.style.background =
+    "#111827";
+
+  msg.style.color =
+    "#e5e7eb";
+
+  msg.style.border =
+    "1px solid #374151";
+
+  msg.style.marginRight =
+    "auto";
+}
+
+ msg.innerHTML = `
+<b>${sender}:</b>
+`;
+
+const content = document.createElement("div");
+
+if (text.trim().startsWith("<img")) {
+
+    content.innerHTML = text;
+
+} else {
+
+    content.innerHTML = marked.parse(text);
+
+}
+
+msg.appendChild(content);
+
+// 🔥 Sirf AI replies ke liye actions
+if (sender !== "You") {
+
+    const actions = document.createElement("div");
+
+    actions.className = "message-actions";
+
+    actions.innerHTML = `
+<button class="message-copy-btn">📋</button>
+<button class="speak-btn">🔊</button>
+<button class="like-btn">👍</button>
+<button class="dislike-btn">👎</button>
+<button class="regen-btn">🔄</button>
+`;
+
+    const copyBtn = actions.querySelector(".message-copy-btn");
+    const speakBtn = actions.querySelector(".speak-btn");
+    const likeBtn = actions.querySelector(".like-btn");
+    const dislikeBtn = actions.querySelector(".dislike-btn");
+    const regenBtn = actions.querySelector(".regen-btn");
+
+    copyBtn.onclick = async () => {
+
+        await navigator.clipboard.writeText(text);
+
+        copyBtn.textContent = "✅";
+
+        setTimeout(() => {
+
+            copyBtn.textContent = "📋";
+
+        }, 1000);
+
+    };
+
+    let speaking = false;
+
+speakBtn.onclick = () => {
+
+    if (!speaking) {
+
+        window.speechSynthesis.cancel();
+
+        const speech = new SpeechSynthesisUtterance(text);
+
+        speech.lang = "en-US";
+        speech.rate = 1;
+
+        speech.onend = () => {
+
+            speaking = false;
+            speakBtn.textContent = "🔊";
+
+        };
+
+        window.speechSynthesis.speak(speech);
+
+        speaking = true;
+        speakBtn.textContent = "⏹";
+
+    } else {
+
+        window.speechSynthesis.cancel();
+
+        speaking = false;
+
+        speakBtn.textContent = "🔊";
+
+    }
+
+};
+
+    
+
+    likeBtn.onclick = () => {
+
+    // Agar pehle se liked hai
+    if (likeBtn.classList.contains("active")) {
+
+        likeBtn.classList.remove("active");
+
+        likeBtn.style.color = "";
+
+        dislikeBtn.style.display = "inline-block";
+
+        return;
+    }
+
+    // Like ON
+    likeBtn.classList.add("active");
+
+    likeBtn.style.color = "#22d3ee";
+
+    dislikeBtn.style.display = "none";
+
+    showToast("👍 Thanks for your feedback");
+
+};
+
+   dislikeBtn.onclick = () => {
+
+    // Agar pehle se disliked hai
+    if (dislikeBtn.classList.contains("active")) {
+
+        dislikeBtn.classList.remove("active");
+
+        dislikeBtn.style.color = "";
+
+        likeBtn.style.display = "inline-block";
+
+        return;
+    }
+
+    // Dislike ON
+    dislikeBtn.classList.add("active");
+
+    dislikeBtn.style.color = "#ef4444";
+
+    likeBtn.style.display = "none";
+
+    showToast("👎 Thanks for your feedback");
+
+};
+
+    regenBtn.onclick = () => {
+
+    if (!lastQuestion) return;
+
+    document.getElementById("ai-input").value = lastQuestion;
+
+    document.getElementById("ai-send").click();
+
+};
+
+    // 🔥 Message ke niche buttons
+    msg.appendChild(actions);
+    
+
+
+
+}
+
+// 🔥 You message actions
+if(sender === "You"){
+
+const actions=document.createElement("div");
+
+actions.className="message-actions";
+
+actions.innerHTML=`
+<button class="select-btn">🔤</button>
+<button class="edit-btn">✏️</button>
+<button class="message-copy-btn">📋</button>
+`;
+
+const selectBtn=actions.querySelector(".select-btn");
+const editBtn=actions.querySelector(".edit-btn");
+const copyBtn=actions.querySelector(".message-copy-btn");
+
+copyBtn.onclick=async()=>{
+
+await navigator.clipboard.writeText(text);
+
+copyBtn.textContent="✅";
+
+setTimeout(()=>{
+
+copyBtn.textContent="📋";
+
+},1000);
+
+};
+
+selectBtn.onclick = () => {
+
+    content.contentEditable = "true";
+
+    content.focus();
+
+    showToast("Select any text you want");
+
+};
+
+content.addEventListener("blur", () => {
+
+    content.contentEditable = "false";
+
+});
+
+editBtn.onclick=()=>{
+
+const input=document.getElementById("ai-input");
+
+input.value=text;
+
+input.focus();
+
+input.setSelectionRange(text.length,text.length);
+
+};
+
+msg.appendChild(actions);
+
+
+
+}
+
+// 🔥 Sirf ek baar append karna hai
+document
+    .getElementById("ai-messages")
+    .appendChild(msg);
+}
+
+
+
+function formatHistoryDate(time){
+
+const d=new Date(time);
+
+const now=new Date();
+
+const today=new Date(
+now.getFullYear(),
+now.getMonth(),
+now.getDate()
+);
+
+const yesterday=new Date(today);
+
+yesterday.setDate(
+yesterday.getDate()-1
+);
+
+const target=new Date(
+d.getFullYear(),
+d.getMonth(),
+d.getDate()
+);
+
+if(target.getTime()===today.getTime()){
+
+return "Today • " +
+
+d.toLocaleTimeString([],{
+
+hour:"2-digit",
+
+minute:"2-digit"
+
+});
+
+}
+
+if(target.getTime()===yesterday.getTime()){
+
+return "Yesterday • " +
+
+d.toLocaleTimeString([],{
+
+hour:"2-digit",
+
+minute:"2-digit"
+
+});
+
+}
+
+return d.toLocaleDateString([],{
+
+day:"numeric",
+
+month:"short",
+
+year:"numeric"
+
+});
+
+}
+
+function isMemoryRequest(text){
+
+    const t = text.toLowerCase().trim();
+
+    return (
+
+        t.startsWith("remember:") ||
+
+        t.startsWith("save") ||
+
+        t.startsWith("store") ||
+
+        t.includes("yaad rakh") ||
+
+        t.includes("yaad rakhna") ||
+
+        t.includes("remember me") ||
+
+        t.includes("memory me") ||
+
+        t.includes("memory mein") ||
+
+        t.includes("add to memory") ||
+
+        t.includes("save this") ||
+
+        t.includes("remember this")
+
+    );
+
+}
+
+function shouldSuggestMemory(text){
+
+    const structured = extractStructuredMemory(text);
+
+    return structured.category.toLowerCase() !== "general";
+
+}
+
+function extractMemory(text){
+
+let memory = text.trim();
+
+const removePatterns = [
+
+/^remember\s*:?\s*/i,
+/^remember this\s*/i,
+/^remember that\s*/i,
+/^save this\s*/i,
+/^save it\s*/i,
+/^add to memory\s*/i,
+/^store this\s*/i,
+
+/^yaad rakhna\s*/i,
+/^yaad rakh\s*/i,
+/^yaad rakh lena\s*/i,
+
+/^apni memory me add kar lo\s*/i,
+/^apni memory mein add kar lo\s*/i,
+/^memory me add kar lo\s*/i,
+/^memory mein add kar lo\s*/i,
+
+/^save kar lo\s*/i,
+/^note kar lo\s*/i
+
+];
+
+removePatterns.forEach(pattern=>{
+
+memory = memory.replace(pattern,"");
+
+});
+
+return memory.trim();
+
+}
+
+function showToast(message){
+
+const toast =
+document.getElementById("toast");
+
+toast.innerText = message;
+
+toast.classList.add("show");
+
+clearTimeout(toast.timer);
+
+toast.timer = setTimeout(()=>{
+
+toast.classList.remove("show");
+
+},2000);
+
+}
+
+function clearChatUI(){
+
+const container =
+document.getElementById("ai-messages");
+
+if(container){
+
+container.innerHTML = "";
+
+}
+}
+
+
+
+
+
+
+
+const SpeechRecognition =
+  window.SpeechRecognition ||
+  window.webkitSpeechRecognition;
+
+let recognition = null;
+
+
+// 🎤 SPEECH RECOGNITION SETUP
+if (SpeechRecognition) {
+
+  recognition =
+    new SpeechRecognition();
+
+  recognition.lang = "en-US";
+
+  recognition.continuous = false;
+
+  recognition.interimResults = false;
+
+
+  // 🎤 VOICE BUTTON
+  document
+    .getElementById("voice-btn")
+    .addEventListener("click", () => {
+
+      if (!recognition) {
+
+        alert(
+          "Speech recognition not supported 😭"
+        );
+
+        return;
+      }
+
+      recognition.stop();
+
+      recognition.start();
+
+      addAIMessage(
+
+        "Listening... 🎤😮🔥",
+
+        "Astro AI"
+      );
+    });
+
+
+  // 🎤 VOICE RESULT
+  recognition.onresult = (event) => {
+
+    const transcript =
+
+      event.results[0][0].transcript;
+
+    document
+      .getElementById("ai-input")
+      .value = transcript;
+  };
+
+} // 🔥 END SpeechRecognition setup
+
+
+
+// 🔊 AI VOICE NARRATION
+function speakResponse(text) {
+
+  window.speechSynthesis.cancel();
+
+  const speech =
+    new SpeechSynthesisUtterance(
+      text
+    );
+
+  speech.lang = "en-US";
+
+  speech.rate = 1;
+
+  speech.pitch = 1;
+
+  speech.volume = 1;
+
+  speech.onstart = () => {
+
+    console.log(
+      "Speaking..."
+    );
+  };
+
+  speech.onerror = (e) => {
+
+    console.log(
+      "Speech error:",
+      e
+    );
+  };
+
+  window.speechSynthesis.speak(
+    speech
+  );
+}
+
+
+
+// 🖼️ IMAGE UPLOAD PREVIEW
+
+
+document
+  .getElementById("astro-image")
+  .addEventListener("change", e => {
+
+    const files = Array.from(e.target.files);
+
+if (files.length === 0)
+    return;
+    
+    files.forEach(file=>{
+
+      saveFileMemory(file);
+
+      
+
+const reader=
+new FileReader();
+
+    // 🖼️ IMAGE FILE
+    if (
+      file.type.startsWith(
+        "image/"
+      )
+    ) {
+
+      
+
+      reader.onload = () => {
+
+    
+
+    attachments.push({
+
+type:"image",
+
+name:file.name,
+
+data:reader.result
+
+});
+
+renderAttachments();
+
+        
+      };
+
+      reader.readAsDataURL(
+        file
+      );
+    }
+
+    // 📄 TEXT / CODE FILE
+    else {
+
+      
+
+      reader.onload = () => {
+
+   
+
+    attachments.push({
+
+type:"file",
+
+name:file.name,
+
+data:reader.result
+
+});
+
+renderAttachments();
+
+        
+      };
+
+      reader.readAsText(file);
+    }
+
+    });
+    
+
+    e.target.value = "";
+});
+function searchMemories(query) {
+
+    if (!astroMemory.memories)
+        return [];
+
+    const words = query
+        .toLowerCase()
+        .replace(/[^\w\s]/g, "")
+        .split(/\s+/)
+        .filter(w =>
+            w.length > 2 &&
+            ![
+                "what",
+                "which",
+                "where",
+                "when",
+                "who",
+                "why",
+                "how",
+                "is",
+                "are",
+                "the",
+                "a",
+                "an",
+                "my",
+                "me",
+                "tell",
+                "about"
+            ].includes(w)
+        );
+
+    return astroMemory.memories.filter(memory => {
+
+        const text = memory.text.toLowerCase();
+
+        return words.some(word => text.includes(word));
+
+    });
+
+}
+function addCopyButtons() {
+
+  document
+    .querySelectorAll("pre")
+    .forEach(pre => {
+
+      // already added
+      if (
+        pre.querySelector(
+          ".copy-btn"
+        )
+      ) return;
+
+      const btn =
+        document.createElement(
+          "button"
+        );
+
+      btn.innerText =
+        "Copy";
+
+      btn.className =
+        "code-copy-btn";
+
+      btn.onclick = () => {
+
+        navigator.clipboard.writeText(
+
+          pre.innerText
+        );
+
+        btn.innerText =
+          "Copied 😮🔥";
+
+        setTimeout(() => {
+
+          btn.innerText =
+            "Copy";
+
+        }, 2000);
+      };
+
+      pre.appendChild(btn);
+    });
+}
+document
+  .getElementById("google-login")
+  .addEventListener("click", async () => {
+
+  try {
+
+    const result =
+
+      await signInWithPopup(
+
+        auth,
+        provider
+      );
+
+    const user =
+      result.user;
+
+      const profilePic =
+document.getElementById("profile-pic");
+
+profilePic.src =
+user.photoURL;
+
+profilePic.src =
+user.photoURL ||
+"https://ui-avatars.com/api/?name=User&background=333&color=fff";
+
+profilePic.style.display = "block";
+
+document.getElementById("profile-name").innerText =
+user.displayName;
+
+document.getElementById("profile-email").innerText =
+user.email;
+
+document.getElementById("google-login").style.display =
+"none";
+
+document.getElementById("logout-menu-btn").style.display =
+"block";
+
+
+
+    addAIMessage(
+
+`
+Logged in 😈🔥
+
+Welcome:
+${user.displayName}
+`,
+
+      "Astro AI"
+    );
+
+  }
+
+  catch(err) {
+
+    console.log(err);
+  }
+});
+
+
+const oldLogoutBtn = document.getElementById("logout-btn");
+
+if (oldLogoutBtn) {
+  oldLogoutBtn.addEventListener("click", async () => {
+    await signOut(auth);
+
+    addAIMessage(
+      "Logged out 😭🔥",
+      "Astro AI"
+    );
+  });
+}
+document
+.getElementById("profile-pic")
+.addEventListener("click",()=>{
+
+document
+.getElementById("profile-menu")
+.classList.toggle("show");
+
+});
+
+document
+.getElementById("logout-menu-btn")
+.addEventListener("click",async()=>{
+
+await signOut(auth);
+
+});
+
+console.log("Window Auth:", typeof window.onAuthStateChanged);
+console.log("Window auth:", typeof window.auth);
+
+window.onAuthStateChanged(window.auth, async user => {
+
+  if (user) {
+
+ const profilePic =
+document.getElementById("profile-pic");
+
+profilePic.src =
+user.photoURL ||
+"https://ui-avatars.com/api/?name=User&background=333&color=fff";
+
+profilePic.style.display =
+"block";
+
+document.getElementById("profile-name").innerText =
+user.displayName;
+
+document.getElementById("profile-email").innerText =
+user.email;
+
+// New profile menu buttons
+document.getElementById("google-login").style.display =
+"none";
+
+document.getElementById("logout-menu-btn").style.display =
+"block";
+
+  // ✅ Pehle current user set karo
+  window.currentUser = user;
+
+  updateAccountSettings();
+
+  await loadCloudMemory();
+
+  // ✅ Sirf ek baar conversations load karo
+  await loadConversations();
+
+  if (!currentConversationId) {
+
+    await createNewConversation(
+      "New Astronomy Chat"
+    );
+
+  }
+
+
+
+ /*addAIMessage(
+
+`
+Welcome back 😈🔥
+
+${user.displayName}
+`,
+
+    "Astro AI"
+  );*/
+
+  
+
+}
+
+else {
+
+document.getElementById("profile-pic").style.display =
+"block";
+
+document.getElementById("profile-pic").src =
+"https://ui-avatars.com/api/?name=User&background=333&color=fff";
+
+document.getElementById("profile-menu")
+.classList.remove("show");
+
+document.getElementById("google-login").style.display =
+"block";
+
+document.getElementById("logout-menu-btn").style.display =
+"none";
+
+document.getElementById("profile-name").innerText =
+"";
+
+document.getElementById("profile-email").innerText =
+"";
+
+window.currentUser = null;
+
+updateAccountSettings();
+const profilePic = document.getElementById("profile-pic");
+const profileMenu = document.getElementById("profile-menu");
+const profileName = document.getElementById("profile-name");
+const profileEmail = document.getElementById("profile-email");
+
+const googleLogin =
+document.getElementById("google-login");
+
+const logoutBtn =
+document.getElementById("logout-menu-btn");
+
+
+}
+
+document
+  .getElementById(
+    "new-chat-settings"
+  )
+  .addEventListener(
+    "click",
+
+async () => {
+
+  await createNewConversation(
+    "New Astronomy Chat"
+  );
+
+  document
+    .getElementById(
+      "attach-btn"
+    )
+    .onclick = () => {
+
+      document
+        .getElementById(
+          "astro-image"
+        )
+        .click();
+
+    };
+
+});
+});
+
+document.getElementById("profile-pic").style.display =
+"block";
+
+document.getElementById("profile-pic").src =
+"https://ui-avatars.com/api/?name=User&background=333&color=fff";
+
+document.getElementById("profile-menu")
+.classList.remove("show");
+
+document.getElementById("google-login").style.display =
+"block";
+
+document.getElementById("logout-menu-btn").style.display =
+"none";
+
+async function saveCloudMemory() {
+
+  if (!window.currentUser)
+    return;
+
+  await setDoc(
+
+    doc(
+      db,
+      "memories",
+      window.currentUser.uid
+    ),
+
+    {
+
+      memories: astroMemory.memories || [],
+
+      theories: astroMemory.theories || [],
+
+      observations: astroMemory.observations || [],
+
+      telescopeSessions: astroMemory.telescopeSessions || [],
+
+      files: astroMemory.files || []
+
+    }
+
+  );
+
+}
+async function loadCloudMemory() {
+
+  if (!window.currentUser)
+    return;
+
+  const docRef = doc(
+    db,
+    "memories",
+    window.currentUser.uid
+  );
+
+  const snap = await getDoc(docRef);
+
+  if (snap.exists()) {
+
+    const data = snap.data();
+
+    astroMemory = {
+
+      memories:
+        data.memories || [],
+
+      theories:
+        data.theories || [],
+
+      observations:
+        data.observations || [],
+
+      telescopeSessions:
+        data.telescopeSessions || [],
+
+      files:
+        data.files || []
+
+    };
+
+    localStorage.setItem(
+      "astroMemory",
+      JSON.stringify(astroMemory)
+    );
+
+  }
+
+  updateGeneralSettings();
+  updateMemorySettings();
+  renderMemoryList();
+  updateAccountSettings();
+
+}
+
+
+window.loadChatHistory =
+async function() {
+
+  if (!window.currentUser)
+    return;
+
+  try {
+
+    const ref = doc(
+      db,
+      "users",
+      window.currentUser.uid
+    );
+
+    const snap =
+      await getDoc(ref);
+
+    if (!snap.exists())
+      return;
+
+    const chats =
+      snap.data().chatHistory || [];
+
+    chats.forEach(chat => {
+
+      addAIMessage(
+
+        chat.text,
+
+        chat.sender
+
+      );
+
+    });
+
+    console.log(
+      "History loaded 😈🔥"
+    );
+
+  }
+
+  catch(err) {
+
+    console.log(err);
+
+  }
+
+  
+};
+
+function renderCurrentConversation() {
+
+
+  const container =
+    document.getElementById(
+      "ai-messages"
+    );
+
+  container.innerHTML = "";
+
+  const convo =
+    conversations.find(
+
+      c =>
+        c.id ===
+        currentConversationId
+    );
+
+  if (!convo)
+    return;
+
+  convo.messages.forEach(msg => {
+
+    addAIMessage(
+
+      msg.text,
+
+      msg.sender
+    );
+  });
+}
+
+
+
+
+console.log("BEFORE renderConversationList");
+function renderConversationList() {
+
+  console.log("INSIDE renderConversationList");
+
+  const list =
+document.getElementById("history-list");
+
+  list.innerHTML = "";
+
+  conversations.forEach(convo => {
+
+    const item =
+      document.createElement("div");
+
+    item.className =
+      "conversation-item";
+
+    item.innerText =
+      convo.title;
+
+      item.style.cursor =
+  "pointer";
+
+item.style.padding =
+  "10px";
+
+item.style.marginBottom =
+  "10px";
+
+item.style.background =
+  "#111827";
+
+item.style.color =
+  "white";
+
+item.style.borderRadius =
+  "10px";
+
+    item.onclick = () => {
+
+      currentConversationId =
+        convo.id;
+
+      renderCurrentConversation();
+    };
+
+    list.appendChild(item);
+  });
+}
+
+function showThinkingLoader() {
+
+  const loader =
+    document.createElement("div");
+
+    loader.style.maxWidth = "85%";
+
+loader.style.padding = "12px";
+
+loader.style.borderRadius = "16px";
+
+loader.style.margin = "10px";
+
+loader.style.background =
+  "#1f2937";
+
+loader.style.color =
+  "#f9fafb";
+
+loader.style.border =
+  "1px solid #374151";
+
+loader.style.boxShadow =
+  "0 0 10px rgba(0,0,0,0.3)";
+
+  loader.id = "astro-loader";
+
+  loader.style.marginBottom = "10px";
+
+  loader.innerHTML = `
+
+    <b>Astro AI:</b>
+
+    <span id="loader-text">
+      Analyzing astronomical data 🌌
+    </span>
+  `;
+
+  document
+    .getElementById("ai-messages")
+    .appendChild(loader);
+
+  // 🔥 animated text
+  const texts = [
+
+    "Analyzing astronomical data 🌌",
+
+    "Generating scientific explanation 🔭",
+
+    "Processing cosmic information ✨",
+
+    "Preparing detailed response 🚀"
+  ];
+
+  let index = 0;
+
+  loader.interval = setInterval(() => {
+
+    index =
+      (index + 1) % texts.length;
+
+    const span =
+      document.getElementById(
+        "loader-text"
+      );
+
+    if (span) {
+      span.innerText =
+        texts[index];
+    }
+
+  }, 1500);
+
+  return loader;
+}
+
+function removeThinkingLoader(loader) {
+
+  if (!loader) return;
+
+  clearInterval(loader.interval);
+
+  loader.remove();
+}
+
+async function typeAIMessage(text) {
+
+  const msg =
+    document.createElement("div");
+
+    const width =
+localStorage.getItem("messageWidth")
+|| "85";
+
+msg.style.maxWidth =
+width + "%";
+
+msg.style.padding = "12px";
+
+const bubble =
+localStorage.getItem("bubbleStyle")
+|| "rounded";
+
+msg.style.borderRadius =
+
+bubble==="rounded"
+
+? "16px"
+
+: "4px";
+
+msg.style.margin = "10px";
+
+msg.style.lineHeight = "1.6";
+
+msg.style.wordWrap = "break-word";
+
+msg.style.whiteSpace = "normal";
+
+msg.style.background =
+  "#111827";
+
+msg.style.color =
+  "#e5e7eb";
+
+msg.style.border =
+  "1px solid #374151";
+
+msg.style.marginRight =
+  "auto";
+
+msg.style.boxShadow =
+  "0 0 10px rgba(0,0,0,0.3)";
+
+  msg.style.marginBottom = "10px";
+
+  msg.innerHTML = `
+    <b>Astro AI:</b>
+    <span class="typing-text"></span>
+  `;
+
+  document
+    .getElementById("ai-messages")
+    .appendChild(msg);
+
+  const span =
+    msg.querySelector(".typing-text");
+
+  let i = 0;
+
+  while (i < text.length) {
+
+    const char = text.charAt(i);
+
+    // 🔥 preserve line breaks
+    if (char === "\n") {
+      span.innerHTML += "<br>";
+    }
+
+    else {
+      span.innerHTML += char;
+    }
+
+    i++;
+
+    // 🔥 auto scroll
+    const container =
+      document.getElementById("ai-messages");
+
+    container.scrollTop =
+      container.scrollHeight;
+
+    const animations =
+JSON.parse(
+    localStorage.getItem("animations")
+    ?? "true"
+);
+
+if(animations){
+
+    await new Promise(r =>
+        setTimeout(r,8)
+    );
+
+}
+  }
+
+  span.innerHTML =
+  marked.parse(text);
+
+renderMathInElement(span, {
+
+  
+  delimiters: [
+
+    {
+      left: "$$",
+      right: "$$",
+      display: true
+    },
+
+    {
+      left: "$",
+      right: "$",
+      display: false
+    },
+
+    {
+      left: "\\[",
+      right: "\\]",
+      display: true
+    },
+
+    {
+      left: "\\(",
+      right: "\\)",
+      display: false
+    }
+  ]
+});
+
+saveMessage(
+  "Astro AI",
+  text
+);
+addCopyButtons();
+
+  span.classList.remove(
+  "typing-text"
+
+  
+  
+);
+
+// 🔥 AI message actions
+const actions = document.createElement("div");
+
+actions.className = "message-actions";
+
+actions.innerHTML = `
+<button class="message-copy-btn">📋</button>
+<button class="speak-btn">🔊</button>
+<button class="like-btn">👍</button>
+<button class="dislike-btn">👎</button>
+<button class="regen-btn">🔄</button>
+`;
+
+msg.appendChild(actions);
+
+const copyBtn = actions.querySelector(".message-copy-btn");
+const speakBtn = actions.querySelector(".speak-btn");
+const likeBtn = actions.querySelector(".like-btn");
+const dislikeBtn = actions.querySelector(".dislike-btn");
+const regenBtn = actions.querySelector(".regen-btn");
+
+copyBtn.onclick = async () => {
+
+    await navigator.clipboard.writeText(text);
+
+    copyBtn.textContent = "✅";
+
+    setTimeout(() => {
+
+        copyBtn.textContent = "📋";
+
+    },1000);
+
+};
+
+let speaking = false;
+
+speakBtn.onclick = () => {
+
+    if (!speaking) {
+
+        window.speechSynthesis.cancel();
+
+        const speech = new SpeechSynthesisUtterance(text);
+
+        speech.lang = "en-US";
+        speech.rate = 1;
+
+        speech.onend = () => {
+
+            speaking = false;
+            speakBtn.textContent = "🔊";
+
+        };
+
+        window.speechSynthesis.speak(speech);
+
+        speaking = true;
+        speakBtn.textContent = "⏹";
+
+    } else {
+
+        window.speechSynthesis.cancel();
+
+        speaking = false;
+
+        speakBtn.textContent = "🔊";
+
+    }
+
+};
+
+likeBtn.onclick = () => {
+
+    // Agar pehle se liked hai
+    if (likeBtn.classList.contains("active")) {
+
+        likeBtn.classList.remove("active");
+
+        likeBtn.style.color = "";
+
+        dislikeBtn.style.display = "inline-block";
+
+        return;
+    }
+
+    // Like ON
+    likeBtn.classList.add("active");
+
+    likeBtn.style.color = "#22d3ee";
+
+    dislikeBtn.style.display = "none";
+
+    showToast("👍 Thanks for your feedback");
+
+};
+
+dislikeBtn.onclick = () => {
+
+    // Agar pehle se disliked hai
+    if (dislikeBtn.classList.contains("active")) {
+
+        dislikeBtn.classList.remove("active");
+
+        dislikeBtn.style.color = "";
+
+        likeBtn.style.display = "inline-block";
+
+        return;
+    }
+
+    // Dislike ON
+    dislikeBtn.classList.add("active");
+
+    dislikeBtn.style.color = "#ef4444";
+
+    likeBtn.style.display = "none";
+
+    showToast("👎 Thanks for your feedback");
+
+};
+
+regenBtn.onclick = () => {
+
+    if (!lastQuestion) return;
+
+    document.getElementById("ai-input").value = lastQuestion;
+
+    document.getElementById("ai-send").click();
+
+};
+}
+
+
+
+
+
+
+async function loadConversations({ openFirst = false } = {}) {
+  if (!window.currentUser) return;
+
+  try {
+    const ref = collection(db, "users", window.currentUser.uid, "conversations");
+    const snap = await getDocs(ref);
+
+    conversations = [];
+    snap.forEach(docSnap => {
+      conversations.push({
+        id: docSnap.id,
+        ...docSnap.data()
+      });
+    });
+  
+
+    conversations.sort((a, b) => {
+      if ((a.pinned || false) !== (b.pinned || false)) {
+        return (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0);
+      }
+      return (b.updatedAt || 0) - (a.updatedAt || 0);
+    });
+
+    renderHistoryList(historySearch?.value?.toLowerCase() || "");
+
+    if (openFirst && conversations.length > 0) {
+      currentConversationId = conversations[0].id;
+      renderCurrentConversation();
+    }
+    updateGeneralSettings();
+  } catch (err) {
+    console.log(err);
+  }
+}
+
+async function createNewConversation(title = "New Chat") {
+  if (!window.currentUser) return;
+
+  const id = "conv_" + Date.now();
+  const convo = {
+    id,
+    title,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+    messages: [],
+    pinned: false
+  };
+
+  convo.messages.push({
+
+    sender: "Astro AI",
+
+    text: "Hello 🌌 I am Astro AI. Ask me anything about space.",
+
+    time: Date.now()
+
+});
+
+  currentConversationId = id;
+
+  await setDoc(
+    doc(db, "users", window.currentUser.uid, "conversations", id),
+    convo
+  );
+
+  conversations.unshift(convo);
+  clearChatUI();
+
+  addAIMessage(
+  "Hello 🌌 I am Astro AI. Ask me anything about space.",
+  "Astro AI"
+);
+  renderHistoryList(historySearch?.value?.toLowerCase() || "");
+  updateGeneralSettings();
+}
+
+async function openConversation(id) {
+
+  currentConversationId =
+    id;
+
+  clearChatUI();
+
+  const ref = doc(
+
+    db,
+
+    "users",
+
+    window.currentUser.uid,
+
+    "conversations",
+
+    id
+  );
+
+  const snap =
+    await getDoc(ref);
+
+  if (!snap.exists())
+    return;
+
+  const data =
+    snap.data();
+
+  const messages =
+    data.messages || [];
+
+  messages.forEach(msg => {
+
+    addAIMessage(
+
+      msg.text,
+
+      msg.sender
+    );
+  });
+}
+
+
+
+async function saveMessage(
+
+  sender,
+
+  text
+
+) {
+
+  if (!window.currentUser)
+    return;
+
+  if (!currentConversationId)
+    return;
+
+  const ref = doc(
+
+    db,
+
+    "users",
+
+    window.currentUser.uid,
+
+    "conversations",
+
+    currentConversationId
+  );
+
+  const snap =
+    await getDoc(ref);
+
+  if (!snap.exists())
+    return;
+
+  const data =
+    snap.data();
+
+  const messages =
+    data.messages || [];
+
+  messages.push({
+
+    sender,
+
+    text,
+
+    time:
+      Date.now()
+  });
+
+  await setDoc(ref, {
+
+    ...data,
+
+    updatedAt:
+      Date.now(),
+
+    messages
+
+  });
+
+  conversations = conversations.map(c => {
+
+  if (c.id === currentConversationId) {
+
+    return {
+
+      ...c,
+
+      updatedAt: Date.now(),
+
+      messages
+
+    };
+
+  }
+
+  return c;
+
+});
+
+await loadConversations();
+
+renderCurrentConversation();
+renderHistoryList();
+}
+
+async function generateConversationTitle(question, reply){
+
+if(!window.currentUser) return;
+
+if(!currentConversationId) return;
+
+try{
+
+const endpoint = useCloud
+? "https://astro-exp-seven.vercel.app/api/chat"
+: "https://openrouter.ai/api/v1/chat/completions";
+
+const headers = useCloud
+? {
+    "Content-Type": "application/json"
+}
+: {
+    "Authorization":
+    "Bearer " +
+    localStorage.getItem("OPENROUTER_API_KEY"),
+
+    "Content-Type":"application/json",
+
+    "HTTP-Referer":location.origin,
+
+    "X-Title":"Astro AI"
+};
+
+
+
+console.log("===== TITLE =====");
+console.log("Endpoint:", endpoint);
+console.log("useCloud:", useCloud);
+
+const response = await fetch(endpoint,{
+
+method:"POST",
+
+headers,
+
+body:JSON.stringify({
+
+model:"openai/gpt-4o-mini",
+
+messages: [
+
+{
+role:"system",
+content:`
+Generate a short conversation title.
+
+Rules:
+- Maximum 5 words.
+- Do not use quotes.
+- Do not use markdown.
+- Return only the title.
+`
+},
+
+{
+role:"user",
+content:`
+Question:
+${question}
+
+Assistant Reply:
+${reply}
+`
+}
+
+],
+
+temperature:0.2,
+
+max_tokens:20
+
+})
+
+});
+
+const data=await response.json();
+
+if(!data.choices) return;
+
+const title=
+data.choices[0].message.content.trim();
+
+const ref=doc(
+
+db,
+
+"users",
+
+window.currentUser.uid,
+
+"conversations",
+
+currentConversationId
+
+);
+
+const snap=await getDoc(ref);
+
+if(!snap.exists()) return;
+
+const convo=snap.data();
+
+if(convo.title!=="New Astronomy Chat") return;
+
+await setDoc(ref,{
+
+...convo,
+
+title,
+
+updatedAt:Date.now()
+
+});
+
+await loadConversations();
+
+renderHistoryList();
+
+}
+
+catch(err){
+
+console.log(err);
+
+}
+
+}
+
+
+
+
+
+document
+.getElementById("open-ai")
+.addEventListener("click",()=>{
+
+document.getElementById("ai-panel").style.display="flex";
+
+document.getElementById("open-ai").style.display="none";
+
+});
+
+document
+.getElementById("close-ai")
+.addEventListener("click",()=>{
+
+document.getElementById("ai-panel").style.display="none";
+
+document.getElementById("open-ai").style.display="block";
+
+});
+
+function showAPIKeyModal(){
+
+document.getElementById(
+"api-key-modal"
+).style.display="flex";
+
+}
+
+function hideAPIKeyModal(){
+
+document.getElementById(
+"api-key-modal"
+).style.display="none";
+
+}
+
+function updateAccountSettings(){
+
+const photo =
+document.getElementById("account-photo");
+
+const name =
+document.getElementById("account-name");
+
+const email =
+document.getElementById("account-email");
+
+const status =
+document.getElementById("account-status");
+
+if(window.currentUser){
+
+photo.src =
+window.currentUser.photoURL ||
+"https://ui-avatars.com/api/?name=User";
+
+name.textContent =
+window.currentUser.displayName ||
+"User";
+
+email.textContent =
+window.currentUser.email ||
+"";
+
+status.textContent =
+"🟢 Signed In";
+
+document.getElementById("account-type").textContent =
+"☁ Cloud Account";
+
+}
+
+else{
+
+photo.src =
+"https://ui-avatars.com/api/?name=Guest";
+
+name.textContent =
+"Guest User";
+
+email.textContent =
+"Not Signed In";
+
+status.textContent =
+"🔴 Signed Out";
+
+document.getElementById("account-type").textContent =
+"☁ Cloud Account";
+
+
+}
+
+}
+
+document.getElementById("manage-account-btn").onclick = () => {
+
+    document.getElementById("settings-overlay").style.display = "none";
+
+    setTimeout(() => {
+        document.getElementById("profile-menu").classList.add("show");
+    }, 100);
+
+};
+
+document
+.getElementById("sync-now-btn")
+.onclick=async()=>{
+
+await saveCloudMemory();
+
+document
+.getElementById("last-sync")
+.textContent =
+new Date().toLocaleString();
+
+showToast("☁ Cloud Synced");
+
+};
+
+document
+.getElementById("export-account-data")
+.onclick=()=>{
+
+document
+.getElementById("export-memory")
+?.click();
+
+};
+
+document
+.getElementById("import-account-data")
+.onclick=()=>{
+
+document
+.getElementById("import-account-file")
+.click();
+
+};
+
+document
+.getElementById("import-account-file")
+.onchange=e=>{
+
+const file=e.target.files[0];
+
+if(!file)return;
+
+const reader=
+new FileReader();
+
+reader.onload=()=>{
+
+astroMemory=
+JSON.parse(reader.result);
+
+localStorage.setItem(
+"astroMemory",
+JSON.stringify(astroMemory)
+);
+
+updateMemorySettings();
+renderMemoryList();
+showToast("📦 Data Imported");
+
+};
+
+reader.readAsText(file);
+
+};
+
+function updateGeneralSettings(){
+
+const conversationCount =
+document.getElementById("conversation-count");
+
+const memoryCount =
+document.getElementById("memory-count");
+
+const fileCount =
+document.getElementById("file-count");
+
+if(fileCount){
+
+    fileCount.textContent =
+    (astroMemory.files || []).length;
+
+}
+
+const aiStatus =
+document.getElementById("ai-status-general");
+
+const apiKey =
+localStorage.getItem("OPENROUTER_API_KEY");
+
+const aiConnected =
+
+useCloud
+
+?
+
+true
+
+:
+
+(apiKey && apiKey.trim() !== "");
+aiStatus.textContent =
+
+aiConnected
+
+?
+
+"🟢 Connected"
+
+:
+
+"🔴 Not Connected";
+
+if(conversationCount){
+
+conversationCount.textContent =
+conversations.length;
+
+}
+
+if(memoryCount){
+
+const totalMemories =
+(astroMemory.memories?.length || 0) +
+(astroMemory.theories?.length || 0) +
+(astroMemory.observations?.length || 0) +
+(astroMemory.telescopeSessions?.length || 0) +
+(astroMemory.files?.length || 0);
+
+memoryCount.textContent = totalMemories;
+
+}
+
+
+
+}
+
+document.getElementById("close-info-panel").addEventListener("click", () => {
+
+    document.getElementById("object-info-panel").style.display = "none";
+
+    if (marker) {
+        marker.remove();
+        marker = null;
+    }
+
+    if (searchHighlight) {
+
+    searchHighlight.remove();
+
+    searchHighlight = null;
+
+}
+
+    tracking = false;
+    currentTarget = null;
+
+    if (starLabel) {
+        starLabel.remove();
+        starLabel = null;
+    }
+
+    if (planetLabel) {
+        planetLabel.remove();
+        planetLabel = null;
+    }
+
+    if (dsoSearchLabel) {
+        dsoSearchLabel.remove();
+        dsoSearchLabel = null;
+    }
+
+    searchedObjectName = "";
+    selectedObject = null;
+    lastSelectedPlanet = null;
+
+    document.getElementById("searchBox").value = "";
+
+});
+/* ==========================================
+   ASTRO EXPLORER SETTINGS
+========================================== */
+
+/* ==========================================
+   ASTRO EXPLORER SETTINGS
+========================================== */
+
+const settingsOverlay = document.getElementById("settings-overlay");
+const openSettingsBtn = document.getElementById("open-settings");
+
+const closeSettingsBtn = document.getElementById("close-settings");
+console.log("Settings:", {
+  overlay: settingsOverlay,
+  open: openSettingsBtn,
+  close: closeSettingsBtn
+});
+const settingsTabs = document.querySelectorAll(".settings-tab");
+const settingsPages = document.querySelectorAll(".settings-page");
+
+console.log("SETTINGS INIT");
+
+if (settingsOverlay && openSettingsBtn && closeSettingsBtn) {
+
+    console.log("ATTACHING SETTINGS EVENTS");
+
+    openSettingsBtn.onclick = () => {
+
+        console.log("SETTINGS CLICKED");
+
+        settingsOverlay.style.display = "flex";
+
+    };
+
+    closeSettingsBtn.onclick = () => {
+
+        settingsOverlay.style.display = "none";
+
+    };
+
+
+
+  settingsOverlay.addEventListener("click", (e) => {
+    if (e.target === settingsOverlay) {
+      settingsOverlay.style.display = "none";
+    }
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (
+      e.key === "Escape" &&
+      settingsOverlay.style.display === "flex"
+    ) {
+      settingsOverlay.style.display = "none";
+    }
+  });
+
+  settingsTabs.forEach(tab => {
+
+    tab.addEventListener("click", () => {
+
+      settingsTabs.forEach(btn =>
+        btn.classList.remove("active")
+      );
+
+      settingsPages.forEach(page =>
+        page.classList.remove("active")
+      );
+
+      tab.classList.add("active");
+
+      const page = document.getElementById(
+        tab.dataset.page + "-page"
+      );
+
+      if (page) {
+    page.classList.add("active");
+}
+
+if (tab.dataset.page === "sky") {
+    initSkySettings();
+}
+
+    });
+
+  });
+
+}
+document.getElementById("environment-status").textContent =
+isLocal
+? "🟡 Local Development"
+: "🟢 Production";
+
+document.getElementById("firebase-status").textContent =
+window.db
+? "🟢 Connected"
+: "🔴 Offline";
+
+document.getElementById("database-status").textContent =
+window.db
+? "🟢 Online"
+: "🔴 Offline";
+
+document.getElementById("conversation-count").textContent =
+conversations.length;
+
+document.getElementById("memory-count").textContent =
+astroMemory.memories.length;
+
+document.getElementById("file-count").textContent =
+(astroMemory.files || []).length;
+
+document.getElementById("clear-cache-btn").onclick=()=>{
+
+if(!confirm(
+
+"Are you sure you want to clear the application cache?"
+
+)) return;
+
+localStorage.clear();
+
+showToast("🧹 Cache Cleared");
+
+location.reload();
+
+};
+
+document.getElementById("reset-settings-btn").onclick=()=>{
+
+if(!confirm("Reset all settings?"))
+return;
+
+localStorage.removeItem("astro_settings_consolidated");
+localStorage.removeItem("fontSize");
+localStorage.removeItem("accentColor");
+localStorage.removeItem("bubbleStyle");
+localStorage.removeItem("messageWidth");
+localStorage.removeItem("animations");
+localStorage.removeItem("responseLength");
+localStorage.removeItem("creativity");
+localStorage.removeItem("skySettings");
+
+AstroSettings.load();
+applyAppearanceSettings();
+applyAccentColor();
+applyAISettings();
+
+showToast("⚙ Settings Reset");
+setTimeout(() => location.reload(), 1000);
+
+};
+
+/* ==========================================
+   ASTRO AI SETTINGS - PHASE 2
+========================================== */
+
+const apiStatus =
+document.getElementById("api-status");
+
+const settingsApiKey =
+document.getElementById("settings-api-key");
+
+const changeApiKeyBtn =
+document.getElementById("change-api-key");
+
+const removeApiKeySettingsBtn =
+document.getElementById("remove-api-key-settings");
+
+const viewHistoryBtn =
+document.getElementById("view-chat-history");
+
+const newChatSettingsBtn =
+document.getElementById("new-chat-settings");
+
+const clearCurrentBtn =
+document.getElementById("clear-current-chat");
+
+const clearAllBtn =
+document.getElementById("clear-all-chat");
+
+
+// Load current API key
+
+const savedKey =
+localStorage.getItem("OPENROUTER_API_KEY");
+
+if(savedKey){
+
+settingsApiKey.value =
+"••••••••••••••••";
+
+apiStatus.textContent =
+"🟢 Connected";
+
+}else{
+
+apiStatus.textContent =
+"🔴 Not Connected";
+
+}
+
+
+// Change API Key
+
+changeApiKeyBtn?.addEventListener("click",()=>{
+
+showAPIKeyModal();
+
+});
+
+
+// Remove API Key
+
+removeApiKeySettingsBtn?.addEventListener("click",()=>{
+
+if(confirm("Remove saved API Key?")){
+
+localStorage.removeItem("OPENROUTER_API_KEY");
+updateGeneralSettings();
+
+settingsApiKey.value="";
+
+apiStatus.textContent=
+"🔴 Not Connected";
+
+showToast("API Key Removed");
+
+}
+
+});
+
+
+// View History
+
+viewHistoryBtn?.addEventListener("click",()=>{
+
+showToast("Chat History coming in Phase 2.2");
+
+});
+
+
+// New Chat
+
+newChatSettingsBtn?.addEventListener("click",async()=>{
+
+if(typeof createNewConversation==="function"){
+
+await createNewConversation(
+"New Astronomy Chat"
+);
+
+showToast("New Chat Created");
+
+}
+
+});
+
+
+// Clear Current Chat
+
+clearCurrentBtn?.addEventListener("click", async ()=>{
+
+if(!currentConversationId) return;
+
+if(!confirm("Clear current conversation?")) return;
+
+try{
+
+const ref = doc(
+
+db,
+
+"users",
+
+window.currentUser.uid,
+
+"conversations",
+
+currentConversationId
+
+);
+
+const snap = await getDoc(ref);
+
+if(!snap.exists()) return;
+
+const data = snap.data();
+
+await setDoc(
+
+ref,
+
+{
+
+...data,
+
+messages:[],
+
+updatedAt:Date.now()
+
+}
+
+);
+
+clearChatUI();
+
+addAIMessage(
+
+"Hello 🌌 I am Astro AI. Ask me anything about space.",
+
+"Astro AI"
+
+);
+
+await loadConversations();
+
+renderHistoryList();
+
+showToast("🗑 Current chat cleared");
+
+}
+
+catch(err){
+
+console.log(err);
+
+showToast("Failed to clear chat");
+
+}
+
+});
+
+
+// Clear All Chats
+
+clearAllBtn?.addEventListener("click", async ()=>{
+
+if(!window.currentUser) return;
+
+if(!confirm("Delete ALL conversations? This cannot be undone.")) return;
+
+try{
+
+for(const conv of conversations){
+
+await deleteDoc(
+
+doc(
+
+db,
+
+"users",
+
+window.currentUser.uid,
+
+"conversations",
+
+conv.id
+
+)
+
+);
+
+}
+
+conversations = [];
+
+currentConversationId = null;
+
+clearChatUI();
+
+await createNewConversation(
+"New Astronomy Chat"
+);
+
+showToast("🗑 All chats deleted");
+
+}
+
+catch(err){
+
+console.log(err);
+
+showToast("Failed to delete chats");
+
+}
+
+});
+
+/* ==========================================
+   CHAT HISTORY MANAGER
+========================================== */
+
+const historyOverlay =
+document.getElementById("history-overlay");
+
+const historyList =
+document.getElementById("history-list");
+
+
+
+
+
+const historySearch =
+document.getElementById("history-search-box");
+
+const importBtn =
+document.getElementById("import-chat");
+
+const importInput =
+document.getElementById("import-chat-file");
+
+importBtn.onclick = () => {
+
+    importInput.click();
+
+};
+
+importInput.onchange=async(e)=>{
+
+const file=e.target.files[0];
+
+if(!file)return;
+
+try{
+
+const text=
+await file.text();
+
+const data=
+JSON.parse(text);
+
+if(
+!data.title||
+!Array.isArray(data.messages)
+){
+
+showToast(
+"Invalid Chat File"
+);
+
+return;
+
+}
+
+const id=
+"conv_"+Date.now();
+
+await setDoc(
+
+doc(
+
+db,
+
+"users",
+
+window.currentUser.uid,
+
+"conversations",
+
+id
+
+),
+
+{
+
+title:data.title,
+
+createdAt:
+data.createdAt||
+Date.now(),
+
+updatedAt:
+Date.now(),
+
+messages:
+data.messages,
+
+pinned:false
+
+}
+
+);
+
+await loadConversations();
+
+renderHistoryList();
+
+showToast(
+"📥 Chat Imported"
+);
+
+}
+
+catch(err){
+
+console.log(err);
+
+showToast(
+"Import Failed"
+);
+
+}
+
+};
+
+const closeHistoryBtn =
+document.getElementById("close-history");
+
+viewHistoryBtn?.addEventListener("click", () => {
+
+    historyOverlay.style.display = "flex";
+
+    renderHistoryList();
+
+});
+
+
+// OPEN
+
+viewHistoryBtn?.addEventListener("click",()=>{
+
+historyOverlay.style.display="flex";
+
+renderHistoryList();
+
+});
+
+
+// CLOSE
+
+closeHistoryBtn?.addEventListener("click",()=>{
+
+historyOverlay.style.display="none";
+
+});
+
+
+// CLICK OUTSIDE
+
+historyOverlay?.addEventListener("click",(e)=>{
+
+if(e.target===historyOverlay){
+
+historyOverlay.style.display="none";
+
+}
+
+});
+
+
+// SEARCH
+
+historySearch?.addEventListener("input",()=>{
+
+renderHistoryList(
+historySearch.value.toLowerCase()
+);
+
+});
+
+
+// RENDER
+
+function renderHistoryList(search=""){
+
+historyList.innerHTML="";
+
+if(
+!Array.isArray(conversations) ||
+conversations.length===0
+){
+
+historyList.innerHTML=`
+
+<div class="history-item">
+
+<div class="history-title">
+
+No conversations
+
+</div>
+
+</div>
+
+`;
+
+return;
+
+}
+
+const sortedConversations =
+
+[...conversations].sort((a,b)=>{
+
+if(a.pinned!==b.pinned){
+
+return b.pinned-a.pinned;
+
+}
+
+return (b.updatedAt||0)-(a.updatedAt||0);
+
+});
+let found = 0;
+
+sortedConversations.forEach(conv=>{
+
+const titleMatch =
+    (conv.title || "")
+        .toLowerCase()
+        .includes(search);
+
+const messageMatch =
+    (conv.messages || []).some(msg =>
+        (msg.text || "")
+            .toLowerCase()
+            .includes(search)
+    );
+
+if (search && !(titleMatch || messageMatch)) {
+    return;
+}
+
+found++;
+
+const item=
+document.createElement("div");
+
+item.className=
+"history-item";
+
+if(conv.id===currentConversationId){
+
+item.classList.add("active-history");
+
+}
+
+if(conv.pinned){
+
+    item.classList.add("pinned");
+
+}
+let lastMessage = "No messages yet";
+
+if (conv.messages?.length) {
+
+    if (search) {
+
+        const found = conv.messages.find(msg =>
+            (msg.text || "")
+                .toLowerCase()
+                .includes(search)
+        );
+
+        if (found) {
+            lastMessage = found.text.substring(0, 60);
+        } else {
+            lastMessage =
+                conv.messages.at(-1).text.substring(0, 60);
+        }
+
+    } else {
+
+        lastMessage =
+            conv.messages.at(-1).text.substring(0, 60);
+
+    }
+
+}
+
+item.innerHTML=`
+
+<div class="history-title">
+
+${conv.title}
+
+</div>
+
+<div class="history-preview">
+
+${lastMessage}
+
+</div>
+
+<div class="history-date">
+
+${formatHistoryDate(
+conv.updatedAt||Date.now()
+)}
+
+</div>
+
+<div class="history-actions">
+
+<button class="open-chat">
+Open
+</button>
+
+<button class="rename-chat">
+Rename
+</button>
+
+<button class="export-chat">
+Export
+</button>
+
+<button class="delete-chat">
+Delete
+</button>
+
+<button class="pin-chat">
+📌
+</button>
+
+</div>
+
+`;
+
+const pinBtn =
+item.querySelector(".pin-chat");
+
+const exportBtn =
+item.querySelector(".export-chat");
+
+exportBtn.onclick = () => {
+
+const exportData = {
+
+title: conv.title,
+
+createdAt: conv.createdAt,
+
+updatedAt: conv.updatedAt,
+
+messages: conv.messages || []
+
+};
+
+const blob = new Blob(
+
+[JSON.stringify(exportData,null,2)],
+
+{
+
+type:"application/json"
+
+}
+
+);
+
+const url =
+URL.createObjectURL(blob);
+
+const a =
+document.createElement("a");
+
+a.href = url;
+
+a.download =
+`${conv.title.replace(/[\\/:*?"<>|]/g,"_")}.json`;
+
+a.click();
+
+URL.revokeObjectURL(url);
+
+showToast("📤 Chat Exported");
+
+};
+
+pinBtn.onclick = async () => {
+
+    conv.pinned = !conv.pinned;
+
+    try {
+
+        await setDoc(
+
+            doc(
+
+                db,
+
+                "users",
+
+                window.currentUser.uid,
+
+                "conversations",
+
+                conv.id
+
+            ),
+
+            {
+
+                ...conv
+
+            }
+
+        );
+
+        await loadConversations();
+
+        renderHistoryList(
+
+            historySearch.value.toLowerCase()
+
+        );
+
+        showToast(
+
+            conv.pinned
+
+            ? "📌 Chat Pinned"
+
+            : "📍 Chat Unpinned"
+
+        );
+
+    }
+
+    catch(err){
+
+        console.log(err);
+
+    }
+
+};
+
+
+// OPEN
+
+item.querySelector(".open-chat").onclick=async()=>{
+
+historyOverlay.style.display="none";
+
+currentConversationId=conv.id;
+
+await openConversation(conv.id);
+
+renderHistoryList(
+historySearch.value.toLowerCase()
+);
+
+};
+
+
+// RENAME
+
+item.querySelector(".rename-chat").onclick = async () => {
+
+const title = prompt(
+"Rename conversation",
+conv.title
+);
+
+if(!title || title.trim()==="") return;
+
+try{
+
+conv.title = title.trim();
+
+await setDoc(
+
+doc(
+
+db,
+
+"users",
+
+window.currentUser.uid,
+
+"conversations",
+
+conv.id
+
+),
+
+{
+
+...conv,
+
+title: title.trim(),
+
+updatedAt: Date.now()
+
+}
+
+);
+
+await loadConversations();
+
+renderHistoryList(
+
+historySearch.value.toLowerCase()
+
+);
+
+showToast("✏️ Conversation Renamed");
+
+}
+
+catch(err){
+
+console.log(err);
+
+showToast("Rename Failed");
+
+}
+
+};
+
+// DELETE
+
+item.querySelector(".delete-chat").onclick = async () => {
+
+if(!confirm("Delete this conversation?"))
+return;
+
+try{
+
+await deleteDoc(
+
+doc(
+
+db,
+
+"users",
+
+window.currentUser.uid,
+
+"conversations",
+
+conv.id
+
+)
+
+);
+
+await loadConversations();
+
+renderHistoryList(
+historySearch.value.toLowerCase()
+);
+
+showToast("Conversation Deleted");
+
+}
+
+catch(err){
+
+console.log(err);
+
+}
+
+};
+
+historyList.appendChild(item);
+
+});
+
+if (found === 0) {
+
+    historyList.innerHTML = `
+        <div class="history-item no-results">
+
+            <div class="history-title">
+                🔍 No conversations found
+            </div>
+
+            <div class="history-preview">
+                Try searching with different keywords.
+            </div>
+
+        </div>
+    `;
+
+}
+
+}
+
+
+
+
+
+
+
+const fontSizeSelect =
+document.getElementById("font-size-select");
+
+fontSizeSelect?.addEventListener("change",()=>{
+    AstroSettings.set("fontSize", fontSizeSelect.value);
+    applyAppearanceSettings();
+    showToast("🎨 Font size updated");
+});
+
+function applyAppearanceSettings(){
+    const size = AstroSettings.get("fontSize");
+    document.documentElement.style.fontSize = size + "px";
+
+    const bubble = AstroSettings.get("bubbleStyle");
+    const width = AstroSettings.get("messageWidth");
+    const animation = AstroSettings.get("animations");
+
+    document.querySelectorAll(".message").forEach(msg=>{
+        msg.style.maxWidth = width + "%";
+        msg.style.borderRadius = bubble==="rounded" ? "16px" : "4px";
+    });
+
+    const fsEl = document.getElementById("font-size-select");
+    if (fsEl) fsEl.value = size;
+
+    const bsEl = document.getElementById("bubble-style");
+    if (bsEl) bsEl.value = bubble;
+
+    const mwEl = document.getElementById("message-width");
+    if (mwEl) mwEl.value = width;
+
+    const atEl = document.getElementById("animation-toggle");
+    if (atEl) atEl.checked = animation;
+}
+
+const bubbleStyle = document.getElementById("bubble-style");
+bubbleStyle?.addEventListener("change",()=>{
+    AstroSettings.set("bubbleStyle", bubbleStyle.value);
+    applyAppearanceSettings();
+    showToast("💬 Bubble Style Updated");
+});
+
+const messageWidth = document.getElementById("message-width");
+messageWidth?.addEventListener("change",()=>{
+    AstroSettings.set("messageWidth", messageWidth.value);
+    applyAppearanceSettings();
+    showToast("📏 Message Width Updated");
+});
+
+const animationToggle = document.getElementById("animation-toggle");
+animationToggle?.addEventListener("change",()=>{
+    AstroSettings.set("animations", animationToggle.checked);
+    applyAppearanceSettings();
+    showToast("✨ Typing Animation Updated");
+});
+
+function applyAccentColor(){
+    const color = AstroSettings.get("accentColor");
+    document.documentElement.style.setProperty("--accent", color);
+    const select = document.getElementById("accent-color-select");
+    if(select){
+        select.value=color;
+    }
+}
+
+const accentSelect = document.getElementById("accent-color-select");
+accentSelect?.addEventListener("change", ()=>{
+    AstroSettings.set("accentColor", accentSelect.value);
+    applyAccentColor();
+    showToast("🎨 Accent Updated");
+});
+
+function applyAISettings(){
+    const responseLength = AstroSettings.get("responseLength");
+    const creativity = AstroSettings.get("creativity");
+    const aiModel = AstroSettings.get("aiModel");
+    const saveChatHistory = AstroSettings.get("saveChatHistory");
+    const cloudSync = AstroSettings.get("cloudSync");
+
+    const responseSelect = document.getElementById("response-length");
+    const creativitySelect = document.getElementById("creativity-select");
+    const modelSelect = document.getElementById("ai-model");
+    const saveChatHistoryToggle = document.getElementById("toggle-save-chat-history");
+    const cloudSyncToggle = document.getElementById("toggle-cloud-sync");
+
+    if(responseSelect) responseSelect.value = responseLength;
+    if(creativitySelect) creativitySelect.value = creativity;
+    if(modelSelect) modelSelect.value = aiModel;
+    if(saveChatHistoryToggle) saveChatHistoryToggle.checked = saveChatHistory;
+    if(cloudSyncToggle) cloudSyncToggle.checked = cloudSync;
+}
+
+const responseLengthSelect = document.getElementById("response-length");
+const creativitySelect = document.getElementById("creativity-select");
+const aiModelSelect = document.getElementById("ai-model");
+const saveChatHistoryToggle = document.getElementById("toggle-save-save-chat-history");
+const cloudSyncToggle = document.getElementById("toggle-cloud-sync");
+
+responseLengthSelect?.addEventListener("change", () => {
+    AstroSettings.set("responseLength", responseLengthSelect.value);
+    applyAISettings();
+    showToast("🤖 AI Settings Saved");
+});
+
+creativitySelect?.addEventListener("change", () => {
+    AstroSettings.set("creativity", creativitySelect.value);
+    applyAISettings();
+    showToast("🤖 AI Settings Saved");
+});
+
+aiModelSelect?.addEventListener("change", () => {
+    AstroSettings.set("aiModel", aiModelSelect.value);
+    applyAISettings();
+    showToast("🤖 AI Model Settings Saved");
+});
+
+const saveChatHistoryEl = document.getElementById("toggle-save-chat-history");
+saveChatHistoryEl?.addEventListener("change", () => {
+    AstroSettings.set("saveChatHistory", saveChatHistoryEl.checked);
+    applyAISettings();
+    showToast("🤖 AI Chat History Settings Saved");
+});
+
+cloudSyncToggle?.addEventListener("change", () => {
+    AstroSettings.set("cloudSync", cloudSyncToggle.checked);
+    applyAISettings();
+    showToast("🤖 Cloud Sync Settings Saved");
+});
+
+applyAISettings();
+
+function updateMemorySettings() {
+
+    const memories = astroMemory.memories || [];
+    const theories = astroMemory.theories || [];
+    const observations = astroMemory.observations || [];
+    const equipments = astroMemory.memories || [];
+
+    document.getElementById("memory-total").textContent =
+        memories.length + theories.length + observations.length;
+
+    document.getElementById("memory-pref-count").textContent =
+        memories.length;
+
+    document.getElementById("memory-theory-count").textContent =
+        theories.length;
+
+    document.getElementById("memory-observation-count").textContent =
+        observations.length;
+
+    document.getElementById("memory-telescope-count").textContent =
+    astroMemory.telescopeSessions?.length || 0;
+
+document.getElementById("memory-file-count").textContent =
+    astroMemory.files?.length || 0;
+
+    
+
+document.getElementById("memory-telescope-equipment-count").textContent =
+equipments.filter(m =>
+m.category === "equipment" &&
+m.key === "telescope"
+).length;
+
+document.getElementById("memory-camera-count").textContent =
+equipments.filter(m =>
+m.category === "equipment" &&
+m.key === "camera"
+).length;
+
+document.getElementById("memory-binocular-count").textContent =
+equipments.filter(m =>
+m.category === "equipment" &&
+m.key === "binoculars"
+).length;
+
+document.getElementById("memory-eyepiece-count").textContent =
+equipments.filter(m =>
+m.category === "equipment" &&
+m.key === "eyepiece"
+).length;
+
+}
+
+function renderMemoryList() {
+
+  console.log("Memories:", astroMemory);
+console.table(getAllMemoryItems());
+
+    const list = document.getElementById("memory-list");
+
+    if (!list) return;
+
+    let memories = getAllMemoryItems();
+
+    const search =
+        document.getElementById("memory-search")?.value
+        ?.toLowerCase() || "";
+
+    const filter =
+        document.getElementById("memory-filter")?.value
+        || "all";
+
+    // Search
+    // Search
+if (search) {
+
+    memories = memories.filter(m =>
+
+        (m.text || "")
+        .toLowerCase()
+        .includes(search)
+
+    );
+
+}
+
+    // Filter
+   if(filter === "memory"){
+
+    memories = memories.filter(m =>
+        m.type === "Memory" &&
+        m.category !== "equipment"
+    );
+
+}
+
+else if(filter === "theory"){
+
+    memories = memories.filter(m =>
+        m.type === "Theory"
+    );
+
+}
+
+else if(filter === "observation"){
+
+    memories = memories.filter(m =>
+        m.type === "Observation"
+    );
+
+}
+
+else if(filter === "telescope"){
+
+    memories = memories.filter(m =>
+        m.category === "equipment" &&
+        m.key === "telescope"
+    );
+
+}
+
+else if(filter === "telescope_session"){
+
+    memories = memories.filter(m =>
+        m.type === "Telescope"
+    );
+
+}
+
+else if(filter === "camera"){
+
+    memories = memories.filter(m =>
+        m.category === "equipment" &&
+        m.key === "camera"
+    );
+
+}
+
+else if(filter === "binoculars"){
+
+    memories = memories.filter(m =>
+        m.category === "equipment" &&
+        m.key === "binoculars"
+    );
+
+}
+
+else if(filter === "eyepiece"){
+
+    memories = memories.filter(m =>
+        m.category === "equipment" &&
+        m.key === "eyepiece"
+    );
+
+}
+
+else if(filter === "file"){
+
+    memories = memories.filter(m =>
+        m.type === "File"
+    );
+
+}
+
+else if(filter === "favorite"){
+
+    memories = memories.filter(m =>
+        m.favorite
+    );
+
+}
+
+else if(filter === "pinned"){
+
+    memories = memories.filter(m =>
+        m.pinned
+    );
+
+}
+
+
+
+
+    // Sort
+    memories.sort((a, b) => {
+
+        if (a.pinned !== b.pinned)
+            return b.pinned - a.pinned;
+
+        if (a.favorite !== b.favorite)
+            return b.favorite - a.favorite;
+
+        return new Date(b.time) - new Date(a.time);
+
+    });
+
+    if (memories.length === 0) {
+
+        list.innerHTML = `
+            <div class="memory-empty">
+
+                <h3>🧠 No Memories</h3>
+
+                <p>
+                    Saved memories will appear here.
+                </p>
+
+            </div>
+        `;
+
+        return;
+    }
+
+    list.innerHTML = "";
+    let currentTimeline = "";
+
+    memories.forEach(memory => {
+
+      const timeline = getTimelineLabel(memory.time);
+
+if(timeline !== currentTimeline){
+
+
+
+}
+
+        const card = document.createElement("div");
+
+        card.className = "memory-card";
+
+        card.innerHTML = `
+
+<div class="memory-top">
+
+<div class="memory-title">
+
+${
+memory.type === "File"
+? "📄 File"
+
+: memory.type === "Telescope"
+? "🛰 Telescope Session"
+
+: memory.category === "equipment"
+? (
+memory.key === "telescope"
+? "🔭 Telescope"
+
+: memory.key === "camera"
+? "📷 Camera"
+
+: memory.key === "binoculars"
+? "🔭 Binoculars"
+
+: memory.key === "eyepiece"
+? "👁️ Eyepiece"
+
+: "🔧 Equipment"
+)
+
+: memory.type === "Theory"
+? "📚 Theory"
+
+: memory.type === "Observation"
+? "🔭 Observation"
+
+: "🧠 Memory"
+}
+</div>
+
+<div class="memory-icons">
+
+${
+memory.type === "File"
+
+?
+
+""
+
+:
+
+`
+
+<button
+class="memory-btn"
+onclick="togglePin(${memory.id})">
+
+${memory.pinned ? "📍" : "📌"}
+
+</button>
+
+<button
+class="memory-btn"
+onclick="toggleFavorite(${memory.id})">
+
+${memory.favorite ? "⭐" : "☆"}
+
+</button>
+
+`
+
+}
+
+</div>
+
+</div>
+
+<div class="memory-body">
+
+${
+memory.type === "File"
+
+?
+
+`
+<div><strong>📄 ${memory.name}</strong></div>
+
+<div style="margin-top:6px;font-size:13px;opacity:.8;">
+
+Type:
+${memory.fileType || "Unknown"}
+
+<br>
+
+Size:
+${(memory.size/1024).toFixed(1)} KB
+
+</div>
+`
+
+:
+
+memory.text
+
+}
+
+</div>
+
+<div class="memory-bottom">
+
+<div class="memory-time">
+
+${formatMemoryDate(memory.time)}
+
+</div>
+
+<div class="memory-actions">
+
+
+
+${
+memory.type === "File"
+
+?
+
+`
+
+<button
+class="memory-btn delete-btn"
+onclick="removeFileMemory(${memory.id})">
+
+📄 Remove File
+
+</button>
+
+`
+
+:
+
+`
+
+<button
+class="memory-btn edit-btn"
+onclick="editMemory(${memory.id})">
+
+✏ Edit
+
+</button>
+
+<button
+class="memory-btn delete-btn"
+onclick="deleteMemoryById(${memory.id})">
+
+🗑 Delete
+
+</button>
+
+`
+
+}
+
+</div>
+
+</div>
+
+`;
+
+        list.appendChild(card);
+
+    });
+
+}
+
+function findMemoryById(id){
+
+    const groups=[
+
+        astroMemory.memories||[],
+        astroMemory.theories||[],
+        astroMemory.observations||[],
+        astroMemory.telescopeSessions||[]
+
+    ];
+
+    for(const group of groups){
+
+        const memory=group.find(m=>m.id==id);
+
+        if(memory) return memory;
+
+    }
+
+    return null;
+
+}
+
+function deleteMemoryById(id){
+
+if(!confirm("Delete this memory?")) return;
+
+[
+astroMemory.memories,
+astroMemory.theories,
+astroMemory.observations,
+astroMemory.telescopeSessions
+
+].forEach(arr=>{
+
+const index=arr.findIndex(m=>m.id==id);
+
+if(index!=-1){
+
+arr.splice(index,1);
+
+}
+
+});
+
+localStorage.setItem(
+
+"astroMemory",
+
+JSON.stringify(astroMemory)
+
+);
+
+saveCloudMemory();
+
+updateMemorySettings();
+
+renderMemoryList();
+
+}
+
+function removeFileMemory(id){
+
+if(!confirm("Remove this file from memory?"))
+return;
+
+const index =
+astroMemory.files.findIndex(f=>f.id==id);
+
+if(index===-1)
+return;
+
+astroMemory.files.splice(index,1);
+
+localStorage.setItem(
+
+"astroMemory",
+
+JSON.stringify(astroMemory)
+
+);
+
+saveCloudMemory();
+
+updateMemorySettings();
+
+updateGeneralSettings();
+
+renderMemoryList();
+
+showToast("📄 File Removed");
+
+}
+
+function editMemory(id){
+
+    const memory = findMemoryById(id);
+
+    if(!memory) return;
+
+    editingMemory = memory;
+
+    document.getElementById(
+        "edit-memory-text"
+    ).value = memory.text;
+
+    document
+        .getElementById("edit-memory-overlay")
+        .classList.add("show");
+
+}
+function togglePin(id){
+
+    const memory=findMemoryById(id);
+
+    if(!memory) return;
+
+    memory.pinned=!memory.pinned;
+
+    memory.updatedAt=new Date().toISOString();
+
+    localStorage.setItem(
+
+        "astroMemory",
+
+        JSON.stringify(astroMemory)
+
+    );
+
+    saveCloudMemory();
+
+    updateMemorySettings();
+
+    renderMemoryList();
+
+}
+
+function toggleFavorite(id){
+
+    const memory=findMemoryById(id);
+
+    if(!memory) return;
+
+    memory.favorite=!memory.favorite;
+
+    memory.updatedAt=new Date().toISOString();
+
+    localStorage.setItem(
+
+        "astroMemory",
+
+        JSON.stringify(astroMemory)
+
+    );
+
+    saveCloudMemory();
+
+    updateMemorySettings();
+
+    renderMemoryList();
+
+}
+
+function getAllMemoryItems() {
+
+    return [
+
+        ...(astroMemory.memories || []).map(m => ({
+            ...m,
+            type: "Memory",
+            source: "memories"
+        })),
+
+        ...(astroMemory.theories || []).map(m => ({
+            ...m,
+            type: "Theory",
+            source: "theories"
+        })),
+
+        ...(astroMemory.observations || []).map(m => ({
+            ...m,
+            type: "Observation",
+            source: "observations"
+        })),
+
+        ...(astroMemory.telescopeSessions || []).map(m => ({
+            ...m,
+            type: "Telescope",
+            source: "telescopeSessions"
+        })),
+
+        ...(astroMemory.files || []).map(f => ({
+    ...f,
+
+    text:f.name,
+
+    fileType:f.type,
+
+    type:"File",
+
+    source:"files"
+
+}))
+
+    ];
+
+}
+function toggleFavorite(id){
+
+    const memory = findMemoryById(id);
+
+    if(!memory) return;
+
+    memory.favorite = !memory.favorite;
+
+    memory.updatedAt = new Date().toISOString();
+
+    localStorage.setItem(
+        "astroMemory",
+        JSON.stringify(astroMemory)
+    );
+
+    saveCloudMemory();
+
+    updateMemorySettings();
+
+    renderMemoryList();
+
+}
+function togglePin(id){
+
+    const memory = findMemoryById(id);
+
+    if(!memory) return;
+
+    memory.pinned = !memory.pinned;
+
+    memory.updatedAt = new Date().toISOString();
+
+    localStorage.setItem(
+        "astroMemory",
+        JSON.stringify(astroMemory)
+    );
+
+    saveCloudMemory();
+
+    updateMemorySettings();
+
+    renderMemoryList();
+
+}
+document.getElementById("export-memory")
+?.addEventListener("click",()=>{
+
+const blob = new Blob(
+
+[
+JSON.stringify(
+astroMemory,
+null,
+2
+)
+],
+
+{
+type:"application/json"
+}
+
+);
+
+const url =
+URL.createObjectURL(blob);
+
+const a =
+document.createElement("a");
+
+a.href = url;
+
+a.download =
+"astro-memory.json";
+
+a.click();
+
+URL.revokeObjectURL(url);
+
+});
+
+document.getElementById("export-memory")
+?.addEventListener("click",()=>{
+
+const blob = new Blob(
+
+[
+JSON.stringify(
+astroMemory,
+null,
+2
+)
+],
+
+{
+type:"application/json"
+}
+
+);
+
+const url =
+URL.createObjectURL(blob);
+
+const a =
+document.createElement("a");
+
+a.href = url;
+
+a.download =
+"astro-memory.json";
+
+a.click();
+
+URL.revokeObjectURL(url);
+
+});
+
+document
+.getElementById("import-memory")
+?.addEventListener("click",()=>{
+
+const input =
+document.createElement("input");
+
+input.type="file";
+
+input.accept=".json";
+
+input.onchange=e=>{
+
+const file =
+e.target.files[0];
+
+
+
+if(!file) return;
+
+const reader =
+new FileReader();
+
+reader.onload=()=>{
+
+try{
+
+astroMemory=
+JSON.parse(reader.result);
+
+astroMemory.files ??= [];
+astroMemory.memories ??= [];
+astroMemory.theories ??= [];
+astroMemory.observations ??= [];
+astroMemory.telescopeSessions ??= [];
+
+localStorage.setItem(
+
+"astroMemory",
+
+JSON.stringify(astroMemory)
+
+);
+
+saveCloudMemory();
+
+updateMemorySettings();
+
+renderMemoryList();
+
+alert("Memory Imported.");
+
+}
+
+catch{
+
+alert("Invalid File.");
+
+}
+
+};
+
+reader.readAsText(file);
+
+};
+
+input.click();
+
+});
+
+document
+.getElementById("clear-memory")
+?.addEventListener("click",()=>{
+
+if(
+
+!confirm(
+
+"Delete ALL memories?"
+
+)
+
+)
+
+return;
+
+astroMemory={
+
+memories:[],
+
+theories:[],
+
+observations:[],
+
+telescopeSessions:[],
+
+files:[]
+
+};
+
+localStorage.setItem(
+
+"astroMemory",
+
+JSON.stringify(astroMemory)
+
+);
+
+saveCloudMemory();
+
+updateMemorySettings();
+
+renderMemoryList();
+
+});
+
+function findMemoryById(id){
+
+    const groups = [
+
+        astroMemory.memories || [],
+        astroMemory.theories || [],
+        astroMemory.observations || [],
+        astroMemory.telescopeSessions || []
+
+    ];
+
+    for(const group of groups){
+
+        const memory = group.find(m => m.id == id);
+
+        if(memory) return memory;
+
+    }
+
+    return null;
+
+}
+
+function showMemorySuggestion(memory){
+
+  console.log("Calling showMemorySuggestion");
+console.log("Pending:", pendingStructuredMemory);
+
+  let duplicate;
+
+if(memory.type === "Theory"){
+
+    duplicate = findDuplicateInArray(
+        astroMemory.theories,
+        memory.value
+    );
+
+}
+else if(memory.type === "Observation"){
+
+    duplicate = findDuplicateInArray(
+        astroMemory.observations,
+        memory.value
+    );
+
+}
+else if(memory.type === "Telescope"){
+
+    duplicate = findDuplicateInArray(
+        astroMemory.telescopeSessions,
+        memory.value
+    );
+
+}
+else{
+
+    duplicate = findDuplicateMemory(memory);
+
+}
+
+console.log("Memory:", memory);
+  console.log("Duplicate:", duplicate);
+  console.log("All Memories:", astroMemory.memories);
+
+
+const existing =
+document.getElementById("memory-suggestion");
+
+if(existing) existing.remove();
+
+const box=document.createElement("div");
+
+box.id="memory-suggestion";
+
+box.innerHTML = `
+
+<h3>
+
+${
+memory.type==="Theory"
+
+? "📚 Theory Detected"
+
+: memory.type==="Observation"
+
+? "🔭 Observation Detected"
+
+: memory.type==="Telescope"
+
+? "🔭 Telescope Session Detected"
+
+: "🧠 Memory Detected"
+
+}
+
+</h3>
+
+<div class="memory-preview-row">
+
+<b>Category</b>
+
+<span>${memory.category}</span>
+
+</div>
+
+<div class="memory-preview-row">
+
+<b>Key</b>
+
+<span>${memory.key}</span>
+
+</div>
+
+<div class="memory-preview-row">
+
+<b>Value</b>
+
+<span>${memory.value}</span>
+
+</div>
+
+${
+duplicate ?
+
+`
+
+<div class="duplicate-warning">
+
+⚠ Similar memory already exists.
+
+<br><br>
+
+<b>Old:</b>
+
+${duplicate.value||duplicate.text}
+
+<br>
+
+<b>New:</b>
+
+${memory.value}
+
+</div>
+
+`
+
+:
+
+""
+
+}
+
+<div class="memory-suggest-buttons">
+
+${
+duplicate ?
+
+`
+
+<button id="update-memory-btn">
+
+Update Existing
+
+</button>
+
+<button id="save-new-memory-btn">
+
+Save New
+
+</button>
+
+`
+
+:
+
+`
+
+<button id="remember-btn">
+
+Remember
+
+</button>
+
+`
+
+}
+
+<button id="edit-memory-preview-btn">
+
+Edit
+
+</button>
+
+<button id="dismiss-memory-btn">
+
+Dismiss
+
+</button>
+
+`;
+
+document
+.getElementById("memory-suggestion-container")
+.appendChild(box);
+
+box.scrollIntoView({
+behavior:"smooth"
+});
+
+document
+.getElementById("remember-btn")
+?.addEventListener("click",()=>{
+  
+
+if(memory.category==="Theory"){
+
+    saveTheory(memory.value, true);
+
+}
+
+else if(memory.category==="Observation"){
+
+    saveObservation(memory.value, true);
+
+}
+
+else if(memory.category==="Telescope"){
+
+    saveTelescopeSession(memory.value, true);
+
+}
+
+else{
+
+   saveMemory(memory);
+
+}
+
+box.remove();
+
+showToast("🧠 Memory Saved");
+
+});
+
+document
+.getElementById("update-memory-btn")
+?.addEventListener("click",()=>{
+
+duplicate.value = memory.value;
+
+duplicate.text = memory.value;
+
+duplicate.updatedAt = new Date().toISOString();
+
+localStorage.setItem(
+"astroMemory",
+JSON.stringify(astroMemory)
+);
+
+saveCloudMemory();
+
+updateMemorySettings();
+
+renderMemoryList();
+
+box.remove();
+
+showToast("🧠 Memory Updated");
+
+});
+
+document
+.getElementById("save-new-memory-btn")
+?.addEventListener("click",()=>{
+
+if(memory.category==="Theory"){
+
+    saveTheory(memory.value, true);
+
+}
+
+else if(memory.category==="Observation"){
+
+    saveObservation(memory.value, true);
+
+}
+
+else if(memory.category==="Telescope"){
+
+    saveTelescopeSession(memory.value, true);
+
+}
+
+else{
+
+    saveMemory(memory);
+
+}
+
+box.remove();
+
+showToast("🧠 New Memory Saved");
+
+});
+
+document
+.getElementById("edit-memory-preview-btn")
+.onclick = () => {
+
+    const value = prompt(
+        "Edit Memory",
+        memory.value
+    );
+
+    if (value === null) return;
+
+    memory.value = value;
+
+    box.querySelectorAll("span")[2].textContent = value;
+
+};
+
+document
+.getElementById("dismiss-memory-btn")
+.onclick=()=>{
+
+box.remove();
+
+};
+
+}
+
+function saveFileMemory(file){
+
+    if(!astroMemory.files){
+
+        astroMemory.files=[];
+
+    }
+
+    astroMemory.files.push({
+
+        id:Date.now(),
+
+        name:file.name,
+
+        type:file.type,
+
+        size:file.size,
+
+        uploadedAt:new Date().toISOString(),
+
+        time:new Date().toISOString(),
+
+        summary:"",
+
+        tags:[],
+
+        pinned:false,
+
+        favorite:false
+
+    });
+
+    localStorage.setItem(
+
+        "astroMemory",
+
+        JSON.stringify(astroMemory)
+
+    );
+
+    saveCloudMemory();
+
+    updateMemorySettings();
+
+}
+
+function getRelevantMemories(question){
+
+    const q = question.toLowerCase();
+
+    const memories = getAllMemoryItems();
+
+    return memories.filter(m => {
+
+        const text = (m.text || "").toLowerCase();
+        const value = (m.value || "").toLowerCase();
+        const key = (m.key || "").toLowerCase();
+
+        return (
+            q.includes(key) ||
+            q.includes(value) ||
+            text.includes(q) ||
+            q.includes(text)
+        );
+
+    });
+
+}
+
+function buildMemoryContext(question){
+
+    const memories =
+        getRelevantMemories(question);
+
+    if(memories.length===0)
+        return "";
+
+    return memories
+        .slice(0,5)
+        .map(m=>`- ${m.type}: ${m.text}`)
+        .join("\n");
+
+}
+
+function getTimelineLabel(date){
+
+    const now = new Date();
+
+    const d = new Date(date);
+
+    const diff = Math.floor(
+        (now - d) / (1000 * 60 * 60 * 24)
+    );
+
+    if(diff === 0) return "📅 Today";
+
+    if(diff === 1) return "📆 Yesterday";
+
+    if(diff <= 7) return "🗓 Last 7 Days";
+
+    if(diff <= 30) return "📁 Last Month";
+
+    return "📦 Older";
+
+}
+
+function formatMemoryDate(time){
+
+    const d = new Date(time);
+
+    const now = new Date();
+
+    const today = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate()
+    );
+
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    const target = new Date(
+        d.getFullYear(),
+        d.getMonth(),
+        d.getDate()
+    );
+
+    if(target.getTime() === today.getTime()){
+
+        return "Today • " + d.toLocaleTimeString([],{
+            hour:"2-digit",
+            minute:"2-digit"
+        });
+
+    }
+
+    if(target.getTime() === yesterday.getTime()){
+
+        return "Yesterday • " + d.toLocaleTimeString([],{
+            hour:"2-digit",
+            minute:"2-digit"
+        });
+
+    }
+
+    return d.toLocaleDateString([],{
+        day:"numeric",
+        month:"short",
+        year:"numeric"
+    });
+
+}
+
+const skySettings = {
+
+showConstellationLines: true,
+showConstellationNames: true,
+
+showStars: true,
+showDSOs: true,
+showPlanets: true,
+
+showStarLabels: true,
+showPlanetLabels: true,
+showDSOLabels: true,
+
+showMilkyWay: true,
+showMarker: true,
+showCoordinates: true,
+
+defaultZoom: 1,
+followObject: true,
+smoothAnimations: true,
+timeSpeed: 1,
+
+starMagnitude: 4,
+dsoMagnitude: 4,
+
+...AstroSettings.get("skySettings")
+
+};
+
+AstroSettings.load();
+
+
+
+    
+
+    function initSkySettings() {
+
+      console.log(
+    "Toggle checked =",
+    document.getElementById("toggle-constellation-names")?.checked
+);
+
+    const constellationLines = document.getElementById("toggle-constellation-lines");
+    const constellationNames = document.getElementById("toggle-constellation-names");
+    const starLabels = document.getElementById("toggle-star-labels");
+    const dsoLabels = document.getElementById("toggle-dso-labels");
+    const milkyWay = document.getElementById("toggle-milky-way");
+    const planets = document.getElementById("toggle-planets");
+    const stars = document.getElementById("toggle-stars");
+    const dsos = document.getElementById("toggle-dsos");
+
+    if (constellationLines) constellationLines.checked = skySettings.showConstellationLines;
+    if (constellationNames) constellationNames.checked = skySettings.showConstellationNames;
+
+    if (milkyWay) milkyWay.checked = skySettings.showMilkyWay;
+    if (planets) planets.checked = skySettings.showPlanets;
+    if (stars) stars.checked = skySettings.showStars;
+    if (dsos) dsos.checked = skySettings.showDSOs;
+    
+    const starMagnitude = document.getElementById("star-magnitude");
+    const dsoMagnitude = document.getElementById("dso-magnitude");
+    const zoom = document.getElementById("sky-zoom");
+
+    if (starMagnitude) {
+        starMagnitude.value = skySettings.starMagnitude;
+        const valEl = document.getElementById("star-magnitude-value");
+        if (valEl) valEl.textContent = skySettings.starMagnitude;
+    }
+    if (dsoMagnitude) {
+        dsoMagnitude.value = skySettings.dsoMagnitude;
+        const valEl = document.getElementById("dso-magnitude-value");
+        if (valEl) valEl.textContent = skySettings.dsoMagnitude;
+    }
+    if (zoom) {
+        zoom.value = skySettings.defaultZoom;
+        const valEl = document.getElementById("sky-zoom-value");
+        if (valEl) valEl.textContent = skySettings.defaultZoom;
+    }
+
+        function bindToggle(toggle, callback) {
+
+        if (!toggle) return;
+
+        toggle.onchange = callback;
+
+    }
+
+      bindToggle(constellationLines, function () {
+
+    AstroSettings.set("skySettings.showConstellationLines", this.checked);
+
+    refreshSky();
+
+});
+
+bindToggle(constellationNames, function () {
+
+    AstroSettings.set("skySettings.showConstellationNames", this.checked);
+
+    refreshSky();
+
+});
+
+bindToggle(stars, function () {
+
+    AstroSettings.set("skySettings.showStars", this.checked);
+
+    refreshSky();
+
+});
+
+bindToggle(dsos, function () {
+    AstroSettings.set("skySettings.showDSOs", this.checked);
+    refreshSky();
+});
+
+bindToggle(milkyWay, function () {
+    AstroSettings.set("skySettings.showMilkyWay", this.checked);
+    refreshSky();
+});
+
+bindToggle(planets, function () {
+
+    AstroSettings.set("skySettings.showPlanets", this.checked);
+
+    // 🔥 Update our HTML planets immediately
+    updatePlanetMarkers();
+
+    // 🔥 Refresh sky
+    refreshSky();
+
+});
+
+if (starMagnitude) {
+    starMagnitude.oninput = function () {
+
+        AstroSettings.set("skySettings.starMagnitude", Number(this.value));
+
+        const valEl = document.getElementById("star-magnitude-value");
+        if (valEl) valEl.textContent = this.value;
+
+        refreshSky();
+
+    };
+}
+
+if (dsoMagnitude) {
+    dsoMagnitude.oninput = function () {
+
+        AstroSettings.set("skySettings.dsoMagnitude", Number(this.value));
+
+        const valEl = document.getElementById("dso-magnitude-value");
+        if (valEl) valEl.textContent = this.value;
+
+        refreshSky();
+
+    };
+}
+
+if (zoom) {
+    zoom.oninput = function () {
+
+        const value = Number(this.value);
+
+        AstroSettings.set("skySettings.defaultZoom", value);
+
+        const valEl = document.getElementById("sky-zoom-value");
+        if (valEl) valEl.textContent = value;
+
+        // ✅ Direct Celestial zoom
+        Celestial.zoomBy(value);
+
+    };
+}
+
+}
+
+function buildCompass(){
+
+let html="";
+
+for(
+
+let d=-720;
+
+d<=720;
+
+d+=5
+
+){
+
+let value=
+
+((d%360)+360)%360;
+
+let label="";
+
+switch(value){
+
+case 0:
+
+label="N";
+
+break;
+
+case 90:
+
+label="E";
+
+break;
+
+case 180:
+
+label="S";
+
+break;
+
+case 270:
+
+label="W";
+
+break;
+
+default:
+
+label=value+"°";
+
+}
+
+html+=`
+
+<div class="compassTick">
+
+${label}
+
+</div>
+
+`;
+
+}
+
+compassScale.innerHTML=html;
+
+}
+
+function updateCompassHUD() {
+
+    if (!compassScale)
+        return;
+
+    const target = window.skyHeading || 0;
+
+    let diff = target - compassHeading;
+
+    // 359° → 0° jump fix
+    if (diff > 180) diff -= 360;
+    if (diff < -180) diff += 360;
+
+    // Smooth movement
+    let speed = 0.20;
+
+if (Math.abs(diff) > 20) speed = 0.30;
+if (Math.abs(diff) > 60) speed = 0.40;
+
+compassHeading += diff * speed;
+
+    const offset = -compassHeading * 8;
+
+    compassScale.style.transform =
+        `translateX(${offset}px)`;
+}
+
