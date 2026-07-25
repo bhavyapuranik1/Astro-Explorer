@@ -1,10 +1,35 @@
 import { GoogleGenAI } from "@google/genai";
+import { getModelCapability, sanitizeLogObject } from "../model-capabilities.js";
+
+const ALLOWED_LOCAL_ORIGINS = [
+  "http://127.0.0.1:5501",
+  "http://localhost:5500",
+  "http://localhost:5501",
+  "http://127.0.0.1:5500"
+];
+
+function setCorsHeaders(req, res) {
+  const origin = req.headers.origin;
+  let allowOrigin = "*";
+
+  if (origin) {
+    const isLocalDev = ALLOWED_LOCAL_ORIGINS.includes(origin) ||
+                       /^http:\/\/(localhost|127\.0\.0\.1):(5500|5501|3000|5173)$/.test(origin);
+    const isVercelProd = origin.endsWith(".vercel.app") || origin.includes("astro-explorer");
+
+    if (isLocalDev || isVercelProd) {
+      allowOrigin = origin;
+    }
+  }
+
+  res.setHeader("Access-Control-Allow-Origin", allowOrigin);
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
+}
 
 export default async function handler(req, res) {
   // CORS Headers
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  setCorsHeaders(req, res);
 
   // Preflight OPTIONS request
   if (req.method === "OPTIONS") {
@@ -31,7 +56,10 @@ export default async function handler(req, res) {
     const openRouterApiKey = process.env.OPENROUTER_API_KEY;
 
     // Check if Groq provider
-    const isGroqModel = requestedModel.toLowerCase().includes("llama-3") || requestedModel.toLowerCase().includes("groq");
+    const isGroqModel = requestedModel.toLowerCase().includes("llama") ||
+                        requestedModel.toLowerCase().includes("gpt-oss") ||
+                        requestedModel.toLowerCase().includes("qwen3.6") ||
+                        requestedModel.toLowerCase().includes("groq");
     const useGroq = provider === "groq" || isGroqModel;
 
     // Check if Gemini model
@@ -74,16 +102,61 @@ export default async function handler(req, res) {
 }
 
 /**
+ * Format messages according to model capabilities.
+ * For text-only models, enforces messages[].content to be a plain string.
+ */
+function sanitizeMessagesForModel(messages, modelId) {
+  const cap = getModelCapability(modelId);
+  if (!Array.isArray(messages)) return [];
+
+  return messages.map(msg => {
+    if (!msg || typeof msg !== "object") return msg;
+
+    if (typeof msg.content === "string") return msg;
+
+    if (Array.isArray(msg.content)) {
+      if (cap.image) {
+        return msg;
+      } else {
+        // Model is text-only: Flatten array content into a single plain string
+        let textParts = [];
+        let imageNotice = "";
+
+        for (const part of msg.content) {
+          if (part.type === "text") {
+            if (part.text) textParts.push(part.text);
+          } else if (part.type === "image_url") {
+            imageNotice += " [Attached Image - text-only model]";
+          }
+        }
+
+        const plainContent = textParts.join("\n\n") + imageNotice;
+        return {
+          ...msg,
+          content: plainContent
+        };
+      }
+    }
+
+    return {
+      ...msg,
+      content: String(msg.content || "")
+    };
+  });
+}
+
+/**
  * Handle requests via Groq API (OpenAI-compatible)
  */
 async function handleGroqRequest(body, apiKey, res) {
   try {
     const rawModel = body.model || "llama-3.3-70b-versatile";
     const modelName = rawModel.replace(/^groq\//, "");
+    const sanitizedMessages = sanitizeMessagesForModel(body.messages, rawModel);
 
     const groqPayload = {
       model: modelName,
-      messages: body.messages || [],
+      messages: sanitizedMessages,
       temperature: typeof body.temperature === "number" ? body.temperature : 0.7
     };
 
@@ -91,7 +164,7 @@ async function handleGroqRequest(body, apiKey, res) {
       groqPayload.max_tokens = body.max_tokens;
     }
 
-    console.log("⚡ [Groq API] Calling chat/completions with model:", modelName);
+    console.log("⚡ [Groq API] Calling chat/completions with model:", modelName, "Sanitized Payload:", sanitizeLogObject(groqPayload));
 
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
@@ -179,7 +252,7 @@ async function handleGeminiRequest(body, apiKey, res) {
       config.maxOutputTokens = body.max_tokens;
     }
 
-    console.log("🤖 [Google AI Studio] Calling generateContent with model:", modelName);
+    console.log("🤖 [Google AI Studio] Calling generateContent with model:", modelName, "Sanitized Contents:", sanitizeLogObject(contents));
 
     const result = await ai.models.generateContent({
       model: modelName,
@@ -267,13 +340,29 @@ function isGenuineQuotaOrRateLimitError(err) {
  */
 async function handleOpenRouterRequest(body, apiKey, res) {
   try {
+    const rawModel = body.model || "openai/gpt-4o-mini";
+    const sanitizedMessages = sanitizeMessagesForModel(body.messages, rawModel);
+
+    const openRouterPayload = {
+      ...body,
+      messages: sanitizedMessages
+    };
+    if (typeof openRouterPayload.provider !== "object" || openRouterPayload.provider === null) {
+      delete openRouterPayload.provider;
+    }
+
+    console.log("⭐ [OpenRouter API Request] Final Model Slug:", rawModel);
+    console.log("⭐ [OpenRouter API] Calling chat/completions with model:", rawModel, "Sanitized Payload:", sanitizeLogObject(openRouterPayload));
+
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey || ""}`,
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://astro-explorer.vercel.app",
+        "X-Title": "Astro AI"
       },
-      body: JSON.stringify(body)
+      body: JSON.stringify(openRouterPayload)
     });
 
     const data = await response.json();

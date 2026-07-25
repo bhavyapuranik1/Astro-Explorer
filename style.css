@@ -5360,3 +5360,270 @@ body.night-vision-active #toggle-night-btn {
   border-radius: 2px;
   cursor: pointer;
 }
+
+/* ==========================================================================
+   🤖 MODERN COMPACT AI MODEL PICKER & POPUP (ChatGPT / Gemini / Claude Style)
+   ========================================================================== */
+
+.ai-model-picker-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: 8px 14px;
+  background: rgba(8, 14, 26, 0.75);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0 0 16px 16px;
+}
+
+.ai-model-picker-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #e2e8f0;
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+  font-family: inherit;
+}
+
+.ai-model-picker-btn:hover {
+  background: rgba(0, 245, 255, 0.12);
+  border-color: rgba(0, 245, 255, 0.4);
+  color: #ffffff;
+  box-shadow: 0 0 12px rgba(0, 245, 255, 0.2);
+}
+
+.model-picker-icon {
+  font-size: 13px;
+}
+
+.model-picker-label {
+  font-weight: 600;
+  color: #00f5ff;
+}
+
+.model-picker-chevron {
+  display: inline-flex;
+  align-items: center;
+  font-size: 9px;
+  margin-left: 2px;
+  opacity: 0.8;
+  transition: transform 0.2s ease;
+}
+
+.ai-model-picker-btn.open .model-picker-chevron {
+  transform: rotate(180deg);
+}
+
+/* POPUP CONTAINER */
+.ai-model-popup {
+  position: absolute;
+  bottom: 100%;
+  left: 14px;
+  margin-bottom: 8px;
+  width: 320px;
+  max-height: 400px;
+  background: rgba(10, 16, 28, 0.96);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(0, 245, 255, 0.25);
+  border-radius: 14px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.8), 0 0 24px rgba(0, 245, 255, 0.12);
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: modelPopupFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.ai-model-popup.hidden {
+  display: none !important;
+}
+
+@keyframes modelPopupFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.model-popup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.model-popup-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: #94a3b8;
+}
+
+.model-popup-close {
+  background: transparent;
+  border: none;
+  color: #64748b;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+}
+
+.model-popup-close:hover {
+  color: #f1f5f9;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.model-popup-content {
+  padding: 8px 6px;
+  overflow-y: auto;
+  max-height: 340px;
+}
+
+.model-popup-content::-webkit-scrollbar {
+  width: 5px;
+}
+
+.model-popup-content::-webkit-scrollbar-thumb {
+  background: rgba(0, 245, 255, 0.3);
+  border-radius: 3px;
+}
+
+/* GROUP BY PROVIDER */
+.model-group {
+  margin-bottom: 12px;
+}
+
+.model-group:last-child {
+  margin-bottom: 4px;
+}
+
+.model-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #e2e8f0;
+  letter-spacing: 0.3px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 6px;
+  margin-bottom: 4px;
+}
+
+.model-group-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.provider-status-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 10px;
+  letter-spacing: 0.2px;
+}
+
+.provider-status-badge.available {
+  background: rgba(34, 197, 94, 0.15);
+  color: #4ade80;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.provider-status-badge.rate_limited {
+  background: rgba(249, 115, 22, 0.15);
+  color: #fb923c;
+  border: 1px solid rgba(249, 115, 22, 0.3);
+}
+
+.provider-status-badge.quota_exceeded,
+.provider-status-badge.key_missing {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+/* MODEL ITEM */
+.model-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 8px 10px;
+  margin: 2px 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: #cbd5e1;
+  font-size: 12px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+.model-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.model-item.selected {
+  background: rgba(0, 245, 255, 0.12);
+  border-color: rgba(0, 245, 255, 0.35);
+  color: #00f5ff;
+  font-weight: 600;
+}
+
+.model-item-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.model-item-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.model-item-warn-icon {
+  font-size: 12px;
+}
+
+.model-item-tag {
+  font-size: 10px;
+  color: #64748b;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.model-item.selected .model-item-tag {
+  color: rgba(0, 245, 255, 0.9);
+  background: rgba(0, 245, 255, 0.15);
+}
+
+.model-item-check {
+  font-size: 12px;
+  color: #00f5ff;
+  font-weight: bold;
+}

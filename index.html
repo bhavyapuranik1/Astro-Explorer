@@ -687,6 +687,22 @@ Logout
 
 </div>
 
+<div id="ai-model-picker-wrapper" class="ai-model-picker-wrapper">
+  <button id="ai-model-picker-btn" class="ai-model-picker-btn" type="button" aria-haspopup="true" aria-expanded="false">
+    <span class="model-picker-icon">🤖</span>
+    <span id="current-model-name" class="model-picker-label">Gemini 3.6 Flash</span>
+    <span class="model-picker-chevron">▼</span>
+  </button>
+
+  <div id="ai-model-popup" class="ai-model-popup hidden">
+    <div class="model-popup-header">
+      <span class="model-popup-title">AI Models & Providers</span>
+      <button id="close-model-popup" class="model-popup-close" type="button">✕</button>
+    </div>
+    <div id="model-popup-content" class="model-popup-content"></div>
+  </div>
+</div>
+
 </div>
 
 <!-- 🔥 OUTSIDE PANEL -->
@@ -1008,32 +1024,7 @@ Remove API Key
 
 </div>
 
-<div class="settings-card">
 
-<h3>🌐 AI Provider</h3>
-
-<p>Current Provider</p>
-
-<select id="ai-provider">
-  <option value="google_ai_studio">Google AI Studio</option>
-  <option value="groq">⚡ Groq</option>
-  <option value="openrouter">OpenRouter</option>
-</select>
-
-</div>
-
-<div class="settings-card">
-
-<h3>🤖 AI Model</h3>
-
-<p>Current Model</p>
-
-<select id="ai-model">
-  <option value="google/gemini-3.6-flash">Gemini 3.6 Flash</option>
-  <option value="google/gemini-3.5-flash">Gemini 3.5 Flash</option>
-</select>
-
-</div>
 
 <div class="settings-card">
 
@@ -2179,8 +2170,8 @@ Save
 <!-- ================= SETTINGS END ================= -->
 
 <script type="module" src="firebase.js"></script>
- 
- <script defer src="script.js"></script>
+<script type="module" src="model-capabilities.js"></script>
+<script defer src="script.js"></script>
 
  <script defer src="/_vercel/insights/script.js"></script>
 <script defer src="/_vercel/speed-insights/script.js"></script>

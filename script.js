@@ -1944,11 +1944,7 @@ function loadNASA() {
         if (obj.name === closest.name) card.classList.add("closest-card");
         if (isHazard) card.classList.add("hazard-card");
 
-        // 🔥 YAHAN LAGANA HAI (TEST)
-
-        // 🟩 MODAL
         card.addEventListener("click", () => {
-
           const modal = document.getElementById("asteroid-modal");
           const modalBody = document.getElementById("modal-body");
 
@@ -1959,61 +1955,65 @@ function loadNASA() {
           const missDistance = Math.round(approachData.miss_distance.kilometers);
           const approachDate = approachData.close_approach_date;
 
-          modalBody.innerHTML = `
-          <h2>${obj.name}</h2>
-          <p>🚀 Speed: ${speed} km/h</p>
-          <p>📏 Diameter: ${Math.round(obj.estimated_diameter.meters.estimated_diameter_max)} m</p>
-          <p>🌍 Miss Distance: ${missDistance} km</p>
-          <p>📅 Approach Date: ${approachDate}</p>
-          <p>⚠️ Hazard: ${isHazard ? "Yes" : "No"}</p>
-        `;
+          if (modalBody) {
+            modalBody.innerHTML = `
+            <h2>${obj.name}</h2>
+            <p>🚀 Speed: ${speed} km/h</p>
+            <p>📏 Diameter: ${Math.round(obj.estimated_diameter.meters.estimated_diameter_max)} m</p>
+            <p>🌍 Miss Distance: ${missDistance} km</p>
+            <p>📅 Approach Date: ${approachDate}</p>
+            <p>⚠️ Hazard: ${isHazard ? "Yes" : "No"}</p>
+          `;
+          }
 
-          modal.classList.add("show");
-
+          if (modal) modal.classList.add("show");
         }); // 🔵 event end
 
         container.appendChild(card);
 
       }); // 🔵 forEach end
 
-
     });
 }
-function buildSkyConfig() {
 
+function buildSkyConfig() {
+  const s = (typeof skySettings !== "undefined" && skySettings) ? skySettings : {};
+  const container = document.getElementById("skyContainer");
+  const width = container ? container.clientWidth : 800;
+  const height = container ? container.clientHeight : 600;
 
   return {
     container: "skyContainer",
-    width: document.getElementById("skyContainer").clientWidth,
-    height: document.getElementById("skyContainer").clientHeight,
+    width: width,
+    height: height,
     projection: "equirectangular",
     follow: "center",
     datapath: "data/",
-    zoomlevel: skySettings.defaultZoom,
+    zoomlevel: s.defaultZoom || 1,
 
     stars: {
-      show: skySettings.showStars,
-      limit: skySettings.starMagnitude,
-      names: skySettings.showStarLabels,
+      show: s.showStars !== undefined ? s.showStars : true,
+      limit: s.starMagnitude || 6,
+      names: s.showStarLabels !== undefined ? s.showStarLabels : true,
       proper: true
     },
 
     constellations: {
-      show: skySettings.showConstellationNames,
-      names: skySettings.showConstellationNames,
-      lines: skySettings.showConstellationLines
+      show: s.showConstellationNames !== undefined ? s.showConstellationNames : true,
+      names: s.showConstellationNames !== undefined ? s.showConstellationNames : true,
+      lines: s.showConstellationLines !== undefined ? s.showConstellationLines : true
     },
 
     asterisms: {
-      show: skySettings.showAsterisms !== undefined ? skySettings.showAsterisms : true,
-      names: skySettings.showAsterismNames !== undefined ? skySettings.showAsterismNames : true,
+      show: s.showAsterisms !== undefined ? s.showAsterisms : true,
+      names: s.showAsterismNames !== undefined ? s.showAsterismNames : true,
       style: {
-        stroke: skySettings.asterismColor || "#ffaa00",
-        width: skySettings.asterismWidth || 1.2,
-        opacity: skySettings.asterismOpacity || 0.7
+        stroke: s.asterismColor || "#ffaa00",
+        width: s.asterismWidth || 1.2,
+        opacity: s.asterismOpacity || 0.7
       },
       nameStyle: {
-        fill: skySettings.asterismColor || "#ffaa00",
+        fill: s.asterismColor || "#ffaa00",
         font: "11px 'Space Grotesk', sans-serif",
         align: "center",
         baseline: "middle",
@@ -2023,9 +2023,9 @@ function buildSkyConfig() {
     },
 
     dsos: {
-      show: skySettings.showDSOs,
-      names: skySettings.showDSOLabels,
-      limit: skySettings.dsoMagnitude,
+      show: s.showDSOs !== undefined ? s.showDSOs : true,
+      names: s.showDSOLabels !== undefined ? s.showDSOLabels : true,
+      limit: s.dsoMagnitude || 6,
       name: "id"
     },
 
@@ -2034,32 +2034,32 @@ function buildSkyConfig() {
     },
 
     mw: {
-      show: skySettings.showMilkyWay,
+      show: s.showMilkyWay !== undefined ? s.showMilkyWay : true,
       opacity: 0.5
     },
 
     // Grid / Reference Lines
     lines: {
       graticule: {
-        show: skySettings.showEquatorialGrid,
+        show: s.showEquatorialGrid !== undefined ? s.showEquatorialGrid : false,
         stroke: "rgba(100,160,255,0.35)",
         width: 0.5,
         opacity: 0.7
       },
       equatorial: {
-        show: skySettings.showCelestialEquator,
+        show: s.showCelestialEquator !== undefined ? s.showCelestialEquator : false,
         stroke: "#4488ff",
         width: 1.2,
         opacity: 0.75
       },
       ecliptic: {
-        show: skySettings.showEcliptic,
+        show: s.showEcliptic !== undefined ? s.showEcliptic : false,
         stroke: "#44cc88",
         width: 1.2,
         opacity: 0.75
       },
       galactic: {
-        show: skySettings.showGalacticPlane,
+        show: s.showGalacticPlane !== undefined ? s.showGalacticPlane : false,
         stroke: "#cc6644",
         width: 1.2,
         opacity: 0.7
@@ -2068,17 +2068,13 @@ function buildSkyConfig() {
     },
 
     horizon: {
-      show: skySettings.showHorizonLine,
+      show: s.showHorizonLine !== undefined ? s.showHorizonLine : false,
       stroke: "#88aaff",
       width: 1.2,
       fill: "#000000",
       opacity: 0.35
     }
   };
-
-
-
-  return config;
 }
 
 
@@ -5536,6 +5532,7 @@ ${userMessage}
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
+  initModelPickerEvents();
 
 
 
@@ -6320,18 +6317,31 @@ Instead of sounding like a textbook:
 
         }
 
+        const hasAttachments = (uploadedAttachments && uploadedAttachments.length > 0);
+
+        const attachmentMandate = hasAttachments ? `
+ATTACHMENT MANDATE (CRITICAL):
+- You MUST thoroughly analyze EVERY uploaded image and read EVERY uploaded file.
+- You MUST correlate findings across all uploaded images and text files together.
+- Response Length controls ONLY text explanation brevity, formatting, and word style. Response length MUST NEVER cause you to omit, skip, or ignore any uploaded attachment.
+- In your response:
+  1. Acknowledge EVERY uploaded file by name/type.
+  2. Acknowledge EVERY uploaded image by name/type.
+  3. State at least one key observation or finding for EACH uploaded image and file.
+` : "";
+
         let responseInstruction = "";
 
-        switch (responseLength) {
+        switch (String(responseLength).toLowerCase()) {
 
           case "short":
 
             responseInstruction = `
-IMPORTANT:
-Reply in a maximum of 5 short sentences.
-Do NOT use headings.
-Do NOT use bullet points.
-Keep the answer under 120 words.
+RESPONSE LENGTH MODE: SHORT
+- Provide a concise, high-density summary focused on direct key findings.
+- Keep explanations brief and to the point.
+- Avoid lengthy background introduction.
+${attachmentMandate ? attachmentMandate : "- Focus on concise key takeaways."}
 `;
 
             break;
@@ -6339,21 +6349,34 @@ Keep the answer under 120 words.
           case "medium":
 
             responseInstruction = `
-Provide a balanced explanation.
-Keep the answer around 250-500 words.
-Use headings only if needed.
+RESPONSE LENGTH MODE: MEDIUM
+- Provide a balanced, clear explanation.
+- Use structured sections or bullet points where helpful.
+- Ensure thorough coverage of all user questions and findings.
+${attachmentMandate ? attachmentMandate : ""}
 `;
 
             break;
 
+          case "detailed":
           case "long":
 
             responseInstruction = `
-Provide a comprehensive explanation.
-Use Markdown headings.
-Use tables where appropriate.
-Explain concepts step by step.
-Include scientific reasoning and examples.
+RESPONSE LENGTH MODE: DETAILED / LONG
+- Provide a comprehensive, in-depth explanation and scientific analysis.
+- Use Markdown headings, bullet points, and tables where appropriate.
+- Explain concepts step by step, fully integrating all findings.
+${attachmentMandate ? attachmentMandate : ""}
+`;
+
+            break;
+
+          default:
+
+            responseInstruction = `
+RESPONSE LENGTH MODE: BALANCED
+- Provide a clear, structured explanation covering all key aspects.
+${attachmentMandate ? attachmentMandate : ""}
 `;
 
             break;
@@ -6393,7 +6416,39 @@ Include scientific reasoning and examples.
             break;
         }
 
-        const selectedModel = getSelectedAIModel();
+        let selectedModel = getSelectedAIModel();
+
+        const imageAttachments = uploadedAttachments.filter(f => f.type === "image");
+        const hasImages = imageAttachments.length > 0;
+
+        let modelCap = (typeof getModelCapability === "function")
+          ? getModelCapability(selectedModel)
+          : { image: selectedModel.includes("gemini") || selectedModel.includes("gpt-4o") };
+
+        // Requirement 2: If image=false and an image is attached, switch to a compatible vision model
+        if (hasImages && !modelCap.image) {
+          const fallbackVisionModel = modelCap.fallbackModel || "google/gemini-3.6-flash";
+          const origName = (typeof getModelDisplayName === "function") ? getModelDisplayName(selectedModel) : selectedModel;
+          const fallbackName = (typeof getModelDisplayName === "function") ? getModelDisplayName(fallbackVisionModel) : fallbackVisionModel;
+
+          if (typeof showToast === "function") {
+            showToast(`📷 ${origName} is text-only. Switched to ${fallbackName} for vision.`);
+          }
+
+          selectedModel = fallbackVisionModel;
+          const fallbackProvider = selectedModel.includes("gemini") ? "google_ai_studio" : "openrouter";
+
+          AstroSettings.set("aiProvider", fallbackProvider);
+          AstroSettings.set("aiModel", selectedModel);
+          localStorage.setItem("aiProvider", fallbackProvider);
+          localStorage.setItem("aiModel", selectedModel);
+
+          if (typeof updateModelPickerButton === "function") {
+            updateModelPickerButton();
+          }
+
+          modelCap = (typeof getModelCapability === "function") ? getModelCapability(selectedModel) : { image: true };
+        }
 
         const isGPT5 = selectedModel === "openai/gpt-5";
 
@@ -6412,7 +6467,7 @@ Include scientific reasoning and examples.
           ].filter(Boolean).join("\n\n");
 
         const DEFAULT_TOKEN_PROFILE = {
-          short: 512,
+          short: 1024,
           medium: 2048,
           detailed: 4096
         };
@@ -6441,8 +6496,9 @@ Include scientific reasoning and examples.
             maxTokens = profile.medium;
         }
 
+        const logSanitizer = (typeof sanitizeLogObject === "function") ? sanitizeLogObject : (obj => obj);
 
-        console.log("🔍 [DEBUG] Sending AI Request:", {
+        console.log("🔍 [DEBUG] Sending AI Request:", logSanitizer({
           endpoint: endpoint,
           useCloud: useCloud,
           apiKey: localStorage.getItem("OPENROUTER_API_KEY") ? "Present" : "Missing",
@@ -6453,18 +6509,16 @@ Include scientific reasoning and examples.
           model: selectedModel,
           systemPrompt: creativityInstruction + "\n" + responseInstruction,
           userPrompt: finalUserPrompt
-        });
+        }));
 
         const systemPromptText = isGPT5
           ? "You are Astro AI. Give a concise, direct answer. Do not include internal reasoning."
           : `${creativityInstruction}\n\n${responseInstruction}\n`;
 
-        const imageAttachments = uploadedAttachments.filter(f => f.type === "image");
-        const hasImages = imageAttachments.length > 0;
-
-        const userContent = (isGPT5 || !hasImages)
-          ? (finalUserPrompt + (attachmentPrompt && String(attachmentPrompt).trim() !== "" ? "\n\n" + attachmentPrompt : ""))
-          : [
+        // Requirement 7 & 8: Text-only requests MUST ALWAYS send messages[].content as a plain string.
+        // Multimodal content array is sent ONLY for models where modelCap.image is true and images are attached.
+        const userContent = (hasImages && modelCap.image)
+          ? [
             {
               type: "text",
               text: finalUserPrompt
@@ -6479,13 +6533,13 @@ Include scientific reasoning and examples.
                 url: f.data
               }
             }))
-          ];
+          ]
+          : (finalUserPrompt + (attachmentPrompt && String(attachmentPrompt).trim() !== "" ? "\n\n" + attachmentPrompt : ""));
 
         const selectedProvider = getSelectedAIProvider();
 
         const requestBody = {
           model: selectedModel,
-          provider: selectedProvider,
           messages: [
             {
               role: "system",
@@ -6499,14 +6553,17 @@ Include scientific reasoning and examples.
           temperature
         };
 
+        if (selectedProvider && selectedProvider !== "openrouter") {
+          requestBody.provider = selectedProvider;
+        }
+
         // Only add max_tokens if a model explicitly requires it (has an override)
         if (MODEL_TOKEN_OVERRIDES[selectedModel]) {
           requestBody.max_tokens = maxTokens;
         }
 
-        console.log("FINAL REQUEST BODY:", requestBody);
-        console.log("===== OPENROUTER BODY =====");
-        console.log(JSON.stringify(requestBody, null, 2));
+        console.log("🚀 [AI Request Dispatch] Final Model Slug:", selectedModel);
+        console.log("FINAL REQUEST BODY:", logSanitizer(requestBody));
 
         const response = await fetch(endpoint, {
           method: "POST",
@@ -6528,13 +6585,70 @@ Include scientific reasoning and examples.
 
         let reply = "No response.";
 
-        // 🔄 Automatic max_tokens fallback handler for afford errors
+        // 🔄 Free model unavailability / rate limit fallback handler
         if (data && data.error) {
           const errMsg = typeof data.error === "string"
             ? data.error
             : (data.error.message || JSON.stringify(data.error));
 
-          if (/afford/i.test(errMsg)) {
+          const isUnavailableForFree = /unavailable for free|free model|no free endpoint|free tier|free limit/i.test(errMsg);
+
+          if (isUnavailableForFree || selectedModel.endsWith(":free")) {
+            // Mark original free model as quota_exceeded/unavailable
+            if (typeof modelStatuses !== "undefined") {
+              modelStatuses[selectedModel] = "quota_exceeded";
+            }
+            if (typeof renderModelPopup === "function") {
+              renderModelPopup();
+            }
+
+            const failedName = getModelDisplayName(selectedModel);
+
+            // Candidate free fallback models (do NOT use paid slug)
+            const FREE_FALLBACK_CANDIDATES = [
+              "deepseek/deepseek-r1:free",
+              "deepseek/deepseek-v3.1:free",
+              "openai/gpt-4o-mini"
+            ];
+
+            const fallbackModel = FREE_FALLBACK_CANDIDATES.find(
+              m => m !== selectedModel && (typeof getModelStatus === "function" ? getModelStatus(m) : "available") === "available"
+            ) || "openai/gpt-4o-mini";
+
+            console.log(`⚠️ Free model ${selectedModel} is unavailable. Retrying once with free fallback model ${fallbackModel}...`);
+
+            const fallbackRequestBody = {
+              ...requestBody,
+              model: fallbackModel
+            };
+
+            if (fallbackModel.includes("gemini")) {
+              fallbackRequestBody.provider = "google_ai_studio";
+            } else if (fallbackModel.includes("llama") || fallbackModel.includes("qwen") || fallbackModel.includes("gpt-oss")) {
+              fallbackRequestBody.provider = "groq";
+            } else {
+              delete fallbackRequestBody.provider;
+            }
+
+            try {
+              const retryResponse = await fetch(endpoint, {
+                method: "POST",
+                headers,
+                body: JSON.stringify(fallbackRequestBody)
+              });
+
+              const retryData = await retryResponse.json();
+
+              if (retryData && retryData.choices && retryData.choices.length > 0) {
+                data = retryData;
+                if (typeof showToast === "function") {
+                  showToast(`The free version of ${failedName} is currently unavailable. Answered using ${getModelDisplayName(fallbackModel)}.`);
+                }
+              }
+            } catch (retryErr) {
+              console.error("Fallback retry fetch error:", retryErr);
+            }
+          } else if (/afford/i.test(errMsg)) {
             // Extract X from "You can only afford X completion tokens, but you requested Y"
             const match = errMsg.match(/afford\s+(\d+)/i) || errMsg.match(/(\d+)\s+(?:completion\s+)?tokens/i);
             const affordTokens = match ? parseInt(match[1], 10) : null;
@@ -6571,8 +6685,11 @@ Include scientific reasoning and examples.
           const finalErrMsg = typeof data.error === "string"
             ? data.error
             : (data.error.message || JSON.stringify(data.error));
-          if (/afford/i.test(finalErrMsg)) {
-            reply = "Your OpenRouter account does not have enough remaining credits to generate a response. Please add credits or choose a free model.";
+
+          const isQuotaOrRateLimit = /quota|rate|credit|afford|exceeded|exhausted|limit|unavailable for free/i.test(finalErrMsg);
+
+          if (isQuotaOrRateLimit) {
+            reply = handleModelQuotaExceeded(selectedModel, finalErrMsg);
           } else {
             reply = "API Error: " + finalErrMsg;
           }
@@ -10189,52 +10306,60 @@ accentSelect?.addEventListener("change", () => {
 
 const AI_PROVIDERS = {
   google_ai_studio: {
+    id: "google_ai_studio",
     name: "Google AI Studio",
+    icon: "🌐",
     defaultModel: "google/gemini-3.6-flash",
     models: [
-      { id: "google/gemini-3.6-flash", name: "Gemini 3.6 Flash (Default)" },
-      { id: "google/gemini-3.5-flash", name: "Gemini 3.5 Flash" }
+      { id: "google/gemini-3.6-flash", name: "Gemini 3.6 Flash", badge: "Default" },
+      { id: "google/gemini-3.5-flash", name: "Gemini 3.5 Flash", badge: "Fast" }
     ]
   },
   groq: {
+    id: "groq",
     name: "Groq",
+    icon: "⚡",
     defaultModel: "llama-3.3-70b-versatile",
     models: [
-      { id: "llama-3.3-70b-versatile", name: "Llama 3.3 70B Versatile (Default)" },
-      { id: "llama-3.1-8b-instant", name: "Llama 3.1 8B Instant" }
+      { id: "llama-3.3-70b-versatile", name: "Llama 3.3 70B", desc: "Best Quality" },
+      { id: "llama-3.1-8b-instant", name: "Llama 3.1 8B Instant", desc: "Fast" },
+      { id: "openai/gpt-oss-120b", name: "GPT OSS 120B", desc: "Strong Reasoning" },
+      { id: "qwen/qwen3.6-27b", name: "Qwen 3.6 27B", desc: "Good Balance" }
     ]
   },
   openrouter: {
+    id: "openrouter",
     name: "OpenRouter",
+    icon: "⭐",
     defaultModel: "openai/gpt-4o-mini",
     models: [
-      { id: "openai/gpt-4o-mini", name: "⭐ GPT-4o Mini (Default)" },
-      { id: "anthropic/claude-sonnet-4", name: "Claude 4 Sonnet" },
-      { id: "openai/gpt-5", name: "GPT-5" },
-      { id: "openai/gpt-5-mini", name: "GPT-5 Mini" },
-      { id: "deepseek/deepseek-r1", name: "DeepSeek R1" },
-      { id: "deepseek/deepseek-chat-v3", name: "DeepSeek V3" },
-      { id: "qwen/qwen3-235b-a22b", name: "Qwen 3 235B" },
-      { id: "meta-llama/llama-4-maverick", name: "Llama 4 Maverick" }
+      { id: "openai/gpt-4o-mini", name: "GPT-4o Mini", desc: "Fallback" },
+      { id: "deepseek/deepseek-v4-flash", name: "DeepSeek V4 Flash", desc: "Fast & Efficient" },
+      { id: "deepseek/deepseek-r1", name: "DeepSeek R1", desc: "Reasoning Model" },
+      { id: "deepseek/deepseek-chat-v3.1", name: "DeepSeek V3.1", desc: "General Purpose" }
     ]
   }
 };
 
+// Per-Model Status Tracking: 'available' (🟢), 'rate_limited' (🟠), 'quota_exceeded' (🔴), 'key_missing' (🔴)
+const modelStatuses = {};
+
+function getModelStatus(modelId) {
+  return modelStatuses[modelId] || "available";
+}
+
 function getSelectedAIProvider() {
-  const providerSelect = document.getElementById("ai-provider");
   const storedProvider =
     (typeof AstroSettings !== "undefined" ? AstroSettings.get("aiProvider") : null) ||
     localStorage.getItem("aiProvider");
 
   if (storedProvider && AI_PROVIDERS[storedProvider]) return storedProvider;
-  if (providerSelect && providerSelect.value && AI_PROVIDERS[providerSelect.value]) return providerSelect.value;
   return "google_ai_studio";
 }
 
 function getSelectedAIModel() {
   const provider = getSelectedAIProvider();
   const providerConfig = AI_PROVIDERS[provider] || AI_PROVIDERS.google_ai_studio;
-  const modelSelect = document.getElementById("ai-model");
   const storedModel =
     (typeof AstroSettings !== "undefined" ? AstroSettings.get("aiModel") : null) ||
     localStorage.getItem("aiModel");
@@ -10248,38 +10373,214 @@ function getSelectedAIModel() {
   const defaultModel = providerConfig.defaultModel;
   if (typeof AstroSettings !== "undefined") AstroSettings.set("aiModel", defaultModel);
   localStorage.setItem("aiModel", defaultModel);
-  if (modelSelect) modelSelect.value = defaultModel;
   return defaultModel;
 }
 
-function updateAIModelDropdown() {
-  const provider = getSelectedAIProvider();
-  const providerConfig = AI_PROVIDERS[provider] || AI_PROVIDERS.google_ai_studio;
-  const modelSelect = document.getElementById("ai-model");
-  if (!modelSelect) return;
+function getModelDisplayName(modelId) {
+  for (const key in AI_PROVIDERS) {
+    const provider = AI_PROVIDERS[key];
+    const found = provider.models.find(m => m.id === modelId);
+    if (found) {
+      return found.name;
+    }
+  }
+  if (modelId.includes("gemini-3.6")) return "Gemini 3.6 Flash";
+  if (modelId.includes("gemini-3.5")) return "Gemini 3.5 Flash";
+  if (modelId.includes("llama-3.3")) return "Llama 3.3 70B";
+  if (modelId.includes("llama-3.1")) return "Llama 3.1 8B Instant";
+  if (modelId.includes("gpt-oss")) return "GPT OSS 120B";
+  if (modelId.includes("qwen3.6")) return "Qwen 3.6 27B";
+  if (modelId.includes("gpt-4o-mini")) return "GPT-4o Mini";
+  if (modelId.includes("deepseek-v4")) return "DeepSeek V4 Flash";
+  if (modelId.includes("deepseek-r1")) return "DeepSeek R1";
+  if (modelId.includes("deepseek-chat-v3.1") || modelId.includes("deepseek-v3") || modelId.includes("deepseek-chat")) return "DeepSeek V3.1";
+  return modelId;
+}
 
-  const currentVal = modelSelect.value;
-  modelSelect.innerHTML = "";
-  providerConfig.models.forEach(m => {
-    const opt = document.createElement("option");
-    opt.value = m.id;
-    opt.textContent = m.name;
-    modelSelect.appendChild(opt);
+function updateModelPickerButton() {
+  const labelEl = document.getElementById("current-model-name");
+  if (labelEl) {
+    const currentModelId = getSelectedAIModel();
+    labelEl.textContent = getModelDisplayName(currentModelId);
+  }
+}
+
+function renderModelPopup() {
+  const popupContent = document.getElementById("model-popup-content");
+  if (!popupContent) return;
+
+  const currentModel = getSelectedAIModel();
+
+  let html = "";
+
+  for (const providerKey in AI_PROVIDERS) {
+    const provider = AI_PROVIDERS[providerKey];
+
+    html += `
+      <div class="model-group">
+        <div class="model-group-header">
+          <div class="model-group-title">
+            <span>${provider.name}</span>
+          </div>
+        </div>
+        <div class="model-group-list">
+    `;
+
+    provider.models.forEach(model => {
+      const isSelected = model.id === currentModel;
+      const status = getModelStatus(model.id);
+      const isUnavailable = status !== "available";
+
+      let statusBadge = "";
+      if (status === "quota_exceeded") {
+        statusBadge = '<span class="provider-status-badge quota_exceeded">🔴 Quota Exceeded</span>';
+      } else if (status === "rate_limited") {
+        statusBadge = '<span class="provider-status-badge rate_limited">🟠 Rate Limited</span>';
+      } else if (status === "key_missing") {
+        statusBadge = '<span class="provider-status-badge key_missing">🔴 Key Missing</span>';
+      } else {
+        const tagText = model.desc || model.badge || "";
+        if (tagText) {
+          statusBadge = `<span class="model-item-tag">${tagText}</span>`;
+        }
+      }
+
+      const warnIcon = isUnavailable ? '<span class="model-item-warn-icon">⚠️</span>' : '';
+      const selectedCheck = isSelected ? '<span class="model-item-check">✓</span>' : '';
+
+      html += `
+        <button type="button" class="model-item ${isSelected ? 'selected' : ''}" data-provider="${providerKey}" data-model="${model.id}">
+          <div class="model-item-left">
+            <div class="model-item-name">
+              ${warnIcon}
+              <span>${model.name}</span>
+            </div>
+            ${statusBadge}
+          </div>
+          ${selectedCheck}
+        </button>
+      `;
+    });
+
+    html += `
+        </div>
+      </div>
+    `;
+  }
+
+  popupContent.innerHTML = html;
+
+  // Bind model selection clicks
+  const modelButtons = popupContent.querySelectorAll(".model-item");
+  modelButtons.forEach(btn => {
+    btn.addEventListener("click", () => {
+      const prov = btn.getAttribute("data-provider");
+      const mod = btn.getAttribute("data-model");
+
+      if (prov && mod) {
+        AstroSettings.set("aiProvider", prov);
+        AstroSettings.set("aiModel", mod);
+        localStorage.setItem("aiProvider", prov);
+        localStorage.setItem("aiModel", mod);
+
+        updateModelPickerButton();
+        renderModelPopup();
+
+        const popup = document.getElementById("ai-model-popup");
+        if (popup) popup.classList.add("hidden");
+
+        const pickerBtn = document.getElementById("ai-model-picker-btn");
+        if (pickerBtn) pickerBtn.classList.remove("open");
+
+        showToast("🤖 Model switched to " + getModelDisplayName(mod));
+      }
+    });
+  });
+}
+
+function initModelPickerEvents() {
+  const pickerBtn = document.getElementById("ai-model-picker-btn");
+  const popup = document.getElementById("ai-model-popup");
+  const closeBtn = document.getElementById("close-model-popup");
+
+  if (pickerBtn && popup) {
+    pickerBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const isOpen = !popup.classList.contains("hidden");
+      if (isOpen) {
+        popup.classList.add("hidden");
+        pickerBtn.classList.remove("open");
+      } else {
+        renderModelPopup();
+        popup.classList.remove("hidden");
+        pickerBtn.classList.add("open");
+      }
+    });
+  }
+
+  if (closeBtn && popup && pickerBtn) {
+    closeBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      popup.classList.add("hidden");
+      pickerBtn.classList.remove("open");
+    });
+  }
+
+  document.addEventListener("click", (e) => {
+    if (popup && !popup.classList.contains("hidden")) {
+      const wrapper = document.getElementById("ai-model-picker-wrapper");
+      if (wrapper && !wrapper.contains(e.target)) {
+        popup.classList.add("hidden");
+        if (pickerBtn) pickerBtn.classList.remove("open");
+      }
+    }
   });
 
-  const selectedModel = getSelectedAIModel();
-  modelSelect.value = selectedModel;
+  updateModelPickerButton();
+}
+
+function handleModelQuotaExceeded(failedModelId, errorMessage) {
+  const msg = String(errorMessage || "").toLowerCase();
+
+  // Strict key missing check: Only when key is explicitly missing/empty or unconfigured
+  const isKeyMissing = (
+    msg.includes("key is missing") ||
+    msg.includes("key is not configured") ||
+    msg.includes("no api key") ||
+    msg.includes("api key required")
+  ) && !msg.includes("rate") && !msg.includes("quota") && !msg.includes("limit") && !msg.includes("unavailable") && !msg.includes("invalid");
+
+  const isRateLimit = (
+    msg.includes("rate") ||
+    msg.includes("429") ||
+    msg.includes("too many requests")
+  );
+
+  if (isKeyMissing) {
+    modelStatuses[failedModelId] = "key_missing";
+  } else if (isRateLimit) {
+    modelStatuses[failedModelId] = "rate_limited";
+  } else {
+    modelStatuses[failedModelId] = "quota_exceeded";
+  }
+
+  const failedName = getModelDisplayName(failedModelId);
+
+  // Update popup if open so status badge appears for failed model
+  renderModelPopup();
+
+  if (msg.includes("unavailable") || msg.includes("invalid model") || msg.includes("not a valid model id")) {
+    return `The model ${failedName} is currently unavailable or invalid. Please select any other model.`;
+  }
+
+  return `${failedName} quota is exceeded, please select any other model.`;
 }
 
 function applyAISettings() {
   const responseLength = AstroSettings.get("responseLength");
   const creativity = AstroSettings.get("creativity");
-  const aiProvider = getSelectedAIProvider();
 
-  const providerSelect = document.getElementById("ai-provider");
-  if (providerSelect) providerSelect.value = aiProvider;
-
-  updateAIModelDropdown();
+  updateModelPickerButton();
 
   const responseSelect = document.getElementById("response-length");
   const creativitySelect = document.getElementById("creativity-select");
@@ -10294,10 +10595,6 @@ function applyAISettings() {
 
 const responseLengthSelect = document.getElementById("response-length");
 const creativitySelect = document.getElementById("creativity-select");
-const aiProviderSelect = document.getElementById("ai-provider");
-const aiModelSelect = document.getElementById("ai-model");
-const saveChatHistoryToggle = document.getElementById("toggle-save-save-chat-history");
-const cloudSyncToggle = document.getElementById("toggle-cloud-sync");
 
 responseLengthSelect?.addEventListener("change", () => {
   AstroSettings.set("responseLength", responseLengthSelect.value);
@@ -10311,26 +10608,6 @@ creativitySelect?.addEventListener("change", () => {
   showToast("🤖 AI Settings Saved");
 });
 
-aiProviderSelect?.addEventListener("change", () => {
-  const newProvider = aiProviderSelect.value;
-  AstroSettings.set("aiProvider", newProvider);
-  localStorage.setItem("aiProvider", newProvider);
-
-  const providerConfig = AI_PROVIDERS[newProvider] || AI_PROVIDERS.google_ai_studio;
-  AstroSettings.set("aiModel", providerConfig.defaultModel);
-  localStorage.setItem("aiModel", providerConfig.defaultModel);
-
-  applyAISettings();
-  showToast("🌐 AI Provider Updated");
-});
-
-aiModelSelect?.addEventListener("change", () => {
-  AstroSettings.set("aiModel", aiModelSelect.value);
-  localStorage.setItem("aiModel", aiModelSelect.value);
-  applyAISettings();
-  showToast("🤖 AI Model Settings Saved");
-});
-
 const saveChatHistoryEl = document.getElementById("toggle-save-chat-history");
 saveChatHistoryEl?.addEventListener("change", () => {
   AstroSettings.set("saveChatHistory", saveChatHistoryEl.checked);
@@ -10338,6 +10615,7 @@ saveChatHistoryEl?.addEventListener("change", () => {
   showToast("🤖 AI Chat History Settings Saved");
 });
 
+const cloudSyncToggle = document.getElementById("toggle-cloud-sync");
 cloudSyncToggle?.addEventListener("change", () => {
   AstroSettings.set("cloudSync", cloudSyncToggle.checked);
   applyAISettings();
