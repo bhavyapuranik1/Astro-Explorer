@@ -1,5 +1,7 @@
 {
+  "type": "module",
   "dependencies": {
+    "@google/genai": "^2.13.0",
     "astronomy-engine": "^2.1.19",
     "satellite.js": "^7.0.1"
   }

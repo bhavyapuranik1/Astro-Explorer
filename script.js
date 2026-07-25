@@ -6420,13 +6420,7 @@ Include scientific reasoning and examples.
           detailed: 4096
         };
 
-        const MODEL_TOKEN_OVERRIDES = {
-          "google/gemini-3.5-flash": {
-            short: 512,
-            medium: 3072,
-            detailed: 6144
-          }
-        };
+        const MODEL_TOKEN_OVERRIDES = {};
 
         const profile = MODEL_TOKEN_OVERRIDES[selectedModel] || DEFAULT_TOKEN_PROFILE;
 
@@ -6490,8 +6484,11 @@ Include scientific reasoning and examples.
             }))
           ];
 
+        const isGeminiModel = selectedModel.toLowerCase().includes("gemini");
+
         const requestBody = {
           model: selectedModel,
+          provider: isGeminiModel ? "google_ai_studio" : "openrouter",
           messages: [
             {
               role: "system",
