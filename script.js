@@ -6393,10 +6393,7 @@ Include scientific reasoning and examples.
             break;
         }
 
-        const selectedModel =
-          (typeof AstroSettings !== "undefined" ? AstroSettings.get("aiModel") : null) ||
-          localStorage.getItem("aiModel") ||
-          "openai/gpt-4o-mini";
+        const selectedModel = getSelectedAIModel();
 
         const isGPT5 = selectedModel === "openai/gpt-5";
 
@@ -8737,10 +8734,7 @@ async function generateConversationTitle(question, reply) {
       reply: reply
     });
 
-    const selectedModel =
-      (typeof AstroSettings !== "undefined" ? AstroSettings.get("aiModel") : null) ||
-      localStorage.getItem("aiModel") ||
-      "openai/gpt-4o-mini";
+    const selectedModel = getSelectedAIModel();
 
     const response = await fetch(endpoint, {
 
@@ -10193,10 +10187,37 @@ accentSelect?.addEventListener("change", () => {
   showToast("🎨 Accent Updated");
 });
 
+function getSelectedAIModel() {
+  const modelSelect = document.getElementById("ai-model");
+  const storedModel =
+    (typeof AstroSettings !== "undefined" ? AstroSettings.get("aiModel") : null) ||
+    localStorage.getItem("aiModel");
+
+  const obsoleteModels = [
+    "google/gemini-2.0-flash",
+    "gemini-2.0-flash",
+    "google/gemini-2.5-flash",
+    "google/gemini-3.6-flash",
+    "google/gemini-3.5-flash"
+  ];
+
+  if (storedModel && obsoleteModels.includes(storedModel)) {
+    const validDefault = "google/gemini-1.5-flash";
+    if (typeof AstroSettings !== "undefined") AstroSettings.set("aiModel", validDefault);
+    localStorage.setItem("aiModel", validDefault);
+    if (modelSelect) modelSelect.value = validDefault;
+    return validDefault;
+  }
+
+  if (storedModel) return storedModel;
+  if (modelSelect && modelSelect.value) return modelSelect.value;
+  return "openai/gpt-4o-mini";
+}
+
 function applyAISettings() {
   const responseLength = AstroSettings.get("responseLength");
   const creativity = AstroSettings.get("creativity");
-  const aiModel = AstroSettings.get("aiModel");
+  const aiModel = getSelectedAIModel();
   const saveChatHistory = AstroSettings.get("saveChatHistory");
   const cloudSync = AstroSettings.get("cloudSync");
 

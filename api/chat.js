@@ -20,7 +20,7 @@ export default async function handler(req, res) {
 
   try {
     const body = typeof req.body === "string" ? JSON.parse(req.body) : (req.body || {});
-    const requestedModel = body.model || "google/gemini-2.5-flash";
+    const requestedModel = body.model || "google/gemini-1.5-flash";
     const provider = (body.provider || "").toLowerCase();
 
     const geminiApiKey =
@@ -65,20 +65,8 @@ async function handleGeminiRequest(body, apiKey, res) {
   try {
     const ai = new GoogleGenAI({ apiKey });
 
-    const rawModel = body.model || "gemini-2.0-flash";
-    let modelName = rawModel.replace(/^google\//, "");
-
-    // Map non-existent or deprecated model aliases to valid Google AI Studio model IDs
-    const modelAliasMap = {
-      "gemini-3.6-flash": "gemini-2.0-flash",
-      "gemini-3.5-flash": "gemini-2.0-flash",
-      "gemini-2.5-flash": "gemini-2.0-flash",
-      "gemini-2.5-pro": "gemini-1.5-pro"
-    };
-
-    if (modelAliasMap[modelName]) {
-      modelName = modelAliasMap[modelName];
-    }
+    const rawModel = body.model || "gemini-1.5-flash";
+    const modelName = rawModel.replace(/^google\//, "");
 
     const messages = Array.isArray(body.messages) ? body.messages : [];
     let systemInstruction = "";
@@ -133,6 +121,8 @@ async function handleGeminiRequest(body, apiKey, res) {
     if (typeof body.max_tokens === "number") {
       config.maxOutputTokens = body.max_tokens;
     }
+
+    console.log("🤖 [Google AI Studio] Calling generateContent with model:", modelName);
 
     const result = await ai.models.generateContent({
       model: modelName,
