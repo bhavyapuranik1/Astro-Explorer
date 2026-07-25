@@ -20,7 +20,7 @@ export default async function handler(req, res) {
 
   try {
     const body = typeof req.body === "string" ? JSON.parse(req.body) : (req.body || {});
-    const requestedModel = body.model || "google/gemini-1.5-flash";
+    const requestedModel = body.model || "google/gemini-2.5-flash";
     const provider = (body.provider || "").toLowerCase();
 
     const geminiApiKey =
@@ -65,7 +65,7 @@ async function handleGeminiRequest(body, apiKey, res) {
   try {
     const ai = new GoogleGenAI({ apiKey });
 
-    const rawModel = body.model || "gemini-1.5-flash";
+    const rawModel = body.model || "gemini-2.5-flash";
     const modelName = rawModel.replace(/^google\//, "");
 
     const messages = Array.isArray(body.messages) ? body.messages : [];

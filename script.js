@@ -10193,16 +10193,15 @@ function getSelectedAIModel() {
     (typeof AstroSettings !== "undefined" ? AstroSettings.get("aiModel") : null) ||
     localStorage.getItem("aiModel");
 
-  const obsoleteModels = [
-    "google/gemini-2.0-flash",
-    "gemini-2.0-flash",
-    "google/gemini-2.5-flash",
-    "google/gemini-3.6-flash",
-    "google/gemini-3.5-flash"
+  const obsoleteGeminiModels = [
+    "google/gemini-1.5-flash",
+    "gemini-1.5-flash",
+    "google/gemini-1.5-pro",
+    "gemini-1.5-pro"
   ];
 
-  if (storedModel && obsoleteModels.includes(storedModel)) {
-    const validDefault = "google/gemini-1.5-flash";
+  if (storedModel && obsoleteGeminiModels.includes(storedModel)) {
+    const validDefault = "google/gemini-2.5-flash";
     if (typeof AstroSettings !== "undefined") AstroSettings.set("aiModel", validDefault);
     localStorage.setItem("aiModel", validDefault);
     if (modelSelect) modelSelect.value = validDefault;
