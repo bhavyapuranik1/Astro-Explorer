@@ -6481,11 +6481,11 @@ Include scientific reasoning and examples.
             }))
           ];
 
-        const isGeminiModel = selectedModel.toLowerCase().includes("gemini");
+        const selectedProvider = getSelectedAIProvider();
 
         const requestBody = {
           model: selectedModel,
-          provider: isGeminiModel ? "google_ai_studio" : "openrouter",
+          provider: selectedProvider,
           messages: [
             {
               role: "system",
@@ -10187,54 +10187,114 @@ accentSelect?.addEventListener("change", () => {
   showToast("🎨 Accent Updated");
 });
 
+const AI_PROVIDERS = {
+  google_ai_studio: {
+    name: "Google AI Studio",
+    defaultModel: "google/gemini-3.6-flash",
+    models: [
+      { id: "google/gemini-3.6-flash", name: "Gemini 3.6 Flash (Default)" },
+      { id: "google/gemini-3.5-flash", name: "Gemini 3.5 Flash" }
+    ]
+  },
+  groq: {
+    name: "Groq",
+    defaultModel: "llama-3.3-70b-versatile",
+    models: [
+      { id: "llama-3.3-70b-versatile", name: "Llama 3.3 70B Versatile (Default)" },
+      { id: "llama-3.1-8b-instant", name: "Llama 3.1 8B Instant" }
+    ]
+  },
+  openrouter: {
+    name: "OpenRouter",
+    defaultModel: "openai/gpt-4o-mini",
+    models: [
+      { id: "openai/gpt-4o-mini", name: "⭐ GPT-4o Mini (Default)" },
+      { id: "anthropic/claude-sonnet-4", name: "Claude 4 Sonnet" },
+      { id: "openai/gpt-5", name: "GPT-5" },
+      { id: "openai/gpt-5-mini", name: "GPT-5 Mini" },
+      { id: "deepseek/deepseek-r1", name: "DeepSeek R1" },
+      { id: "deepseek/deepseek-chat-v3", name: "DeepSeek V3" },
+      { id: "qwen/qwen3-235b-a22b", name: "Qwen 3 235B" },
+      { id: "meta-llama/llama-4-maverick", name: "Llama 4 Maverick" }
+    ]
+  }
+};
+
+function getSelectedAIProvider() {
+  const providerSelect = document.getElementById("ai-provider");
+  const storedProvider =
+    (typeof AstroSettings !== "undefined" ? AstroSettings.get("aiProvider") : null) ||
+    localStorage.getItem("aiProvider");
+
+  if (storedProvider && AI_PROVIDERS[storedProvider]) return storedProvider;
+  if (providerSelect && providerSelect.value && AI_PROVIDERS[providerSelect.value]) return providerSelect.value;
+  return "google_ai_studio";
+}
+
 function getSelectedAIModel() {
+  const provider = getSelectedAIProvider();
+  const providerConfig = AI_PROVIDERS[provider] || AI_PROVIDERS.google_ai_studio;
   const modelSelect = document.getElementById("ai-model");
   const storedModel =
     (typeof AstroSettings !== "undefined" ? AstroSettings.get("aiModel") : null) ||
     localStorage.getItem("aiModel");
 
-  const obsoleteGeminiModels = [
-    "google/gemini-1.5-flash",
-    "gemini-1.5-flash",
-    "google/gemini-1.5-pro",
-    "gemini-1.5-pro"
-  ];
-
-  if (storedModel && obsoleteGeminiModels.includes(storedModel)) {
-    const validDefault = "google/gemini-2.5-flash";
-    if (typeof AstroSettings !== "undefined") AstroSettings.set("aiModel", validDefault);
-    localStorage.setItem("aiModel", validDefault);
-    if (modelSelect) modelSelect.value = validDefault;
-    return validDefault;
+  const validModelIds = providerConfig.models.map(m => m.id);
+  if (storedModel && validModelIds.includes(storedModel)) {
+    return storedModel;
   }
 
-  if (storedModel) return storedModel;
-  if (modelSelect && modelSelect.value) return modelSelect.value;
-  return "openai/gpt-4o-mini";
+  // Fallback to provider default model
+  const defaultModel = providerConfig.defaultModel;
+  if (typeof AstroSettings !== "undefined") AstroSettings.set("aiModel", defaultModel);
+  localStorage.setItem("aiModel", defaultModel);
+  if (modelSelect) modelSelect.value = defaultModel;
+  return defaultModel;
+}
+
+function updateAIModelDropdown() {
+  const provider = getSelectedAIProvider();
+  const providerConfig = AI_PROVIDERS[provider] || AI_PROVIDERS.google_ai_studio;
+  const modelSelect = document.getElementById("ai-model");
+  if (!modelSelect) return;
+
+  const currentVal = modelSelect.value;
+  modelSelect.innerHTML = "";
+  providerConfig.models.forEach(m => {
+    const opt = document.createElement("option");
+    opt.value = m.id;
+    opt.textContent = m.name;
+    modelSelect.appendChild(opt);
+  });
+
+  const selectedModel = getSelectedAIModel();
+  modelSelect.value = selectedModel;
 }
 
 function applyAISettings() {
   const responseLength = AstroSettings.get("responseLength");
   const creativity = AstroSettings.get("creativity");
-  const aiModel = getSelectedAIModel();
-  const saveChatHistory = AstroSettings.get("saveChatHistory");
-  const cloudSync = AstroSettings.get("cloudSync");
+  const aiProvider = getSelectedAIProvider();
+
+  const providerSelect = document.getElementById("ai-provider");
+  if (providerSelect) providerSelect.value = aiProvider;
+
+  updateAIModelDropdown();
 
   const responseSelect = document.getElementById("response-length");
   const creativitySelect = document.getElementById("creativity-select");
-  const modelSelect = document.getElementById("ai-model");
   const saveChatHistoryToggle = document.getElementById("toggle-save-chat-history");
   const cloudSyncToggle = document.getElementById("toggle-cloud-sync");
 
   if (responseSelect) responseSelect.value = responseLength;
   if (creativitySelect) creativitySelect.value = creativity;
-  if (modelSelect) modelSelect.value = aiModel;
-  if (saveChatHistoryToggle) saveChatHistoryToggle.checked = saveChatHistory;
-  if (cloudSyncToggle) cloudSyncToggle.checked = cloudSync;
+  if (saveChatHistoryToggle) saveChatHistoryToggle.checked = AstroSettings.get("saveChatHistory");
+  if (cloudSyncToggle) cloudSyncToggle.checked = AstroSettings.get("cloudSync");
 }
 
 const responseLengthSelect = document.getElementById("response-length");
 const creativitySelect = document.getElementById("creativity-select");
+const aiProviderSelect = document.getElementById("ai-provider");
 const aiModelSelect = document.getElementById("ai-model");
 const saveChatHistoryToggle = document.getElementById("toggle-save-save-chat-history");
 const cloudSyncToggle = document.getElementById("toggle-cloud-sync");
@@ -10251,8 +10311,22 @@ creativitySelect?.addEventListener("change", () => {
   showToast("🤖 AI Settings Saved");
 });
 
+aiProviderSelect?.addEventListener("change", () => {
+  const newProvider = aiProviderSelect.value;
+  AstroSettings.set("aiProvider", newProvider);
+  localStorage.setItem("aiProvider", newProvider);
+
+  const providerConfig = AI_PROVIDERS[newProvider] || AI_PROVIDERS.google_ai_studio;
+  AstroSettings.set("aiModel", providerConfig.defaultModel);
+  localStorage.setItem("aiModel", providerConfig.defaultModel);
+
+  applyAISettings();
+  showToast("🌐 AI Provider Updated");
+});
+
 aiModelSelect?.addEventListener("change", () => {
   AstroSettings.set("aiModel", aiModelSelect.value);
+  localStorage.setItem("aiModel", aiModelSelect.value);
   applyAISettings();
   showToast("🤖 AI Model Settings Saved");
 });

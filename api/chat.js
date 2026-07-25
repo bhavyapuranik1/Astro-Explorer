@@ -20,20 +20,35 @@ export default async function handler(req, res) {
 
   try {
     const body = typeof req.body === "string" ? JSON.parse(req.body) : (req.body || {});
-    const requestedModel = body.model || "google/gemini-2.5-flash";
+    const requestedModel = body.model || "google/gemini-3.6-flash";
     const provider = (body.provider || "").toLowerCase();
 
     const geminiApiKey =
       process.env.GEMINI_API_KEY ||
       process.env.GOOGLE_AI_STUDIO_API_KEY ||
       process.env.GOOGLE_GENAI_API_KEY;
+    const groqApiKey = process.env.GROQ_API_KEY;
     const openRouterApiKey = process.env.OPENROUTER_API_KEY;
 
-    // Determine provider routing: All Gemini models are handled EXCLUSIVELY through Google AI Studio
-    const isGeminiModel = requestedModel.toLowerCase().includes("gemini");
-    const useGemini = provider === "gemini" || provider === "google" || isGeminiModel;
+    // Check if Groq provider
+    const isGroqModel = requestedModel.toLowerCase().includes("llama-3") || requestedModel.toLowerCase().includes("groq");
+    const useGroq = provider === "groq" || isGroqModel;
 
-    if (useGemini) {
+    // Check if Gemini model
+    const isGeminiModel = requestedModel.toLowerCase().includes("gemini");
+    const useGemini = !useGroq && (provider === "gemini" || provider === "google" || provider === "google_ai_studio" || isGeminiModel);
+
+    if (useGroq) {
+      if (!groqApiKey) {
+        return res.status(401).json({
+          error: {
+            message: "Groq API key is not configured.",
+            code: 401
+          }
+        });
+      }
+      return await handleGroqRequest(body, groqApiKey, res);
+    } else if (useGemini) {
       if (!geminiApiKey) {
         return res.status(401).json({
           error: {
@@ -59,13 +74,55 @@ export default async function handler(req, res) {
 }
 
 /**
+ * Handle requests via Groq API (OpenAI-compatible)
+ */
+async function handleGroqRequest(body, apiKey, res) {
+  try {
+    const rawModel = body.model || "llama-3.3-70b-versatile";
+    const modelName = rawModel.replace(/^groq\//, "");
+
+    const groqPayload = {
+      model: modelName,
+      messages: body.messages || [],
+      temperature: typeof body.temperature === "number" ? body.temperature : 0.7
+    };
+
+    if (typeof body.max_tokens === "number") {
+      groqPayload.max_tokens = body.max_tokens;
+    }
+
+    console.log("⚡ [Groq API] Calling chat/completions with model:", modelName);
+
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey || ""}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(groqPayload)
+    });
+
+    const data = await response.json();
+    return res.status(response.status).json(data);
+  } catch (err) {
+    console.error("Groq API Error:", err);
+    return res.status(500).json({
+      error: {
+        message: err.message || "Failed to reach Groq API",
+        code: 500
+      }
+    });
+  }
+}
+
+/**
  * Handle requests via Google AI Studio (@google/genai SDK)
  */
 async function handleGeminiRequest(body, apiKey, res) {
   try {
     const ai = new GoogleGenAI({ apiKey });
 
-    const rawModel = body.model || "gemini-2.5-flash";
+    const rawModel = body.model || "gemini-3.6-flash";
     const modelName = rawModel.replace(/^google\//, "");
 
     const messages = Array.isArray(body.messages) ? body.messages : [];
