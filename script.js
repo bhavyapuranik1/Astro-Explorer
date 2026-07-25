@@ -10858,50 +10858,7 @@ function getAllMemoryItems() {
   ];
 
 }
-function toggleFavorite(id) {
 
-  const memory = findMemoryById(id);
-
-  if (!memory) return;
-
-  memory.favorite = !memory.favorite;
-
-  memory.updatedAt = new Date().toISOString();
-
-  localStorage.setItem(
-    "astroMemory",
-    JSON.stringify(astroMemory)
-  );
-
-  saveCloudMemory();
-
-  updateMemorySettings();
-
-  renderMemoryList();
-
-}
-function togglePin(id) {
-
-  const memory = findMemoryById(id);
-
-  if (!memory) return;
-
-  memory.pinned = !memory.pinned;
-
-  memory.updatedAt = new Date().toISOString();
-
-  localStorage.setItem(
-    "astroMemory",
-    JSON.stringify(astroMemory)
-  );
-
-  saveCloudMemory();
-
-  updateMemorySettings();
-
-  renderMemoryList();
-
-}
 document.getElementById("export-memory")
   ?.addEventListener("click", () => {
 
@@ -11089,29 +11046,6 @@ document
     renderMemoryList();
 
   });
-
-function findMemoryById(id) {
-
-  const groups = [
-
-    astroMemory.memories || [],
-    astroMemory.theories || [],
-    astroMemory.observations || [],
-    astroMemory.telescopeSessions || []
-
-  ];
-
-  for (const group of groups) {
-
-    const memory = group.find(m => m.id == id);
-
-    if (memory) return memory;
-
-  }
-
-  return null;
-
-}
 
 function showMemorySuggestion(memory) {
 

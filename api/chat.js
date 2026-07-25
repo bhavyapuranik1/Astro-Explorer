@@ -65,12 +65,19 @@ async function handleGeminiRequest(body, apiKey, res) {
   try {
     const ai = new GoogleGenAI({ apiKey });
 
-    const rawModel = body.model || "gemini-2.5-flash";
+    const rawModel = body.model || "gemini-2.0-flash";
     let modelName = rawModel.replace(/^google\//, "");
 
-    // Map common aliases to valid Google AI Studio model IDs
-    if (modelName === "gemini-3.6-flash" || modelName === "gemini-3.5-flash") {
-      modelName = "gemini-2.5-flash";
+    // Map non-existent or deprecated model aliases to valid Google AI Studio model IDs
+    const modelAliasMap = {
+      "gemini-3.6-flash": "gemini-2.0-flash",
+      "gemini-3.5-flash": "gemini-2.0-flash",
+      "gemini-2.5-flash": "gemini-2.0-flash",
+      "gemini-2.5-pro": "gemini-1.5-pro"
+    };
+
+    if (modelAliasMap[modelName]) {
+      modelName = modelAliasMap[modelName];
     }
 
     const messages = Array.isArray(body.messages) ? body.messages : [];
@@ -152,27 +159,60 @@ async function handleGeminiRequest(body, apiKey, res) {
       ]
     });
   } catch (err) {
-    console.error("Google AI Studio Gemini API Error:", err);
+    // Log complete Google AI Studio error object
+    console.error("===== GOOGLE AI STUDIO ERROR START =====");
+    console.error("Status Code:", err?.status || err?.statusCode || err?.code || err?.response?.status);
+    console.error("Message:", err?.message);
+    console.error("Details:", err?.details || err?.errorDetails || err?.statusDetails);
+    console.error("Error Body:", err?.response ? (err.response.data || err.response.body) : err?.error);
+    console.error("Stack:", err?.stack);
+    try {
+      console.error("Full Raw Error Object:", JSON.stringify(err, Object.getOwnPropertyNames(err), 2));
+    } catch (_) {}
+    console.error("===== GOOGLE AI STUDIO ERROR END =====");
 
-    // Rate Limit / Quota Exceeded handling
-    if (isQuotaOrRateLimitError(err)) {
+    const rawStatus = err?.status || err?.statusCode || (err?.response && err?.response.status);
+    const numericStatus = typeof rawStatus === "number" ? rawStatus : (parseInt(rawStatus, 10) || 500);
+    const rawMessage = err?.message || (typeof err === "string" ? err : "Google AI Studio API Error");
+
+    if (isGenuineQuotaOrRateLimitError(err)) {
       return res.status(429).json({
         error: {
-          message: "Google AI Studio free-tier rate limit or quota exceeded. Please wait a moment before trying again or select another model.",
+          message: rawMessage,
           code: 429,
           type: "rate_limit_exceeded"
         }
       });
     }
 
-    return res.status(err.status || 500).json({
+    // Forward original Google API error message and status directly to frontend
+    return res.status(numericStatus).json({
       error: {
-        message: err.message || "Failed to generate response from Google AI Studio",
-        code: err.status || 500,
+        message: rawMessage,
+        code: numericStatus,
         type: "api_error"
       }
     });
   }
+}
+
+/**
+ * Strict helper to identify genuine rate-limit or quota exceeded errors from Google AI Studio
+ */
+function isGenuineQuotaOrRateLimitError(err) {
+  if (!err) return false;
+  const status = err.status || err.statusCode || err.code || (err.response && err.response.status);
+  if (status === 429 || status === "429" || status === "RESOURCE_EXHAUSTED") return true;
+
+  const reason = err.reason || (err.details && err.details[0] && err.details[0].reason);
+  if (reason === "RATE_LIMIT_EXCEEDED" || reason === "QUOTA_EXCEEDED" || reason === "RESOURCE_EXHAUSTED") return true;
+
+  const msg = (err.message || "").toLowerCase();
+  return (
+    msg.includes("resource_exhausted") ||
+    msg.includes("quota_exceeded") ||
+    msg.includes("rate_limit_exceeded")
+  );
 }
 
 /**
@@ -200,23 +240,4 @@ async function handleOpenRouterRequest(body, apiKey, res) {
       }
     });
   }
-}
-
-/**
- * Helper to identify rate-limit or quota exceeded errors from Google AI Studio
- */
-function isQuotaOrRateLimitError(err) {
-  if (!err) return false;
-  const status = err.status || err.statusCode || (err.response && err.response.status);
-  const msg = (err.message || String(err)).toLowerCase();
-
-  return (
-    status === 429 ||
-    msg.includes("429") ||
-    msg.includes("resource_exhausted") ||
-    msg.includes("quota") ||
-    msg.includes("rate limit") ||
-    msg.includes("rate_limit") ||
-    msg.includes("too many requests")
-  );
 }
