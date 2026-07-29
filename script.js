@@ -12038,6 +12038,9 @@ function updateSkySettingValue(key, val, options = {}) {
   if (key === "lightPollution") {
     window.lightPollution = val;
   }
+  if (key === "showRendererOverlay" && window.rendererManager) {
+    window.rendererManager.setOverlayVisible(val);
+  }
   AstroSettings.set("skySettings." + key, val);
 
   // 1. Sync all data-sky-setting inputs (Quick panel + Main Settings)
@@ -12173,7 +12176,8 @@ function initSkySettings() {
     "toggle-twinkling": "enableTwinkling",
     "twinkling-speed": "twinklingSpeed",
     "twinkling-intensity": "twinklingIntensity",
-    "star-color-saturation": "starColorSaturation"
+    "star-color-saturation": "starColorSaturation",
+    "toggle-renderer-overlay": "showRendererOverlay"
   };
 
   for (const [id, key] of Object.entries(legacyMap)) {

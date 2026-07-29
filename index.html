@@ -1002,6 +1002,7 @@ Logout
 
 <!-- <script src="js/celestial.min.js"></script> -->
 
+<script src="lib/webgpu-renderer-manager.js"></script>
 <script src="lib/webgpu-star-renderer.js"></script>
 <script src="lib/celestial.js"></script>
 
@@ -1844,6 +1845,14 @@ step="0.1">
                 <span class="slider"></span>
               </label>
               <span>Enable Star Twinkling</span>
+            </div>
+
+            <div class="setting-row">
+              <label class="switch">
+                <input type="checkbox" id="toggle-renderer-overlay">
+                <span class="slider"></span>
+              </label>
+              <span>Developer Rendering Status Overlay</span>
             </div>
 
             <div class="setting-row" style="flex-direction: column; align-items: stretch; gap: 8px;">
