@@ -5637,7 +5637,7 @@ body.night-vision-active #toggle-night-btn {
   margin-top: 50px;
   overflow-y: auto;
   box-sizing: border-box;
-  padding: 24px 32px;
+  padding: 24px 32px 100px 32px;
   max-width: 1280px;
   margin-left: auto;
   margin-right: auto;
@@ -6242,6 +6242,7 @@ body.night-vision-active #toggle-night-btn {
 .observation-advanced-stats {
   margin-top: 40px;
   padding-top: 24px;
+  margin-bottom: 60px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
