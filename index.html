@@ -126,7 +126,14 @@ gtag('config', 'G-9747XL0FQQ');
 <div id="quick-sky-controls-panel" class="quick-panel-hidden">
   <div class="quick-panel-header">
     <h3>🎛️ Quick Sky Controls</h3>
-    <button id="quick-panel-close-btn" class="quick-panel-close">✖</button>
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <label class="switch" title="Toggle WebGPU Developer Status Overlay" style="transform: scale(0.85);">
+        <input type="checkbox" data-sky-setting="showRendererOverlay">
+        <span class="slider"></span>
+      </label>
+      <span style="font-size: 10px; color: #8ab4f8; font-weight: 600;">⚡ WebGPU Overlay</span>
+      <button id="quick-panel-close-btn" class="quick-panel-close">✖</button>
+    </div>
   </div>
   <div class="quick-panel-body">
 
@@ -261,6 +268,13 @@ gtag('config', 'G-9747XL0FQQ');
             <span class="slider"></span>
           </label>
           <span>Horizon Glow</span>
+        </div>
+        <div class="quick-setting-row">
+          <label class="switch">
+            <input type="checkbox" id="quick-toggle-renderer-overlay" data-sky-setting="showRendererOverlay">
+            <span class="slider"></span>
+          </label>
+          <span>Developer Rendering Overlay</span>
         </div>
       </div>
     </div>
