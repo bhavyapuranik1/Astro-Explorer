@@ -126,7 +126,14 @@ gtag('config', 'G-9747XL0FQQ');
 <div id="quick-sky-controls-panel" class="quick-panel-hidden">
   <div class="quick-panel-header">
     <h3>🎛️ Quick Sky Controls</h3>
-    <button id="quick-panel-close-btn" class="quick-panel-close">✖</button>
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <label class="switch" title="Toggle WebGPU Developer Status Overlay" style="transform: scale(0.85);">
+        <input type="checkbox" data-sky-setting="showRendererOverlay">
+        <span class="slider"></span>
+      </label>
+      <span style="font-size: 10px; color: #8ab4f8; font-weight: 600;">⚡ WebGPU Overlay</span>
+      <button id="quick-panel-close-btn" class="quick-panel-close">✖</button>
+    </div>
   </div>
   <div class="quick-panel-body">
 
@@ -167,10 +174,17 @@ gtag('config', 'G-9747XL0FQQ');
         </div>
         <div class="quick-setting-row">
           <label class="switch">
+            <input type="checkbox" data-sky-setting="showRendererOverlay">
+            <span class="slider"></span>
+          </label>
+          <span>Developer Rendering Overlay</span>
+        </div>
+        <div class="quick-setting-row">
+          <label class="switch">
             <input type="checkbox" data-sky-setting="enableTwinkling">
             <span class="slider"></span>
           </label>
-          <span>Star Twinkling</span>
+          <span>Enable Twinkling</span>
         </div>
         <div class="quick-setting-row range-row">
           <div class="quick-label-wrap">
@@ -241,12 +255,26 @@ gtag('config', 'G-9747XL0FQQ');
           </div>
           <input type="range" data-sky-setting="airTransparency" min="0.0" max="1.0" step="0.05">
         </div>
+        <div class="quick-setting-row range-row">
+          <div class="quick-label-wrap">
+            <span>Moonlight Intensity</span>
+            <span class="quick-val" data-val-for="moonlightBrightness">0.5</span>
+          </div>
+          <input type="range" data-sky-setting="moonlightBrightness" min="0.0" max="1.0" step="0.05" value="0.5">
+        </div>
         <div class="quick-setting-row">
           <label class="switch">
             <input type="checkbox" data-sky-setting="horizonGlow">
             <span class="slider"></span>
           </label>
           <span>Horizon Glow</span>
+        </div>
+        <div class="quick-setting-row">
+          <label class="switch">
+            <input type="checkbox" id="quick-toggle-renderer-overlay" data-sky-setting="showRendererOverlay">
+            <span class="slider"></span>
+          </label>
+          <span>Developer Rendering Overlay</span>
         </div>
       </div>
     </div>
@@ -995,6 +1023,11 @@ Logout
 
 <!-- <script src="js/celestial.min.js"></script> -->
 
+<script src="lib/webgpu-renderer-manager.js"></script>
+<script src="lib/webgpu-star-renderer.js"></script>
+<script src="lib/webgpu-solar-renderer.js"></script>
+<script src="lib/webgpu-asteroids-satellites-renderer.js"></script>
+<script src="lib/webgpu-comet-renderer.js"></script>
 <script src="lib/celestial.js"></script>
 
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
@@ -1817,6 +1850,14 @@ step="0.1">
               <input type="range" id="air-transparency" min="0.0" max="1.0" step="0.05" value="0.8">
             </div>
 
+            <div class="setting-row" style="flex-direction: column; align-items: stretch; gap: 8px;">
+              <div style="display: flex; justify-content: space-between;">
+                <span>Moonlight Intensity</span>
+                <span id="moonlight-brightness-value">0.5</span>
+              </div>
+              <input type="range" id="moonlight-brightness" min="0.0" max="1.0" step="0.05" value="0.5">
+            </div>
+
           </div>
 
           <div class="settings-card">
@@ -1828,6 +1869,14 @@ step="0.1">
                 <span class="slider"></span>
               </label>
               <span>Enable Star Twinkling</span>
+            </div>
+
+            <div class="setting-row">
+              <label class="switch">
+                <input type="checkbox" id="toggle-renderer-overlay">
+                <span class="slider"></span>
+              </label>
+              <span>Developer Rendering Status Overlay</span>
             </div>
 
             <div class="setting-row" style="flex-direction: column; align-items: stretch; gap: 8px;">
