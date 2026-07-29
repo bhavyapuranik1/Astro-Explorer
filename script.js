@@ -1482,6 +1482,11 @@ function showTab(tabId, el) {
     loadNASA();
   }
 
+  // 🔭 OBSERVATION TAB
+  if (tabId === "observation") {
+    if (typeof renderObservations === "function") renderObservations();
+  }
+
   // 🌌 SKY TAB
   if (tabId === "sky") {
 
@@ -6682,16 +6687,20 @@ ${attachmentMandate ? attachmentMandate : ""}
         }
 
         if (data && data.error) {
-          const finalErrMsg = typeof data.error === "string"
-            ? data.error
-            : (data.error.message || JSON.stringify(data.error));
+          const httpStatus = response.status;
+          reply = formatApiErrorResponse(httpStatus, data.error);
 
-          const isQuotaOrRateLimit = /quota|rate|credit|afford|exceeded|exhausted|limit|unavailable for free/i.test(finalErrMsg);
+          // Update model status tracking cleanly based on HTTP status
+          if (httpStatus === 401) {
+            modelStatuses[selectedModel] = "key_missing";
+          } else if (httpStatus === 429) {
+            modelStatuses[selectedModel] = "rate_limited";
+          } else if (httpStatus === 402 || httpStatus === 400 || httpStatus === 404) {
+            modelStatuses[selectedModel] = "quota_exceeded";
+          }
 
-          if (isQuotaOrRateLimit) {
-            reply = handleModelQuotaExceeded(selectedModel, finalErrMsg);
-          } else {
-            reply = "API Error: " + finalErrMsg;
+          if (typeof renderModelPopup === "function") {
+            renderModelPopup();
           }
         } else if (data && data.choices && data.choices.length > 0) {
           const choice = data.choices[0];
@@ -10539,6 +10548,38 @@ function initModelPickerEvents() {
   updateModelPickerButton();
 }
 
+function formatApiErrorResponse(statusCode, errorObj) {
+  const message = typeof errorObj === "string"
+    ? errorObj
+    : (errorObj?.message || errorObj?.error?.message || JSON.stringify(errorObj));
+
+  const code = statusCode || errorObj?.code || errorObj?.status;
+
+  if (code === 400) {
+    return `Invalid request/model: ${message}`;
+  }
+  if (code === 401) {
+    return `Invalid API key: ${message}`;
+  }
+  if (code === 402) {
+    return `Insufficient credits: ${message}`;
+  }
+  if (code === 403) {
+    return `Forbidden: ${message}`;
+  }
+  if (code === 404) {
+    return `Resource not found: ${message}`;
+  }
+  if (code === 429) {
+    return `Quota exceeded / Rate limit: ${message}`;
+  }
+  if (typeof code === "number" && code >= 500) {
+    return `OpenRouter server error (${code}): ${message}`;
+  }
+
+  return message ? `API Error (${code || "Unknown"}): ${message}` : "An unknown API error occurred.";
+}
+
 function handleModelQuotaExceeded(failedModelId, errorMessage) {
   const msg = String(errorMessage || "").toLowerCase();
 
@@ -13748,4 +13789,487 @@ function updateEclipseStatus() {
       }
     }
   }
+}
+
+/* ==========================================================================
+   🔭 OBSERVATION MODAL OPEN/CLOSE LOGIC
+   ========================================================================== */
+let currentEditingObsId = null;
+
+document.addEventListener("DOMContentLoaded", () => {
+  const openBtn = document.getElementById("open-new-observation-btn");
+  const modal = document.getElementById("observation-modal");
+  const closeBtn = document.getElementById("close-observation-modal");
+  const cancelBtn = document.getElementById("cancel-observation-btn");
+  const saveBtn = document.getElementById("save-observation-btn");
+  const container = document.getElementById("observation-list-container");
+
+  function openModal(isEdit = false) {
+    const modalTitle = document.querySelector("#observation-modal .modal-title");
+    if (modalTitle) {
+      modalTitle.textContent = isEdit ? "Edit Observation Session" : "New Observation Session";
+    }
+    if (!isEdit) {
+      currentEditingObsId = null;
+      const form = document.querySelector(".observation-form");
+      if (form) form.reset();
+    }
+    if (modal) modal.classList.remove("hidden");
+  }
+
+  function closeModal() {
+    if (modal) modal.classList.add("hidden");
+    currentEditingObsId = null;
+  }
+
+  function saveObservationSession() {
+    const title = document.getElementById("obs-title")?.value?.trim();
+    const date = document.getElementById("obs-date")?.value;
+    const startTime = document.getElementById("obs-start-time")?.value;
+    const endTime = document.getElementById("obs-end-time")?.value;
+    const location = document.getElementById("obs-location")?.value?.trim();
+    const weather = document.getElementById("obs-weather")?.value?.trim();
+    const telescope = document.getElementById("obs-telescope")?.value?.trim();
+    const eyepiece = document.getElementById("obs-eyepiece")?.value?.trim();
+    const camera = document.getElementById("obs-camera")?.value?.trim();
+    const seeing = document.getElementById("obs-seeing")?.value;
+    const transparency = document.getElementById("obs-transparency")?.value;
+    const bortle = document.getElementById("obs-bortle")?.value;
+    const objectsRaw = document.getElementById("obs-objects")?.value?.trim();
+    const notes = document.getElementById("obs-notes")?.value?.trim();
+
+    let existing = [];
+    try {
+      existing = JSON.parse(localStorage.getItem("astroObservations") || "[]");
+    } catch (err) {
+      existing = [];
+    }
+
+    if (currentEditingObsId) {
+      const idx = existing.findIndex(o => o.id === currentEditingObsId);
+      if (idx !== -1) {
+        existing[idx] = {
+          ...existing[idx],
+          title: title || "Untitled Observation",
+          date: date || existing[idx].date,
+          startTime: startTime || "",
+          endTime: endTime || "",
+          location: location || "",
+          weather: weather || "",
+          telescope: telescope || "",
+          eyepiece: eyepiece || "",
+          camera: camera || "",
+          seeing: seeing || "3",
+          transparency: transparency || "3",
+          bortle: bortle || "4",
+          objects: objectsRaw ? objectsRaw.split(",").map(s => s.trim()).filter(Boolean) : [],
+          notes: notes || ""
+        };
+      }
+    } else {
+      const newObservation = {
+        id: "obs_" + Date.now().toString(36) + Math.random().toString(36).substr(2, 5),
+        title: title || "Untitled Observation",
+        date: date || new Date().toISOString().split("T")[0],
+        startTime: startTime || "",
+        endTime: endTime || "",
+        location: location || "",
+        weather: weather || "",
+        telescope: telescope || "",
+        eyepiece: eyepiece || "",
+        camera: camera || "",
+        seeing: seeing || "3",
+        transparency: transparency || "3",
+        bortle: bortle || "4",
+        objects: objectsRaw ? objectsRaw.split(",").map(s => s.trim()).filter(Boolean) : [],
+        notes: notes || "",
+        createdAt: new Date().toISOString()
+      };
+      existing.push(newObservation);
+    }
+
+    try {
+      localStorage.setItem("astroObservations", JSON.stringify(existing));
+    } catch (err) {
+      console.error("Error saving observation to localStorage:", err);
+    }
+
+    const isEditMode = Boolean(currentEditingObsId);
+    const form = document.querySelector(".observation-form");
+    if (form) form.reset();
+
+    closeModal();
+    renderObservations();
+
+    if (typeof showToast === "function") {
+      showToast(isEditMode ? "Observation updated successfully." : "Observation saved successfully.");
+    }
+  }
+
+  openBtn?.addEventListener("click", () => openModal(false));
+  closeBtn?.addEventListener("click", closeModal);
+  cancelBtn?.addEventListener("click", closeModal);
+  saveBtn?.addEventListener("click", saveObservationSession);
+
+  modal?.addEventListener("click", (e) => {
+    if (e.target === modal) closeModal();
+  });
+
+  // Delegated Edit & Delete listener
+  container?.addEventListener("click", (e) => {
+    const editBtn = e.target.closest(".edit-obs-btn");
+    const deleteBtn = e.target.closest(".delete-obs-btn");
+
+    if (editBtn) {
+      const obsId = editBtn.dataset.id;
+      editObservation(obsId, openModal);
+    } else if (deleteBtn) {
+      const obsId = deleteBtn.dataset.id;
+      deleteObservation(obsId);
+    }
+  });
+
+  // Search & Filter event listeners
+  document.getElementById("obs-search-input")?.addEventListener("input", renderObservations);
+  document.getElementById("obs-filter-select")?.addEventListener("change", renderObservations);
+
+  renderObservations();
+});
+
+function editObservation(obsId, openModalFn) {
+  let observations = [];
+  try {
+    observations = JSON.parse(localStorage.getItem("astroObservations") || "[]");
+  } catch (e) {
+    observations = [];
+  }
+
+  const obs = observations.find(o => o.id === obsId);
+  if (!obs) return;
+
+  currentEditingObsId = obs.id;
+
+  if (document.getElementById("obs-title")) document.getElementById("obs-title").value = obs.title || "";
+  if (document.getElementById("obs-date")) document.getElementById("obs-date").value = obs.date || "";
+  if (document.getElementById("obs-start-time")) document.getElementById("obs-start-time").value = obs.startTime || "";
+  if (document.getElementById("obs-end-time")) document.getElementById("obs-end-time").value = obs.endTime || "";
+  if (document.getElementById("obs-location")) document.getElementById("obs-location").value = obs.location || "";
+  if (document.getElementById("obs-weather")) document.getElementById("obs-weather").value = obs.weather || "";
+  if (document.getElementById("obs-telescope")) document.getElementById("obs-telescope").value = obs.telescope || "";
+  if (document.getElementById("obs-eyepiece")) document.getElementById("obs-eyepiece").value = obs.eyepiece || "";
+  if (document.getElementById("obs-camera")) document.getElementById("obs-camera").value = obs.camera || "";
+  if (document.getElementById("obs-seeing")) document.getElementById("obs-seeing").value = obs.seeing || "3";
+  if (document.getElementById("obs-transparency")) document.getElementById("obs-transparency").value = obs.transparency || "3";
+  if (document.getElementById("obs-bortle")) document.getElementById("obs-bortle").value = obs.bortle || "4";
+  if (document.getElementById("obs-objects")) {
+    document.getElementById("obs-objects").value = Array.isArray(obs.objects) ? obs.objects.join(", ") : (obs.objects || "");
+  }
+  if (document.getElementById("obs-notes")) document.getElementById("obs-notes").value = obs.notes || "";
+
+  if (typeof openModalFn === "function") {
+    openModalFn(true);
+  }
+}
+
+function deleteObservation(obsId) {
+  if (!confirm("Are you sure you want to delete this observation?")) return;
+
+  let observations = [];
+  try {
+    observations = JSON.parse(localStorage.getItem("astroObservations") || "[]");
+  } catch (e) {
+    observations = [];
+  }
+
+  const updated = observations.filter(o => o.id !== obsId);
+  localStorage.setItem("astroObservations", JSON.stringify(updated));
+
+  renderObservations();
+
+  if (typeof showToast === "function") {
+    showToast("Observation deleted.");
+  }
+}
+
+function renderObservations() {
+  const container = document.getElementById("observation-list-container");
+  const emptyCard = document.querySelector(".observation-empty-card");
+  if (!container) return;
+
+  let observations = [];
+  try {
+    observations = JSON.parse(localStorage.getItem("astroObservations") || "[]");
+  } catch (e) {
+    observations = [];
+  }
+
+  const totalSessionsEl = document.querySelector(".observation-stat-card:nth-child(1) .stat-value");
+  const totalObjectsEl = document.querySelector(".observation-stat-card:nth-child(2) .stat-value");
+
+  if (totalSessionsEl) totalSessionsEl.textContent = observations.length;
+
+  let totalObjectsCount = 0;
+  observations.forEach(obs => {
+    if (Array.isArray(obs.objects)) {
+      totalObjectsCount += obs.objects.length;
+    } else if (typeof obs.objects === "string" && obs.objects.trim()) {
+      totalObjectsCount += obs.objects.split(",").length;
+    }
+  });
+  if (totalObjectsEl) totalObjectsEl.textContent = totalObjectsCount;
+
+  updateObservationStatistics(observations);
+
+  if (!observations.length) {
+    if (emptyCard) emptyCard.style.display = "flex";
+    container.innerHTML = "";
+    return;
+  }
+
+  if (emptyCard) emptyCard.style.display = "none";
+
+  const searchQuery = (document.getElementById("obs-search-input")?.value || "").toLowerCase().trim();
+  const filterTime = document.getElementById("obs-filter-select")?.value || "all";
+
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  const filtered = observations.filter(obs => {
+    // 1. Text Search (Title, Objects, Telescope, Location)
+    if (searchQuery) {
+      const titleMatch = (obs.title || "").toLowerCase().includes(searchQuery);
+      const locationMatch = (obs.location || "").toLowerCase().includes(searchQuery);
+      const telescopeMatch = (obs.telescope || "").toLowerCase().includes(searchQuery);
+      const objectsStr = Array.isArray(obs.objects) ? obs.objects.join(" ") : (obs.objects || "");
+      const objectsMatch = objectsStr.toLowerCase().includes(searchQuery);
+
+      if (!titleMatch && !locationMatch && !telescopeMatch && !objectsMatch) {
+        return false;
+      }
+    }
+
+    // 2. Date Filter (All, Today, This Week, This Month)
+    if (filterTime !== "all" && obs.date) {
+      const obsDate = new Date(obs.date + "T00:00:00");
+      if (!isNaN(obsDate.getTime())) {
+        if (filterTime === "today") {
+          if (obsDate < startOfToday) return false;
+        } else if (filterTime === "week") {
+          const sevenDaysAgo = new Date(startOfToday);
+          sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+          if (obsDate < sevenDaysAgo) return false;
+        } else if (filterTime === "month") {
+          const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+          if (obsDate < startOfMonth) return false;
+        }
+      }
+    }
+
+    return true;
+  });
+
+  if (!filtered.length) {
+    container.innerHTML = `
+      <div class="obs-no-match-card">
+        <p>No matching observations found.</p>
+      </div>
+    `;
+    return;
+  }
+
+  const sorted = [...filtered].sort((a, b) => new Date(b.createdAt || b.date) - new Date(a.createdAt || a.date));
+
+  container.innerHTML = sorted.map(obs => {
+    const timeDisplay = (obs.startTime || obs.endTime) ? `${obs.startTime || ''}${obs.endTime ? ' - ' + obs.endTime : ''}` : 'N/A';
+    const objectsArr = Array.isArray(obs.objects) ? obs.objects : (obs.objects ? String(obs.objects).split(',').map(s => s.trim()) : []);
+    const objectBadges = objectsArr.length
+      ? objectsArr.map(obj => `<span class="obs-object-tag">🪐 ${obj}</span>`).join('')
+      : '<span class="obs-no-objects">No objects listed</span>';
+
+    return `
+      <div class="observation-card" data-id="${obs.id}">
+        <div class="obs-card-header">
+          <h4 class="obs-card-title">${obs.title || 'Untitled Session'}</h4>
+          <div class="obs-card-actions">
+            <span class="obs-card-date">📅 ${obs.date || 'Unknown Date'}</span>
+            <button type="button" class="obs-action-btn edit-btn edit-obs-btn" data-id="${obs.id}" title="Edit Observation">✏️ Edit</button>
+            <button type="button" class="obs-action-btn delete-btn delete-obs-btn" data-id="${obs.id}" title="Delete Observation">🗑️ Delete</button>
+          </div>
+        </div>
+        <div class="obs-card-meta">
+          <span class="obs-meta-item">⏱️ ${timeDisplay}</span>
+          <span class="obs-meta-item">📍 ${obs.location || 'Location Not Specified'}</span>
+          <span class="obs-meta-item">🔭 ${obs.telescope || 'Telescope Not Specified'}</span>
+        </div>
+        <div class="obs-card-objects">
+          ${objectBadges}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function calculateSessionHours(startTimeStr, endTimeStr) {
+  if (!startTimeStr || !endTimeStr) return 0;
+  const [sh, sm] = startTimeStr.split(":").map(Number);
+  const [eh, em] = endTimeStr.split(":").map(Number);
+  if (isNaN(sh) || isNaN(sm) || isNaN(eh) || isNaN(em)) return 0;
+
+  let startMinutes = sh * 60 + sm;
+  let endMinutes = eh * 60 + em;
+  if (endMinutes < startMinutes) endMinutes += 24 * 60;
+
+  return (endMinutes - startMinutes) / 60;
+}
+
+function updateObservationStatistics(observations) {
+  const totalSessionsEl = document.querySelector(".observation-stat-card:nth-child(1) .stat-value");
+  const totalObjectsEl = document.querySelector(".observation-stat-card:nth-child(2) .stat-value");
+  const totalHoursEl = document.querySelector(".observation-stat-card:nth-child(3) .stat-value");
+  const favObjectEl = document.querySelector(".observation-stat-card:nth-child(4) .stat-value");
+
+  const mostTelescopeEl = document.getElementById("stat-most-used-telescope");
+  const avgDurationEl = document.getElementById("stat-avg-duration");
+  const darkestBortleEl = document.getElementById("stat-darkest-bortle");
+  const bestSeeingEl = document.getElementById("stat-best-seeing");
+  const activeMonthEl = document.getElementById("stat-most-active-month");
+  const totalLocationsEl = document.getElementById("stat-total-locations");
+
+  if (!observations || !observations.length) {
+    if (totalSessionsEl) totalSessionsEl.textContent = "0";
+    if (totalObjectsEl) totalObjectsEl.textContent = "0";
+    if (totalHoursEl) totalHoursEl.textContent = "0h";
+    if (favObjectEl) favObjectEl.textContent = "--";
+
+    if (mostTelescopeEl) mostTelescopeEl.textContent = "--";
+    if (avgDurationEl) avgDurationEl.textContent = "--";
+    if (darkestBortleEl) darkestBortleEl.textContent = "--";
+    if (bestSeeingEl) bestSeeingEl.textContent = "--";
+    if (activeMonthEl) activeMonthEl.textContent = "--";
+    if (totalLocationsEl) totalLocationsEl.textContent = "--";
+    return;
+  }
+
+  // 1. Total Sessions
+  if (totalSessionsEl) totalSessionsEl.textContent = observations.length;
+
+  // 2. Objects & Favorite Object Frequency
+  const objectFrequency = {};
+  const allUniqueObjects = new Set();
+
+  observations.forEach(obs => {
+    const objectsArr = Array.isArray(obs.objects)
+      ? obs.objects
+      : (obs.objects ? String(obs.objects).split(",").map(s => s.trim()) : []);
+
+    objectsArr.forEach(obj => {
+      const clean = obj.trim();
+      if (clean) {
+        allUniqueObjects.add(clean.toLowerCase());
+        objectFrequency[clean] = (objectFrequency[clean] || 0) + 1;
+      }
+    });
+  });
+
+  if (totalObjectsEl) totalObjectsEl.textContent = allUniqueObjects.size;
+
+  let favoriteObj = "--";
+  let maxObjFreq = 0;
+  for (const [obj, freq] of Object.entries(objectFrequency)) {
+    if (freq > maxObjFreq) {
+      maxObjFreq = freq;
+      favoriteObj = obj;
+    }
+  }
+  if (favObjectEl) favObjectEl.textContent = favoriteObj;
+
+  // 3. Total Observation Hours & Avg Duration
+  let totalHours = 0;
+  let sessionsWithTime = 0;
+
+  observations.forEach(obs => {
+    if (obs.startTime && obs.endTime) {
+      const h = calculateSessionHours(obs.startTime, obs.endTime);
+      totalHours += h;
+      if (h > 0) sessionsWithTime++;
+    }
+  });
+
+  if (totalHoursEl) totalHoursEl.textContent = totalHours > 0 ? `${totalHours.toFixed(1)}h` : "0h";
+  if (avgDurationEl) {
+    if (sessionsWithTime > 0) {
+      const avgH = totalHours / sessionsWithTime;
+      avgDurationEl.textContent = avgH < 1 ? `${Math.round(avgH * 60)}m` : `${avgH.toFixed(1)}h`;
+    } else {
+      avgDurationEl.textContent = "--";
+    }
+  }
+
+  // 4. Most Used Telescope
+  const telescopeFreq = {};
+  observations.forEach(obs => {
+    if (obs.telescope && obs.telescope.trim()) {
+      const t = obs.telescope.trim();
+      telescopeFreq[t] = (telescopeFreq[t] || 0) + 1;
+    }
+  });
+  let mostTelescope = "--";
+  let maxTelFreq = 0;
+  for (const [t, freq] of Object.entries(telescopeFreq)) {
+    if (freq > maxTelFreq) {
+      maxTelFreq = freq;
+      mostTelescope = t;
+    }
+  }
+  if (mostTelescopeEl) mostTelescopeEl.textContent = mostTelescope;
+
+  // 5. Darkest Bortle Scale (Lowest number)
+  let minBortle = Infinity;
+  observations.forEach(obs => {
+    if (obs.bortle) {
+      const num = parseInt(obs.bortle, 10);
+      if (!isNaN(num) && num < minBortle) minBortle = num;
+    }
+  });
+  if (darkestBortleEl) darkestBortleEl.textContent = minBortle !== Infinity ? `Class ${minBortle}` : "--";
+
+  // 6. Best Seeing (Highest number)
+  let maxSeeing = -Infinity;
+  observations.forEach(obs => {
+    if (obs.seeing) {
+      const num = parseInt(obs.seeing, 10);
+      if (!isNaN(num) && num > maxSeeing) maxSeeing = num;
+    }
+  });
+  if (bestSeeingEl) bestSeeingEl.textContent = maxSeeing !== -Infinity ? `${maxSeeing}/5` : "--";
+
+  // 7. Most Active Month
+  const monthFreq = {};
+  observations.forEach(obs => {
+    if (obs.date) {
+      const d = new Date(obs.date + "T00:00:00");
+      if (!isNaN(d.getTime())) {
+        const monthName = d.toLocaleString("default", { month: "short", year: "numeric" });
+        monthFreq[monthName] = (monthFreq[monthName] || 0) + 1;
+      }
+    }
+  });
+  let mostActiveMonth = "--";
+  let maxMonthFreq = 0;
+  for (const [m, freq] of Object.entries(monthFreq)) {
+    if (freq > maxMonthFreq) {
+      maxMonthFreq = freq;
+      mostActiveMonth = m;
+    }
+  }
+  if (activeMonthEl) activeMonthEl.textContent = mostActiveMonth;
+
+  // 8. Total Different Locations
+  const locationsSet = new Set();
+  observations.forEach(obs => {
+    if (obs.location && obs.location.trim()) {
+      locationsSet.add(obs.location.trim().toLowerCase());
+    }
+  });
+  if (totalLocationsEl) totalLocationsEl.textContent = locationsSet.size ? `${locationsSet.size} Location${locationsSet.size > 1 ? 's' : ''}` : "--";
 }

@@ -65,6 +65,7 @@ gtag('config', 'G-9747XL0FQQ');
   <div id="tabs">
     <button onclick="showTab('sky', this)"> Sky</button>
     <button onclick="showTab('nasa', this)"> NASA</button>
+    <button onclick="showTab('observation', this)"> Observation</button>
   </div>
 </div>
 
@@ -560,6 +561,256 @@ gtag('config', 'G-9747XL0FQQ');
       <p id="apod-desc"></p>
     </div>
 
+  </div>
+</div>
+
+<!-- 🔭 OBSERVATION TAB -->
+<div id="observation" class="tab-content" style="display:none;">
+
+  <!-- 1. Observation Header -->
+  <header class="observation-header">
+    <div class="observation-title-group">
+      <h1 class="observation-title">Observation</h1>
+      <p class="observation-subtitle">Record and manage your astronomy observing sessions.</p>
+    </div>
+
+    <!-- 3. Main Action Button -->
+    <div class="observation-actions">
+      <button class="observation-primary-btn" id="open-new-observation-btn" type="button">
+        <span class="btn-icon">+</span> New Observation
+      </button>
+    </div>
+  </header>
+
+  <!-- 2. Quick Stats Cards (UI only) -->
+  <section class="observation-stats-grid" aria-label="Observation Quick Statistics">
+    <div class="observation-stat-card">
+      <div class="stat-icon-wrapper">
+        <span class="stat-icon">📑</span>
+      </div>
+      <div class="stat-details">
+        <span class="stat-label">Total Sessions</span>
+        <span class="stat-value">0</span>
+      </div>
+    </div>
+
+    <div class="observation-stat-card">
+      <div class="stat-icon-wrapper">
+        <span class="stat-icon">🌌</span>
+      </div>
+      <div class="stat-details">
+        <span class="stat-label">Total Objects</span>
+        <span class="stat-value">0</span>
+      </div>
+    </div>
+
+    <div class="observation-stat-card">
+      <div class="stat-icon-wrapper">
+        <span class="stat-icon">⏱️</span>
+      </div>
+      <div class="stat-details">
+        <span class="stat-label">Total Observation Hours</span>
+        <span class="stat-value">0h</span>
+      </div>
+    </div>
+
+    <div class="observation-stat-card">
+      <div class="stat-icon-wrapper">
+        <span class="stat-icon">⭐</span>
+      </div>
+      <div class="stat-details">
+        <span class="stat-label">Favorite Object</span>
+        <span class="stat-value">—</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. Empty State Card -->
+  <div class="observation-empty-card">
+    <div class="empty-illustration-wrapper">
+      <div class="telescope-icon-glow"></div>
+      <span class="telescope-illustration">🔭</span>
+    </div>
+    <h3 class="empty-title">No observations yet.</h3>
+    <p class="empty-description">Create your first observing session.</p>
+  </div>
+
+  <!-- Search & Filter Controls -->
+  <div class="observation-controls-bar">
+    <div class="observation-search-wrapper">
+      <span class="search-icon">🔍</span>
+      <input type="text" id="obs-search-input" placeholder="Search by title, object, telescope, location..." class="obs-search-input">
+    </div>
+    <div class="observation-filter-wrapper">
+      <select id="obs-filter-select" class="obs-filter-select">
+        <option value="all">All Observations</option>
+        <option value="today">Today</option>
+        <option value="week">This Week</option>
+        <option value="month">This Month</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- 5. Observation List Container -->
+  <div id="observation-list-container" class="observation-list-container"></div>
+
+  <!-- 6. Advanced Statistics Section -->
+  <section class="observation-advanced-stats" aria-label="Advanced Observation Analytics">
+    <h3 class="advanced-stats-title">Observation Analytics</h3>
+    <div class="advanced-stats-grid">
+      <div class="adv-stat-card">
+        <div class="adv-stat-info">
+          <span class="adv-stat-label">Most Used Telescope</span>
+          <span class="adv-stat-value" id="stat-most-used-telescope">--</span>
+        </div>
+      </div>
+
+      <div class="adv-stat-card">
+        <div class="adv-stat-info">
+          <span class="adv-stat-label">Average Session Duration</span>
+          <span class="adv-stat-value" id="stat-avg-duration">--</span>
+        </div>
+      </div>
+
+      <div class="adv-stat-card">
+        <div class="adv-stat-info">
+          <span class="adv-stat-label">Darkest Bortle Scale</span>
+          <span class="adv-stat-value" id="stat-darkest-bortle">--</span>
+        </div>
+      </div>
+
+      <div class="adv-stat-card">
+        <div class="adv-stat-info">
+          <span class="adv-stat-label">Best Seeing Recorded</span>
+          <span class="adv-stat-value" id="stat-best-seeing">--</span>
+        </div>
+      </div>
+
+      <div class="adv-stat-card">
+        <div class="adv-stat-info">
+          <span class="adv-stat-label">Most Active Month</span>
+          <span class="adv-stat-value" id="stat-most-active-month">--</span>
+        </div>
+      </div>
+
+      <div class="adv-stat-card">
+        <div class="adv-stat-info">
+          <span class="adv-stat-label">Observation Locations</span>
+          <span class="adv-stat-value" id="stat-total-locations">--</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<!-- 🔭 NEW OBSERVATION MODAL -->
+<div id="observation-modal" class="modal-backdrop hidden">
+  <div class="observation-modal-content">
+    <div class="modal-header">
+      <h3 class="modal-title">New Observation Session</h3>
+      <button type="button" id="close-observation-modal" class="modal-close-btn">✕</button>
+    </div>
+
+    <form class="observation-form" onsubmit="return false;">
+      <div class="form-row full-width">
+        <label for="obs-title">Observation Title</label>
+        <input type="text" id="obs-title" placeholder="e.g. Saturn & Deep Sky Targets" class="form-input">
+      </div>
+
+      <div class="form-row grid-3">
+        <div>
+          <label for="obs-date">Date</label>
+          <input type="date" id="obs-date" class="form-input">
+        </div>
+        <div>
+          <label for="obs-start-time">Start Time</label>
+          <input type="time" id="obs-start-time" class="form-input">
+        </div>
+        <div>
+          <label for="obs-end-time">End Time</label>
+          <input type="time" id="obs-end-time" class="form-input">
+        </div>
+      </div>
+
+      <div class="form-row grid-2">
+        <div>
+          <label for="obs-location">Location</label>
+          <input type="text" id="obs-location" placeholder="e.g. Backyard Observatory / Dark Site" class="form-input">
+        </div>
+        <div>
+          <label for="obs-weather">Weather</label>
+          <input type="text" id="obs-weather" placeholder="e.g. Clear, Calm, 15°C" class="form-input">
+        </div>
+      </div>
+
+      <div class="form-row grid-3">
+        <div>
+          <label for="obs-telescope">Telescope</label>
+          <input type="text" id="obs-telescope" placeholder="e.g. 8'' Dobsonian" class="form-input">
+        </div>
+        <div>
+          <label for="obs-eyepiece">Eyepiece</label>
+          <input type="text" id="obs-eyepiece" placeholder="e.g. 25mm Plössl / 10mm" class="form-input">
+        </div>
+        <div>
+          <label for="obs-camera">Camera (optional)</label>
+          <input type="text" id="obs-camera" placeholder="e.g. ZWO ASI224MC" class="form-input">
+        </div>
+      </div>
+
+      <div class="form-row grid-3">
+        <div>
+          <label for="obs-seeing">Seeing (1–5)</label>
+          <select id="obs-seeing" class="form-select">
+            <option value="1">1 - Poor (Bad Turbulence)</option>
+            <option value="2">2 - Fair</option>
+            <option value="3" selected>3 - Moderate</option>
+            <option value="4">4 - Good</option>
+            <option value="5">5 - Excellent (Steady)</option>
+          </select>
+        </div>
+        <div>
+          <label for="obs-transparency">Transparency (1–5)</label>
+          <select id="obs-transparency" class="form-select">
+            <option value="1">1 - Poor (Hazy)</option>
+            <option value="2">2 - Fair</option>
+            <option value="3" selected>3 - Moderate</option>
+            <option value="4">4 - Good</option>
+            <option value="5">5 - Excellent (Crystal Clear)</option>
+          </select>
+        </div>
+        <div>
+          <label for="obs-bortle">Bortle Scale (1–9)</label>
+          <select id="obs-bortle" class="form-select">
+            <option value="1">Class 1 - Excellent Dark Sky</option>
+            <option value="2">Class 2 - Truly Dark Site</option>
+            <option value="3">Class 3 - Rural Sky</option>
+            <option value="4" selected>Class 4 - Rural/Suburban</option>
+            <option value="5">Class 5 - Suburban Sky</option>
+            <option value="6">Class 6 - Bright Suburban</option>
+            <option value="7">Class 7 - Suburban/Urban</option>
+            <option value="8">Class 8 - City Sky</option>
+            <option value="9">Class 9 - Inner-City Sky</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row full-width">
+        <label for="obs-objects">Observed Objects (multiple entries)</label>
+        <input type="text" id="obs-objects" placeholder="e.g. Saturn, Jupiter, M31 Andromeda, M42 Orion Nebula" class="form-input">
+      </div>
+
+      <div class="form-row full-width">
+        <label for="obs-notes">Observation Notes</label>
+        <textarea id="obs-notes" rows="3" placeholder="Describe visual details, filters used, atmospheric conditions, sketch notes..." class="form-textarea"></textarea>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" id="cancel-observation-btn" class="modal-btn btn-secondary">Cancel</button>
+        <button type="button" id="save-observation-btn" class="modal-btn btn-primary">Save Observation</button>
+      </div>
+    </form>
   </div>
 </div>
 
