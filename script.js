@@ -13991,11 +13991,14 @@ function deleteObservation(obsId) {
   }
 }
 
-function renderObservations() {
-  const container = document.getElementById("observation-list-container");
-  const emptyCard = document.querySelector(".observation-empty-card");
-  if (!container) return;
 
+// ======================================
+// Timeline Calendar Logic
+// ======================================
+let currentCalendarDate = new Date();
+
+function renderObservations() {
+  // We still need to update stats
   let observations = [];
   try {
     observations = JSON.parse(localStorage.getItem("astroObservations") || "[]");
@@ -14020,14 +14023,38 @@ function renderObservations() {
 
   updateObservationStatistics(observations);
 
+  const emptyCard = document.querySelector(".observation-empty-card");
+  const calendarContainer = document.getElementById("observation-calendar-container");
+
   if (!observations.length) {
     if (emptyCard) emptyCard.style.display = "flex";
-    container.innerHTML = "";
+    if (calendarContainer) calendarContainer.style.display = "none";
     return;
   }
 
   if (emptyCard) emptyCard.style.display = "none";
+  if (calendarContainer) calendarContainer.style.display = "flex";
 
+  renderTimelineCalendar();
+}
+
+function renderTimelineCalendar() {
+  const container = document.getElementById("observation-calendar-container");
+  if (!container) return;
+
+  const monthLabel = document.getElementById("cal-current-month");
+  const daysGrid = document.getElementById("calendar-days-grid");
+
+  if (!monthLabel || !daysGrid) return;
+
+  let observations = [];
+  try {
+    observations = JSON.parse(localStorage.getItem("astroObservations") || "[]");
+  } catch (e) {
+    observations = [];
+  }
+
+  // Filter logic
   const searchQuery = (document.getElementById("obs-search-input")?.value || "").toLowerCase().trim();
   const filterTime = document.getElementById("obs-filter-select")?.value || "all";
 
@@ -14035,25 +14062,19 @@ function renderObservations() {
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
   const filtered = observations.filter(obs => {
-    // 1. Text Search (Title, Objects, Telescope, Location)
     if (searchQuery) {
       const titleMatch = (obs.title || "").toLowerCase().includes(searchQuery);
       const locationMatch = (obs.location || "").toLowerCase().includes(searchQuery);
       const telescopeMatch = (obs.telescope || "").toLowerCase().includes(searchQuery);
       const objectsStr = Array.isArray(obs.objects) ? obs.objects.join(" ") : (obs.objects || "");
       const objectsMatch = objectsStr.toLowerCase().includes(searchQuery);
-
-      if (!titleMatch && !locationMatch && !telescopeMatch && !objectsMatch) {
-        return false;
-      }
+      if (!titleMatch && !locationMatch && !telescopeMatch && !objectsMatch) return false;
     }
-
-    // 2. Date Filter (All, Today, This Week, This Month)
     if (filterTime !== "all" && obs.date) {
       const obsDate = new Date(obs.date + "T00:00:00");
       if (!isNaN(obsDate.getTime())) {
         if (filterTime === "today") {
-          if (obsDate < startOfToday) return false;
+          if (obsDate < startOfToday || obsDate > startOfToday) return false;
         } else if (filterTime === "week") {
           const sevenDaysAgo = new Date(startOfToday);
           sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
@@ -14064,50 +14085,144 @@ function renderObservations() {
         }
       }
     }
-
     return true;
   });
 
-  if (!filtered.length) {
-    container.innerHTML = `
-      <div class="obs-no-match-card">
-        <p>No matching observations found.</p>
-      </div>
-    `;
-    return;
+  const year = currentCalendarDate.getFullYear();
+  const month = currentCalendarDate.getMonth();
+
+  const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  monthLabel.textContent = `${monthNames[month]} ${year}`;
+
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  daysGrid.innerHTML = "";
+
+  // Map observations to days
+  const obsByDate = {};
+  filtered.forEach(obs => {
+    if (obs.date) {
+      // Extract YYYY-MM-DD
+      const dateKey = obs.date;
+      if (!obsByDate[dateKey]) obsByDate[dateKey] = [];
+      obsByDate[dateKey].push(obs);
+    }
+  });
+
+  // Empty cells before start of month
+  for (let i = 0; i < firstDay; i++) {
+    const emptyCell = document.createElement("div");
+    emptyCell.className = "calendar-day empty-day";
+    daysGrid.appendChild(emptyCell);
   }
 
-  const sorted = [...filtered].sort((a, b) => new Date(b.createdAt || b.date) - new Date(a.createdAt || a.date));
+  const todayStr = new Date().toISOString().split("T")[0];
 
-  container.innerHTML = sorted.map(obs => {
-    const timeDisplay = (obs.startTime || obs.endTime) ? `${obs.startTime || ''}${obs.endTime ? ' - ' + obs.endTime : ''}` : 'N/A';
-    const objectsArr = Array.isArray(obs.objects) ? obs.objects : (obs.objects ? String(obs.objects).split(',').map(s => s.trim()) : []);
-    const objectBadges = objectsArr.length
-      ? objectsArr.map(obj => `<span class="obs-object-tag">🪐 ${obj}</span>`).join('')
-      : '<span class="obs-no-objects">No objects listed</span>';
+  for (let day = 1; day <= daysInMonth; day++) {
+    const cell = document.createElement("div");
+    const cellDate = new Date(year, month, day);
 
-    return `
-      <div class="observation-card" data-id="${obs.id}">
-        <div class="obs-card-header">
-          <h4 class="obs-card-title">${obs.title || 'Untitled Session'}</h4>
-          <div class="obs-card-actions">
-            <span class="obs-card-date">📅 ${obs.date || 'Unknown Date'}</span>
-            <button type="button" class="obs-action-btn edit-btn edit-obs-btn" data-id="${obs.id}" title="Edit Observation">✏️ Edit</button>
-            <button type="button" class="obs-action-btn delete-btn delete-obs-btn" data-id="${obs.id}" title="Delete Observation">🗑️ Delete</button>
+    // Format YYYY-MM-DD locally to match input type="date"
+    const tzOffset = cellDate.getTimezoneOffset() * 60000;
+    const dateKey = new Date(cellDate.getTime() - tzOffset).toISOString().split("T")[0];
+
+    cell.className = "calendar-day";
+    if (dateKey === todayStr) {
+      cell.classList.add("today");
+    }
+
+    const dayEvents = obsByDate[dateKey] || [];
+
+    let dotsHtml = "";
+    dayEvents.slice(0, 3).forEach(ev => {
+      dotsHtml += `<div class="calendar-event-dot">${ev.title || 'Observation'}</div>`;
+    });
+
+    if (dayEvents.length > 3) {
+      dotsHtml += `<div class="calendar-event-dot" style="background:transparent;border:none;color:cyan;">+${dayEvents.length - 3} more</div>`;
+    }
+
+    cell.innerHTML = `
+      <div class="day-number">${day}</div>
+      <div class="day-events-container">${dotsHtml}</div>
+    `;
+
+    cell.addEventListener("click", () => {
+      showCalendarEventsForDate(dateKey, dayEvents);
+    });
+
+    daysGrid.appendChild(cell);
+  }
+}
+
+function showCalendarEventsForDate(dateKey, events) {
+  const panel = document.getElementById("calendar-selected-events");
+  const label = document.getElementById("selected-date-label");
+  const list = document.getElementById("selected-events-list");
+
+  if (!panel || !label || !list) return;
+
+  label.textContent = `Events on ${dateKey}`;
+  list.innerHTML = "";
+
+  if (events.length === 0) {
+    list.innerHTML = `<div class="obs-no-events">No observations for this date.</div>`;
+  } else {
+    events.forEach(obs => {
+      const timeDisplay = (obs.startTime || obs.endTime) ? `${obs.startTime || ''}${obs.endTime ? ' - ' + obs.endTime : ''}` : 'N/A';
+      const objectsArr = Array.isArray(obs.objects) ? obs.objects : (obs.objects ? String(obs.objects).split(',').map(s => s.trim()) : []);
+      const objectBadges = objectsArr.length
+        ? objectsArr.map(obj => `<span class="obs-object-tag">🪐 ${obj}</span>`).join('')
+        : '';
+
+      list.innerHTML += `
+        <div class="timeline-event-card">
+          <h5>
+            ${obs.title || 'Untitled Session'}
+            <div style="display:flex;gap:4px;">
+              <button class="obs-action-btn edit-btn edit-obs-btn" data-id="${obs.id}" style="padding:2px 5px; font-size:10px;">✏️</button>
+              <button class="obs-action-btn delete-btn delete-obs-btn" data-id="${obs.id}" style="padding:2px 5px; font-size:10px;">🗑️</button>
+            </div>
+          </h5>
+          <div class="timeline-meta">
+            <span>⏱️ ${timeDisplay}</span>
+            <span>📍 ${obs.location || 'No Location'}</span>
+            <span>🔭 ${obs.telescope || 'No Telescope'}</span>
+          </div>
+          <div class="timeline-objects">
+            ${objectBadges}
           </div>
         </div>
-        <div class="obs-card-meta">
-          <span class="obs-meta-item">⏱️ ${timeDisplay}</span>
-          <span class="obs-meta-item">📍 ${obs.location || 'Location Not Specified'}</span>
-          <span class="obs-meta-item">🔭 ${obs.telescope || 'Telescope Not Specified'}</span>
-        </div>
-        <div class="obs-card-objects">
-          ${objectBadges}
-        </div>
-      </div>
-    `;
-  }).join('');
+      `;
+    });
+  }
+
+  panel.classList.remove("hidden");
 }
+
+document.addEventListener("DOMContentLoaded", () => {
+  document.getElementById("cal-prev-month")?.addEventListener("click", () => {
+    currentCalendarDate.setDate(1);
+    currentCalendarDate.setMonth(currentCalendarDate.getMonth() - 1);
+    renderTimelineCalendar();
+  });
+
+  document.getElementById("cal-next-month")?.addEventListener("click", () => {
+    currentCalendarDate.setDate(1);
+    currentCalendarDate.setMonth(currentCalendarDate.getMonth() + 1);
+    renderTimelineCalendar();
+  });
+
+  document.getElementById("cal-today-btn")?.addEventListener("click", () => {
+    currentCalendarDate = new Date();
+    renderTimelineCalendar();
+  });
+
+  document.getElementById("close-selected-events")?.addEventListener("click", () => {
+    document.getElementById("calendar-selected-events")?.classList.add("hidden");
+  });
+});
 
 function calculateSessionHours(startTimeStr, endTimeStr) {
   if (!startTimeStr || !endTimeStr) return 0;
