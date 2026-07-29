@@ -1848,7 +1848,6 @@ function loadNASA() {
     .then(data => {
 
       const container = document.getElementById("asteroid-container");
-      if (!container) return;
       container.innerHTML = "";
 
       // 🔥 FLATTEN
