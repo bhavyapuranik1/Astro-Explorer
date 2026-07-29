@@ -10886,9 +10886,11 @@ function renderMemoryList() {
     const timeline = getTimelineLabel(memory.time);
 
     if (timeline !== currentTimeline) {
-
-
-
+      currentTimeline = timeline;
+      const header = document.createElement("div");
+      header.className = "memory-timeline";
+      header.textContent = timeline;
+      list.appendChild(header);
     }
 
     const card = document.createElement("div");
@@ -11854,25 +11856,21 @@ function buildMemoryContext(question) {
 }
 
 function getTimelineLabel(date) {
-
   const now = new Date();
-
   const d = new Date(date);
 
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const targetDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+
   const diff = Math.floor(
-    (now - d) / (1000 * 60 * 60 * 24)
+    (today - targetDate) / (1000 * 60 * 60 * 24)
   );
 
   if (diff === 0) return "📅 Today";
-
   if (diff === 1) return "📆 Yesterday";
-
   if (diff <= 7) return "🗓 Last 7 Days";
-
   if (diff <= 30) return "📁 Last Month";
-
   return "📦 Older";
-
 }
 
 function formatMemoryDate(time) {
