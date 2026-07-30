@@ -5520,21 +5520,56 @@ ${userInput}
 
 
 function buildAstroPrompt(userMessage, objectData) {
+  let promptParts = [];
 
-  return `
-Selected Object Information:
+  // 1. Research Mode Prompt Expansion
+  if (typeof researchMode !== "undefined" && researchMode) {
+    promptParts.push(`🧠 DEEP RESEARCH MODE ACTIVE:
+- Provide expert-level astronomical and astrophysical reasoning.
+- State scientific confidence levels and clearly distinguish established consensus from speculative hypotheses.
+- Include step-by-step physical derivations where relevant.
+- Include exact physical & optical equations where applicable:
+  • Magnification M = Ft / Fe
+  • Exit Pupil EP = D / M
+  • True Field of View TFOV = AFOV / M
+  • Distance Modulus m - M = 5 * log10(d) - 5
+  • Redshift z = (λ - λ0) / λ0
+  • Rayleigh Limit θ = 1.22 * λ / D
+  • Dawes Limit θ = 4.56 / D (inches)
+- Utilize astronomical catalog designations: Messier (M), NGC, IC, Caldwell (C), Bayer/Flamsteed stellar designations.`);
+  }
 
-Name: ${objectData?.name || "Unknown"}
-Type: ${objectData?.type || "Unknown"}
-Constellation: ${objectData?.constellation || "Unknown"}
-Magnitude: ${objectData?.magnitude || "Unknown"}
-Distance: ${objectData?.distance || "Unknown"}
-RA: ${objectData?.ra || "Unknown"}
-DEC: ${objectData?.dec || "Unknown"}
+  // 2. Active Object Information
+  if (objectData && objectData.name) {
+    promptParts.push(`Selected Celestial Object:
+Name: ${objectData.name || "Unknown"}
+Type: ${objectData.type || "Unknown"}
+Constellation: ${objectData.constellation || "Unknown"}
+Magnitude: ${objectData.magnitude || "Unknown"}
+Distance: ${objectData.distance || "Unknown"}
+RA: ${objectData.ra || "Unknown"}
+DEC: ${objectData.dec || "Unknown"}`);
+  }
 
-User Question:
-${userMessage}
-`;
+  // 3. Attached Observation Context
+  if (typeof attachedObservationContext !== "undefined" && attachedObservationContext && attachedObservationContext.text) {
+    promptParts.push(`Attached Observation Log:
+${attachedObservationContext.text}`);
+  }
+
+  // 4. Astrophotography Vision Analysis Guidance (if images attached)
+  if (typeof attachments !== "undefined" && attachments.some(a => a.type === "image")) {
+    promptParts.push(`📷 Astrophotography Image Analysis Request:
+- Identify the celestial target or field.
+- Analyze star focus quality, approximate FWHM, star trailing/tracking errors.
+- Evaluate background noise level, dynamic range, exposure quality (over/underexposed).
+- Check for color balance, light pollution gradients, vignetting, satellite/meteor trails.
+- Provide plate-solving suggestions and telescope/camera optical improvement tips.`);
+  }
+
+  promptParts.push(`User Question:\n${userMessage}`);
+
+  return promptParts.join("\n\n");
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -6869,41 +6904,24 @@ ${attachmentMandate ? attachmentMandate : ""}
   document
     .getElementById("observation-option")
     .onclick = () => {
-
-      alert("Coming Soon 🔭");
-
+      openAIObservationPicker();
       attachMenu.classList.remove("show");
-
     };
 
   document
     .getElementById("research-option")
     .onclick = () => {
-
+      researchMode = !researchMode;
+      const badge = document.getElementById("ai-research-badge");
       if (researchMode) {
-
-        addAIMessage(
-          "Research mode disabled 😄🔥",
-          "Astro AI"
-        );
-
-        researchMode = false;
-
+        if (badge) badge.classList.remove("hidden");
+        if (typeof showToast === "function") showToast("🧠 Deep Research Mode Enabled!");
+      } else {
+        if (badge) badge.classList.add("hidden");
+        if (typeof showToast === "function") showToast("Research Mode Disabled.");
       }
-
-      else {
-
-        addAIMessage(
-          "Research mode enabled 🧠😈🔥",
-          "Astro AI"
-        );
-
-        researchMode = true;
-
-      }
-
+      renderContextPills();
       attachMenu.classList.remove("show");
-
     };
 
   document.onclick = (e) => {
@@ -7093,37 +7111,119 @@ function addAIMessage(text, sender) {
   const content = document.createElement("div");
 
   if (text.trim().startsWith("<img")) {
-
     content.innerHTML = text;
-
   } else {
+    content.innerHTML = (typeof marked !== "undefined" && marked.parse) ? marked.parse(text) : text;
+  }
 
-    content.innerHTML = marked.parse(text);
+  // Format fenced code blocks with top header bar and Copy Code button
+  content.querySelectorAll("pre code").forEach(codeNode => {
+    const preNode = codeNode.parentNode;
+    if (!preNode || preNode.classList.contains("has-copy-btn")) return;
+    preNode.classList.add("has-copy-btn");
 
+    const wrapper = document.createElement("div");
+    wrapper.className = "code-block-wrapper";
+
+    const header = document.createElement("div");
+    header.className = "code-block-header";
+    const lang = Array.from(codeNode.classList).find(c => c.startsWith("language-"))?.replace("language-", "") || "code";
+    header.innerHTML = `
+      <span class="code-block-lang">${lang.toUpperCase()}</span>
+      <button type="button" class="copy-code-btn">📋 Copy Code</button>
+    `;
+
+    header.querySelector(".copy-code-btn").addEventListener("click", async (e) => {
+      await navigator.clipboard.writeText(codeNode.textContent || "");
+      const btn = e.currentTarget;
+      btn.textContent = "✅ Copied!";
+      setTimeout(() => { btn.textContent = "📋 Copy Code"; }, 1500);
+    });
+
+    preNode.parentNode?.insertBefore(wrapper, preNode);
+    wrapper.appendChild(header);
+    wrapper.appendChild(preNode);
+  });
+
+  // Render KaTeX Math Expressions if KaTeX renderMathInElement is available
+  if (window.renderMathInElement) {
+    try {
+      window.renderMathInElement(content, {
+        delimiters: [
+          { left: "$$", right: "$$", display: true },
+          { left: "\\[", right: "\\]", display: true },
+          { left: "$", right: "$", display: false },
+          { left: "\\(", right: "\\)", display: false }
+        ],
+        throwOnError: false
+      });
+    } catch (e) {
+      console.warn("KaTeX render error:", e);
+    }
   }
 
   msg.appendChild(content);
 
-  // 🔥 Sirf AI replies ke liye actions
+  // 🔥 Rich AI Response Toolbar
   if (sender !== "You") {
-
     const actions = document.createElement("div");
-
-    actions.className = "message-actions";
-
+    actions.className = "message-actions ai-response-toolbar";
     actions.innerHTML = `
-<button class="message-copy-btn">📋</button>
-<button class="speak-btn">🔊</button>
-<button class="like-btn">👍</button>
-<button class="dislike-btn">👎</button>
-<button class="regen-btn">🔄</button>
-`;
+      <button class="message-copy-btn" title="Copy Message">📋 Copy</button>
+      <button class="speak-btn" title="Read Aloud">🔊</button>
+      <button class="regen-btn" title="Regenerate Answer">🔄 Regenerate</button>
+      <button class="save-memory-btn" title="Save to AI Memory">📌 Save to Memory</button>
+      <button class="save-obs-note-btn" title="Save as Observation Note">⭐ Save to Obs</button>
+      <button class="export-md-btn" title="Export as Markdown">📤 Export MD</button>
+      <button class="like-btn" title="Helpful">👍</button>
+      <button class="dislike-btn" title="Not Helpful">👎</button>
+    `;
 
     const copyBtn = actions.querySelector(".message-copy-btn");
     const speakBtn = actions.querySelector(".speak-btn");
+    const regenBtn = actions.querySelector(".regen-btn");
+    const saveMemBtn = actions.querySelector(".save-memory-btn");
+    const saveObsBtn = actions.querySelector(".save-obs-note-btn");
+    const exportMdBtn = actions.querySelector(".export-md-btn");
     const likeBtn = actions.querySelector(".like-btn");
     const dislikeBtn = actions.querySelector(".dislike-btn");
-    const regenBtn = actions.querySelector(".regen-btn");
+
+    saveMemBtn?.addEventListener("click", () => {
+      if (typeof astroMemory !== "undefined") {
+        if (!astroMemory.memories) astroMemory.memories = [];
+        astroMemory.memories.push({
+          key: "AI Note (" + new Date().toLocaleDateString() + ")",
+          value: text.slice(0, 250) + (text.length > 250 ? "..." : "")
+        });
+        localStorage.setItem("astroMemory", JSON.stringify(astroMemory));
+        if (typeof showToast === "function") showToast("📌 Saved answer snippet to AI Memory!");
+      }
+    });
+
+    saveObsBtn?.addEventListener("click", () => {
+      let observations = [];
+      try { observations = JSON.parse(localStorage.getItem("astroObservations") || "[]"); } catch (e) { observations = []; }
+      if (!observations.length) {
+        if (typeof showToast === "function") showToast("No observations found! Create one in Observation tab first.");
+        return;
+      }
+      const latest = observations[0];
+      latest.notes = (latest.notes || "") + "\n\n--- AI Note (" + new Date().toLocaleString() + ") ---\n" + text;
+      localStorage.setItem("astroObservations", JSON.stringify(observations));
+      if (typeof renderObservations === "function") renderObservations();
+      if (typeof showToast === "function") showToast(`⭐ Added note snippet to observation "${latest.title}"!`);
+    });
+
+    exportMdBtn?.addEventListener("click", () => {
+      const blob = new Blob([text], { type: "text/markdown;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `AstroAI_Response_${Date.now()}.md`;
+      a.click();
+      URL.revokeObjectURL(url);
+      if (typeof showToast === "function") showToast("📤 Exported answer as Markdown!");
+    });
 
     copyBtn.onclick = async () => {
 
@@ -15936,4 +16036,226 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   renderLocalSnapshots();
+
+  // ==========================================================================
+  // 🔭 ASTRO AI OBSERVATION PICKER & MULTI-CONTEXT LISTENERS
+  // ==========================================================================
+  document.getElementById("close-ai-obs-picker")?.addEventListener("click", () => {
+    document.getElementById("ai-obs-picker-modal")?.classList.add("hidden");
+  });
+
+  document.getElementById("ai-obs-picker-search")?.addEventListener("input", renderAIObservationPickerList);
+  document.getElementById("ai-obs-picker-sort")?.addEventListener("change", renderAIObservationPickerList);
+
+  const obsPickerListContainer = document.getElementById("ai-obs-picker-list");
+  let selectedObsIdForAI = null;
+
+  if (obsPickerListContainer) {
+    obsPickerListContainer.addEventListener("click", (e) => {
+      const item = e.target.closest(".ai-obs-picker-item");
+      if (!item) return;
+      selectedObsIdForAI = item.dataset.id;
+      
+      document.querySelectorAll(".ai-obs-picker-item").forEach(el => el.classList.remove("selected"));
+      item.classList.add("selected");
+
+      const confirmBtn = document.getElementById("confirm-ai-obs-attach-btn");
+      if (confirmBtn) confirmBtn.disabled = false;
+    });
+  }
+
+  document.getElementById("confirm-ai-obs-attach-btn")?.addEventListener("click", () => {
+    if (selectedObsIdForAI) {
+      selectObservationForAI(selectedObsIdForAI);
+    }
+  });
 });
+
+/* ==========================================================================
+   🤖 ASTRO AI FLAGSHIP FUNCTIONS
+   ========================================================================== */
+
+let attachedObservationContext = null;
+
+function openAIObservationPicker() {
+  const modal = document.getElementById("ai-obs-picker-modal");
+  if (!modal) return;
+  renderAIObservationPickerList();
+  modal.classList.remove("hidden");
+}
+
+function renderAIObservationPickerList() {
+  const container = document.getElementById("ai-obs-picker-list");
+  if (!container) return;
+
+  const searchVal = (document.getElementById("ai-obs-picker-search")?.value || "").toLowerCase().trim();
+  const sortVal = document.getElementById("ai-obs-picker-sort")?.value || "newest";
+
+  let observations = [];
+  try {
+    observations = JSON.parse(localStorage.getItem("astroObservations") || "[]");
+  } catch (e) { observations = []; }
+
+  if (!observations.length) {
+    container.innerHTML = `<div style="padding:16px; text-align:center; color:#94a3b8; font-size:0.85rem;">No saved observation sessions found. Create one in the Observation tab first!</div>`;
+    return;
+  }
+
+  let filtered = observations.filter(obs => {
+    if (!searchVal) return true;
+    const objectsStr = Array.isArray(obs.objects) ? obs.objects.join(" ") : (obs.objects || "");
+    const titleMatch = (obs.title || "").toLowerCase().includes(searchVal);
+    const locationMatch = (obs.location || "").toLowerCase().includes(searchVal);
+    const telescopeMatch = (obs.telescope || "").toLowerCase().includes(searchVal);
+    const objectsMatch = objectsStr.toLowerCase().includes(searchVal);
+    return titleMatch || locationMatch || telescopeMatch || objectsMatch;
+  });
+
+  filtered.sort((a, b) => {
+    if (sortVal === "favorites") {
+      if (a.isFavorite && !b.isFavorite) return -1;
+      if (!a.isFavorite && b.isFavorite) return 1;
+    }
+    if (sortVal === "rating") return (b.rating || 5) - (a.rating || 5);
+    const dateA = new Date((a.date || "") + "T" + (a.startTime || "00:00")).getTime() || 0;
+    const dateB = new Date((b.date || "") + "T" + (b.startTime || "00:00")).getTime() || 0;
+    return sortVal === "oldest" ? dateA - dateB : dateB - dateA;
+  });
+
+  container.innerHTML = filtered.map(obs => {
+    const isSelected = attachedObservationContext && attachedObservationContext.id === obs.id;
+    const objectsArr = Array.isArray(obs.objects) ? obs.objects : (obs.objects ? String(obs.objects).split(",") : []);
+    const ratingVal = obs.rating || 5;
+    const ratingStars = "★".repeat(ratingVal);
+
+    return `
+      <div class="ai-obs-picker-item ${isSelected ? 'selected' : ''}" data-id="${obs.id}">
+        <div>
+          <div class="ai-obs-item-title">${obs.title || "Untitled Session"} ${obs.isFavorite ? '⭐' : ''}</div>
+          <div class="ai-obs-item-meta">
+            📅 ${obs.date || 'N/A'} | 📍 ${obs.location || 'N/A'} | 🔭 ${obs.telescope || 'N/A'} | ${ratingStars}
+          </div>
+          ${objectsArr.length ? `<div style="font-size:0.75rem; color:#818cf8; margin-top:2px;">🌌 ${objectsArr.join(", ")}</div>` : ''}
+        </div>
+        <button type="button" class="obs-btn-sm select-ai-obs-btn" data-id="${obs.id}">
+          ${isSelected ? '✓ Selected' : 'Select'}
+        </button>
+      </div>
+    `;
+  }).join("");
+}
+
+function selectObservationForAI(obsId) {
+  let observations = [];
+  try {
+    observations = JSON.parse(localStorage.getItem("astroObservations") || "[]");
+  } catch (e) { observations = []; }
+
+  const obs = observations.find(o => o.id === obsId);
+  if (!obs) return;
+
+  const modeRadio = document.querySelector('input[name="ai-obs-mode"]:checked');
+  const mode = modeRadio ? modeRadio.value : "summary";
+
+  if (mode === "summary") {
+    attachedObservationContext = {
+      id: obs.id,
+      mode: "summary",
+      title: obs.title,
+      date: obs.date,
+      location: obs.location,
+      telescope: obs.telescope,
+      objects: obs.objects,
+      bortle: obs.bortle,
+      rating: obs.rating,
+      text: `Observation Summary: "${obs.title}" (${obs.date}) at ${obs.location}. Telescope: ${obs.telescope}. Objects: ${Array.isArray(obs.objects) ? obs.objects.join(", ") : obs.objects}. Bortle Class ${obs.bortle || 4}, Rating ${obs.rating || 5}/5.`
+    };
+  } else {
+    attachedObservationContext = {
+      id: obs.id,
+      mode: "full",
+      title: obs.title,
+      date: obs.date,
+      location: obs.location,
+      telescope: obs.telescope,
+      eyepiece: obs.eyepiece,
+      camera: obs.camera,
+      objects: obs.objects,
+      bortle: obs.bortle,
+      seeing: obs.seeing,
+      transparency: obs.transparency,
+      cloudCover: obs.cloudCover,
+      temperature: obs.temperature,
+      humidity: obs.humidity,
+      windSpeed: obs.windSpeed,
+      weather: obs.weather,
+      notes: obs.notes,
+      rating: obs.rating,
+      isFavorite: obs.isFavorite,
+      tags: obs.tags,
+      aiSummary: obs.aiSummary ? obs.aiSummary.scientificSummary : "",
+      text: `Full Observation Log: "${obs.title}" (${obs.date})
+Location: ${obs.location} | Telescope: ${obs.telescope} | Eyepiece: ${obs.eyepiece || 'N/A'} | Camera: ${obs.camera || 'N/A'}
+Objects Observed: ${Array.isArray(obs.objects) ? obs.objects.join(", ") : obs.objects}
+Sky Quality: Bortle ${obs.bortle || 4}, Seeing ${obs.seeing || 3}/5, Transparency ${obs.transparency || 3}/5, Weather: ${obs.weather || 'Clear'}
+Environment: Temp ${obs.temperature || 'N/A'}, Humidity ${obs.humidity || 'N/A'}%, Wind ${obs.windSpeed || 'N/A'}
+Notes: ${obs.notes || 'None'}
+${obs.aiSummary ? 'AI Scientific Summary: ' + obs.aiSummary.scientificSummary : ''}`
+    };
+  }
+
+  renderContextPills();
+  document.getElementById("ai-obs-picker-modal")?.classList.add("hidden");
+  if (typeof showToast === "function") showToast(`Attached observation "${obs.title}" (${mode} mode).`);
+}
+
+function renderContextPills() {
+  const container = document.getElementById("attachment-preview");
+  if (!container) return;
+
+  let html = "";
+
+  if (typeof researchMode !== "undefined" && researchMode) {
+    html += `
+      <div class="context-chip chip-research">
+        🧠 Research Mode Active
+        <button type="button" class="context-chip-remove" id="remove-research-pill">✕</button>
+      </div>
+    `;
+  }
+
+  if (attachedObservationContext) {
+    html += `
+      <div class="context-chip chip-obs">
+        🔭 Obs: ${attachedObservationContext.title} (${attachedObservationContext.mode})
+        <button type="button" class="context-chip-remove" id="remove-obs-pill">✕</button>
+      </div>
+    `;
+  }
+
+  if (typeof attachments !== "undefined" && attachments.length > 0) {
+    attachments.forEach((file, index) => {
+      const icon = file.type === "image" ? "📷" : "📄";
+      html += `
+        <div class="context-chip">
+          ${icon} ${file.name}
+          <button type="button" class="context-chip-remove" onclick="removeAttachment(${index})">✕</button>
+        </div>
+      `;
+    });
+  }
+
+  container.innerHTML = html;
+
+  document.getElementById("remove-research-pill")?.addEventListener("click", () => {
+    if (typeof researchMode !== "undefined") researchMode = false;
+    document.getElementById("ai-research-badge")?.classList.add("hidden");
+    renderContextPills();
+  });
+
+  document.getElementById("remove-obs-pill")?.addEventListener("click", () => {
+    attachedObservationContext = null;
+    renderContextPills();
+  });
+}
+

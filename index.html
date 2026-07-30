@@ -913,6 +913,38 @@ gtag('config', 'G-9747XL0FQQ');
   </div>
 </div>
 
+<!-- 🔭 ASTRO AI OBSERVATION PICKER MODAL -->
+<div id="ai-obs-picker-modal" class="modal-backdrop hidden">
+  <div class="observation-modal-content ai-obs-picker-modal-content">
+    <div class="modal-header">
+      <h3 class="modal-title">🔭 Select Observation Log to Attach</h3>
+      <button type="button" id="close-ai-obs-picker" class="modal-close-btn">✕</button>
+    </div>
+
+    <div class="ai-obs-picker-body">
+      <div class="ai-obs-picker-controls">
+        <input type="text" id="ai-obs-picker-search" placeholder="Search title, objects, telescope, location..." class="obs-search-input">
+        <select id="ai-obs-picker-sort" class="obs-filter-select">
+          <option value="newest">⌛ Newest First</option>
+          <option value="oldest">⏳ Oldest First</option>
+          <option value="favorites">⭐ Favorites First</option>
+          <option value="rating">★ Highest Rated</option>
+        </select>
+      </div>
+
+      <div id="ai-obs-picker-list" class="ai-obs-picker-list"></div>
+    </div>
+
+    <div class="modal-footer">
+      <div class="ai-obs-attach-mode-group">
+        <label class="attach-radio-lbl"><input type="radio" name="ai-obs-mode" value="summary" checked> 📝 Attach Summary (Compact)</label>
+        <label class="attach-radio-lbl"><input type="radio" name="ai-obs-mode" value="full"> 📑 Attach Full Observation Log</label>
+      </div>
+      <button type="button" id="confirm-ai-obs-attach-btn" class="modal-btn btn-primary" disabled>Attach Selected Session</button>
+    </div>
+  </div>
+</div>
+
 <!-- 🔭 NEW OBSERVATION MODAL -->
 <div id="observation-modal" class="modal-backdrop hidden">
   <div class="observation-modal-content">
@@ -1137,7 +1169,7 @@ gtag('config', 'G-9747XL0FQQ');
 
   <div id="ai-header">
 
-<h2> Astro AI</h2>
+<h2> Astro AI <span id="ai-research-badge" class="ai-research-badge hidden">🧠 Research Mode Active</span></h2>
 
 <div id="header-actions">
 

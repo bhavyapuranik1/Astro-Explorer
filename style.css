@@ -7702,3 +7702,224 @@ body.night-vision-active #toggle-night-btn {
   border-radius: 8px;
   font-size: 0.84rem;
 }
+
+/* ==========================================================================
+   🤖 ASTRO AI FLAGSHIP STYLES
+   ========================================================================== */
+
+.ai-research-badge {
+  font-size: 0.72rem;
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.3) 0%, rgba(99, 102, 241, 0.3) 100%);
+  color: #d8b4fe;
+  border: 1px solid rgba(192, 132, 252, 0.4);
+  padding: 2px 8px;
+  border-radius: 12px;
+  margin-left: 8px;
+  font-weight: 600;
+  vertical-align: middle;
+  animation: pulseBadge 2s infinite alternate;
+}
+
+@keyframes pulseBadge {
+  from { box-shadow: 0 0 4px rgba(168, 85, 247, 0.3); }
+  to { box-shadow: 0 0 10px rgba(168, 85, 247, 0.7); }
+}
+
+/* Observation Picker Modal for AI */
+.ai-obs-picker-modal-content {
+  max-width: 650px;
+  width: 92%;
+}
+
+.ai-obs-picker-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 12px;
+}
+
+.ai-obs-picker-controls {
+  display: flex;
+  gap: 10px;
+}
+
+.ai-obs-picker-list {
+  max-height: 280px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.25);
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.ai-obs-picker-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.ai-obs-picker-item:hover {
+  background: rgba(99, 102, 241, 0.15);
+  border-color: rgba(129, 140, 248, 0.4);
+}
+
+.ai-obs-picker-item.selected {
+  background: rgba(99, 102, 241, 0.25);
+  border-color: #818cf8;
+  box-shadow: 0 0 10px rgba(99, 102, 241, 0.3);
+}
+
+.ai-obs-item-title {
+  font-weight: 600;
+  color: #f8fafc;
+  font-size: 0.9rem;
+}
+
+.ai-obs-item-meta {
+  font-size: 0.78rem;
+  color: #94a3b8;
+  margin-top: 3px;
+}
+
+.ai-obs-attach-mode-group {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.attach-radio-lbl {
+  font-size: 0.82rem;
+  color: #cbd5e1;
+  cursor: pointer;
+}
+
+.attach-radio-lbl input {
+  accent-color: #6366f1;
+}
+
+/* Context Pills / Chips Container */
+#attachment-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 12px;
+  background: rgba(0, 0, 0, 0.3);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.context-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(99, 102, 241, 0.2);
+  color: #c7d2fe;
+  border: 1px solid rgba(129, 140, 248, 0.35);
+  padding: 3px 10px;
+  border-radius: 14px;
+  font-size: 0.78rem;
+  font-weight: 500;
+}
+
+.context-chip.chip-research {
+  background: rgba(168, 85, 247, 0.25);
+  color: #e9d5ff;
+  border-color: rgba(192, 132, 252, 0.4);
+}
+
+.context-chip.chip-obs {
+  background: rgba(16, 185, 129, 0.2);
+  color: #a7f3d0;
+  border-color: rgba(52, 211, 153, 0.35);
+}
+
+.context-chip-remove {
+  background: none;
+  border: none;
+  color: #fca5a5;
+  font-size: 0.8rem;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+
+.context-chip-remove:hover {
+  color: #ef4444;
+}
+
+/* AI Response Action Toolbar */
+.ai-response-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.ai-tool-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #cbd5e1;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 0.73rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.ai-tool-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.ai-tool-btn.active {
+  background: rgba(16, 185, 129, 0.25);
+  color: #34d399;
+  border-color: #10b981;
+}
+
+/* Code Block & Copy Button */
+.code-block-wrapper {
+  position: relative;
+  margin: 10px 0;
+}
+
+.code-block-wrapper pre {
+  background: #0f172a;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  padding: 12px;
+  overflow-x: auto;
+  margin: 0;
+  color: #e2e8f0;
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 0.85rem;
+}
+
+.code-copy-btn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #cbd5e1;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+
+.code-copy-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  color: #fff;
+}
