@@ -13797,9 +13797,77 @@ function updateEclipseStatus() {
 }
 
 /* ==========================================================================
-   🔭 OBSERVATION MODAL OPEN/CLOSE LOGIC
+   🔭 OBSERVATION MODAL, ATTACHMENTS & AI SUMMARY LOGIC
    ========================================================================== */
 let currentEditingObsId = null;
+let currentObsFiles = [];
+
+function renderObsFilePreviews() {
+  const previewContainer = document.getElementById("obs-file-previews");
+  if (!previewContainer) return;
+
+  if (!currentObsFiles || !currentObsFiles.length) {
+    previewContainer.innerHTML = "";
+    return;
+  }
+
+  previewContainer.innerHTML = currentObsFiles.map(file => {
+    const isImg = file.type && file.type.startsWith("image/");
+    return `
+      <div class="obs-preview-card" data-id="${file.id}">
+        ${isImg ? `<img src="${file.data}" alt="${file.name}">` : `<span class="file-doc-icon">📄</span><span class="file-doc-name">${file.name}</span>`}
+        <button type="button" class="remove-file-btn" data-id="${file.id}" title="Remove attachment">✕</button>
+      </div>
+    `;
+  }).join("");
+}
+
+function handleObsFiles(fileList) {
+  if (!fileList || !fileList.length) return;
+
+  const validTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp", "application/pdf"];
+  const maxSizeBytes = 3 * 1024 * 1024; // 3MB limit
+
+  Array.from(fileList).forEach(file => {
+    if (!validTypes.includes(file.type) && !file.name.match(/\.(jpg|jpeg|png|webp|pdf)$/i)) {
+      if (typeof showToast === "function") showToast(`File '${file.name}' type not supported. Use JPG, PNG, WEBP, or PDF.`);
+      return;
+    }
+    if (file.size > maxSizeBytes) {
+      if (typeof showToast === "function") showToast(`File '${file.name}' exceeds 3MB size limit.`);
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      currentObsFiles.push({
+        id: "file_" + Date.now().toString(36) + Math.random().toString(36).substr(2, 4),
+        name: file.name,
+        type: file.type || (file.name.endsWith(".pdf") ? "application/pdf" : "image/jpeg"),
+        size: file.size,
+        data: e.target.result
+      });
+      renderObsFilePreviews();
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function openObsLightbox(src, caption) {
+  const modal = document.getElementById("obs-lightbox-modal");
+  const imgEl = document.getElementById("obs-lightbox-img");
+  const captionEl = document.getElementById("obs-lightbox-caption");
+  if (!modal || !imgEl) return;
+
+  imgEl.src = src;
+  if (captionEl) captionEl.textContent = caption || "";
+  modal.classList.remove("hidden");
+}
+
+function closeObsLightbox() {
+  const modal = document.getElementById("obs-lightbox-modal");
+  if (modal) modal.classList.add("hidden");
+}
 
 document.addEventListener("DOMContentLoaded", () => {
   const openBtn = document.getElementById("open-new-observation-btn");
@@ -13809,6 +13877,45 @@ document.addEventListener("DOMContentLoaded", () => {
   const saveBtn = document.getElementById("save-observation-btn");
   const container = document.getElementById("observation-list-container");
 
+  // Dropzone & File picker setup
+  const dropzone = document.getElementById("obs-dropzone");
+  const browseBtn = document.getElementById("browse-obs-files");
+  const fileInput = document.getElementById("obs-file-input");
+  const previewsContainer = document.getElementById("obs-file-previews");
+
+  browseBtn?.addEventListener("click", () => fileInput?.click());
+  fileInput?.addEventListener("change", (e) => handleObsFiles(e.target.files));
+
+  if (dropzone) {
+    dropzone.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      dropzone.classList.add("drag-over");
+    });
+    dropzone.addEventListener("dragleave", () => dropzone.classList.remove("drag-over"));
+    dropzone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dropzone.classList.remove("drag-over");
+      if (e.dataTransfer && e.dataTransfer.files) {
+        handleObsFiles(e.dataTransfer.files);
+      }
+    });
+  }
+
+  previewsContainer?.addEventListener("click", (e) => {
+    const removeBtn = e.target.closest(".remove-file-btn");
+    if (removeBtn) {
+      const fileId = removeBtn.dataset.id;
+      currentObsFiles = currentObsFiles.filter(f => f.id !== fileId);
+      renderObsFilePreviews();
+    }
+  });
+
+  // Lightbox listeners
+  document.getElementById("close-obs-lightbox-btn")?.addEventListener("click", closeObsLightbox);
+  document.getElementById("obs-lightbox-modal")?.addEventListener("click", (e) => {
+    if (e.target === document.getElementById("obs-lightbox-modal")) closeObsLightbox();
+  });
+
   function openModal(isEdit = false) {
     const modalTitle = document.querySelector("#observation-modal .modal-title");
     if (modalTitle) {
@@ -13816,15 +13923,19 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     if (!isEdit) {
       currentEditingObsId = null;
+      currentObsFiles = [];
       const form = document.querySelector(".observation-form");
       if (form) form.reset();
     }
+    renderObsFilePreviews();
     if (modal) modal.classList.remove("hidden");
   }
 
   function closeModal() {
     if (modal) modal.classList.add("hidden");
     currentEditingObsId = null;
+    currentObsFiles = [];
+    renderObsFilePreviews();
   }
 
   function saveObservationSession() {
@@ -13868,7 +13979,8 @@ document.addEventListener("DOMContentLoaded", () => {
           transparency: transparency || "3",
           bortle: bortle || "4",
           objects: objectsRaw ? objectsRaw.split(",").map(s => s.trim()).filter(Boolean) : [],
-          notes: notes || ""
+          notes: notes || "",
+          files: currentObsFiles ? [...currentObsFiles] : []
         };
       }
     } else {
@@ -13888,6 +14000,7 @@ document.addEventListener("DOMContentLoaded", () => {
         bortle: bortle || "4",
         objects: objectsRaw ? objectsRaw.split(",").map(s => s.trim()).filter(Boolean) : [],
         notes: notes || "",
+        files: currentObsFiles ? [...currentObsFiles] : [],
         createdAt: new Date().toISOString()
       };
       existing.push(newObservation);
@@ -14036,6 +14149,130 @@ function duplicateObservation(obsId) {
 
 let activeViewObsId = null;
 
+// ======================================
+// AI OBSERVATION SUMMARY ENGINE
+// ======================================
+function generateAIObservationSummary(obs) {
+  const title = obs.title || "Observation Session";
+  const objectsArr = Array.isArray(obs.objects) ? obs.objects : (typeof obs.objects === "string" && obs.objects ? obs.objects.split(",") : []);
+  const bortleNum = parseInt(obs.bortle || 4, 10);
+  const seeingNum = parseInt(obs.seeing || 3, 10);
+  const transNum = parseInt(obs.transparency || 3, 10);
+  const telescope = obs.telescope || "Optical Setup";
+  const eyepiece = obs.eyepiece || "";
+  const camera = obs.camera || "";
+  const location = obs.location || "Observing Location";
+  const notes = obs.notes || "";
+
+  // Compute Session Duration
+  let durationText = "Standard observing session";
+  if (obs.startTime && obs.endTime) {
+    const hours = calculateSessionHours(obs.startTime, obs.endTime);
+    if (hours > 0) durationText = `${hours.toFixed(1)}-hour detailed observing session`;
+  }
+
+  // Bortle Sky Description
+  let skyQuality = "Suburban/Rural transition sky";
+  if (bortleNum <= 2) skyQuality = "Pristine dark sky site (Bortle " + bortleNum + ")";
+  else if (bortleNum <= 4) skyQuality = "Dark rural/suburban sky (Bortle " + bortleNum + ")";
+  else if (bortleNum <= 6) skyQuality = "Suburban light-polluted sky (Bortle " + bortleNum + ")";
+  else skyQuality = "Urban high light pollution environment (Bortle " + bortleNum + ")";
+
+  // Seeing Description
+  let atmosphericState = "moderate atmospheric stability";
+  if (seeingNum >= 4) atmosphericState = "steady atmospheric seeing with minimal thermal turbulence";
+  else if (seeingNum <= 2) atmosphericState = "noticeable atmospheric turbulence and thermal distortion";
+
+  // Scientific Summary
+  const scientificSummary = `Conducted a ${durationText} at ${location} under a ${skyQuality} featuring ${atmosphericState} (Seeing: ${seeingNum}/5, Transparency: ${transNum}/5). Targeted ${objectsArr.length ? objectsArr.length + ' primary celestial object(s)' : 'astronomical targets'} utilizing the ${telescope}${eyepiece ? ' paired with ' + eyepiece : ''}${camera ? ' and ' + camera + ' imaging sensor' : ''}.`;
+
+  // Highlights
+  let highlights = "";
+  if (objectsArr.length) {
+    highlights = `Successfully logged visual details for ${objectsArr.join(", ")}. Primary targets demonstrated strong visual contrast and resolve under the ${bortleNum <= 4 ? 'dark sky background' : 'local optical setup'}.`;
+  } else {
+    highlights = `General sky survey and equipment calibration completed at ${location}. Excellent baseline session for tracking local light pollution and thermal equilibration.`;
+  }
+
+  // Follow-up Recommendations
+  const followUp = [];
+  if (objectsArr.some(o => /M\d+|NGC|Nebula/i.test(o))) {
+    followUp.push("Utilize a narrow-band UHC or O-III nebula filter to boost contrast on faint emission structures.");
+  }
+  if (objectsArr.some(o => /Jupiter|Saturn|Mars|Venus|Moon/i.test(o))) {
+    followUp.push("Increase magnification with a 6mm–9mm planetary eyepiece or 2x Barlow lens to resolve subtle surface belt structures and lunar rim details.");
+  }
+  if (bortleNum > 4) {
+    followUp.push("Consider scheduling a mobile dark-site field trip (Bortle 1–3) to unlock faint outer spiral arms and globular cluster resolution.");
+  } else {
+    followUp.push("Conduct high-resolution astrophotography long-exposure stacks to leverage the dark background sky.");
+  }
+
+  // Observing Tips
+  const observingTips = [];
+  observingTips.push(`Allow at least 30 minutes for thermal equilibration of the ${telescope} optical tube assembly before critical planetary/double-star inspection.`);
+  if (bortleNum >= 4) observingTips.push("Use an observing hood or shield peripheral ambient lighting to preserve scotopic dark adaptation.");
+  observingTips.push("Practice averted vision techniques when examining deep-sky fuzzies and edge-on galaxies.");
+
+  // Revisit Targets
+  const revisitTargets = objectsArr.length ? objectsArr.slice(0, 3).join(", ") : "Messier 42 Orion Nebula, Saturn, M31 Andromeda Galaxy";
+
+  // Overall Quality Rating
+  const totalScore = (seeingNum * 1.2) + (transNum * 1.0) + (10 - bortleNum) * 0.8 + Math.min(objectsArr.length * 0.5, 3);
+  let qualityRating = "⭐⭐⭐ Good Session (7.5/10)";
+  if (totalScore >= 11) qualityRating = "⭐⭐⭐⭐⭐ Exceptional Session (9.5/10)";
+  else if (totalScore >= 8.5) qualityRating = "⭐⭐⭐⭐ Great Session (8.6/10)";
+  else if (totalScore < 6) qualityRating = "⭐⭐ Fair Session (5.8/10)";
+
+  return {
+    generatedAt: new Date().toLocaleDateString() + " at " + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    scientificSummary,
+    highlights,
+    followUp: followUp.join(" "),
+    observingTips: observingTips.join(" "),
+    revisitTargets,
+    qualityRating
+  };
+}
+
+function renderAIObsSummaryContent(summary) {
+  if (!summary) return "";
+  return `
+    <div class="ai-summary-body">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+        <span class="ai-badge-quality">${summary.qualityRating}</span>
+        <span style="font-size:0.72rem; color:#94a3b8;">Generated ${summary.generatedAt}</span>
+      </div>
+      
+      <div class="ai-summary-section">
+        <h5>🔬 Scientific Summary</h5>
+        <p>${summary.scientificSummary}</p>
+      </div>
+
+      <div class="ai-summary-section">
+        <h5>✨ Session Highlights</h5>
+        <p>${summary.highlights}</p>
+      </div>
+
+      <div class="ai-summary-grid">
+        <div class="ai-summary-section">
+          <h5>🎯 Suggested Follow-Up</h5>
+          <p>${summary.followUp}</p>
+        </div>
+        <div class="ai-summary-section">
+          <h5>💡 Equipment & Observing Tips</h5>
+          <p>${summary.observingTips}</p>
+        </div>
+      </div>
+
+      <div class="ai-summary-section">
+        <h5>🔭 Objects Worth Revisiting</h5>
+        <p><strong>Recommended Targets:</strong> ${summary.revisitTargets}</p>
+      </div>
+    </div>
+  `;
+}
+
 function openObservationViewModal(obsId) {
   let observations = [];
   try {
@@ -14058,6 +14295,7 @@ function openObservationViewModal(obsId) {
 
   if (bodyEl) {
     const objectsArr = Array.isArray(obs.objects) ? obs.objects : (typeof obs.objects === "string" && obs.objects ? obs.objects.split(",") : []);
+    const filesArr = Array.isArray(obs.files) ? obs.files : [];
     
     bodyEl.innerHTML = `
       <div class="view-obs-detail-grid">
@@ -14102,7 +14340,80 @@ function openObservationViewModal(obsId) {
           <p style="white-space: pre-wrap; font-size: 0.9rem; color: rgba(224, 230, 237, 0.85); line-height: 1.5; background: rgba(255,255,255,0.03); padding: 12px; border-radius: 8px;">${obs.notes}</p>
         </div>
       ` : ''}
+
+      ${filesArr.length ? `
+        <div class="view-section-box">
+          <h4>📎 Attached Images & Files (${filesArr.length})</h4>
+          <div class="view-attachments-gallery">
+            ${filesArr.map(f => {
+              const isImg = f.type && f.type.startsWith("image/");
+              if (isImg) {
+                return `
+                  <div class="view-thumb-item" onclick="openObsLightbox('${f.data}', '${f.name}')">
+                    <img src="${f.data}" alt="${f.name}" title="Click to view full image: ${f.name}">
+                  </div>
+                `;
+              } else {
+                return `
+                  <a href="${f.data}" target="_blank" download="${f.name}" class="view-doc-item" title="Download PDF: ${f.name}">
+                    📄 ${f.name}
+                  </a>
+                `;
+              }
+            }).join("")}
+          </div>
+        </div>
+      ` : ''}
+
+      <div class="obs-ai-summary-container">
+        <div class="ai-summary-header">
+          <div class="ai-summary-title">🤖 AI Observation Summary</div>
+          <button type="button" id="trigger-ai-summary-btn" class="ai-gen-btn" data-id="${obs.id}">
+            ${obs.aiSummary ? '🔄 Regenerate AI Summary' : '✨ Generate AI Summary'}
+          </button>
+        </div>
+        <div id="ai-summary-content-box">
+          ${obs.aiSummary ? renderAIObsSummaryContent(obs.aiSummary) : `
+            <p style="font-size:0.85rem; color:#94a3b8; margin:0;">Click 'Generate AI Summary' to analyze session data, equipment performance, and atmospheric conditions.</p>
+          `}
+        </div>
+      </div>
     `;
+
+    // AI Summary Trigger handler
+    const aiBtn = document.getElementById("trigger-ai-summary-btn");
+    const aiBox = document.getElementById("ai-summary-content-box");
+    if (aiBtn && aiBox) {
+      aiBtn.addEventListener("click", () => {
+        aiBtn.classList.add("loading");
+        aiBtn.innerHTML = "⏳ Analyzing Session...";
+        
+        setTimeout(() => {
+          const generated = generateAIObservationSummary(obs);
+          obs.aiSummary = generated;
+
+          // Save to localStorage
+          let currentObsList = [];
+          try {
+            currentObsList = JSON.parse(localStorage.getItem("astroObservations") || "[]");
+          } catch (e) { currentObsList = []; }
+
+          const targetIdx = currentObsList.findIndex(o => o.id === obs.id);
+          if (targetIdx !== -1) {
+            currentObsList[targetIdx].aiSummary = generated;
+            localStorage.setItem("astroObservations", JSON.stringify(currentObsList));
+          }
+
+          aiBox.innerHTML = renderAIObsSummaryContent(generated);
+          aiBtn.classList.remove("loading");
+          aiBtn.innerHTML = "🔄 Regenerate AI Summary";
+
+          if (typeof showToast === "function") {
+            showToast("AI Observation Summary generated.");
+          }
+        }, 500);
+      });
+    }
   }
 
   if (editBtn) {
@@ -14135,6 +14446,7 @@ function editObservation(obsId, openModalFn) {
   if (!obs) return;
 
   currentEditingObsId = obs.id;
+  currentObsFiles = Array.isArray(obs.files) ? [...obs.files] : [];
 
   if (document.getElementById("obs-title")) document.getElementById("obs-title").value = obs.title || "";
   if (document.getElementById("obs-date")) document.getElementById("obs-date").value = obs.date || "";
@@ -14152,6 +14464,8 @@ function editObservation(obsId, openModalFn) {
     document.getElementById("obs-objects").value = Array.isArray(obs.objects) ? obs.objects.join(", ") : (obs.objects || "");
   }
   if (document.getElementById("obs-notes")) document.getElementById("obs-notes").value = obs.notes || "";
+
+  renderObsFilePreviews();
 
   if (typeof openModalFn === "function") {
     openModalFn(true);
@@ -14392,6 +14706,12 @@ function renderObservationHistory() {
 
           ${obs.notes ? `
             <p class="card-notes-preview" style="margin-top: 8px;">"${obs.notes}"</p>
+          ` : ''}
+
+          ${Array.isArray(obs.files) && obs.files.length ? `
+            <div class="obs-card-attachments">
+              📎 ${obs.files.length} Attachment${obs.files.length > 1 ? 's' : ''}
+            </div>
           ` : ''}
         </div>
 

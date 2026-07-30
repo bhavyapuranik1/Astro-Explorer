@@ -907,6 +907,17 @@ gtag('config', 'G-9747XL0FQQ');
         <textarea id="obs-notes" rows="3" placeholder="Describe visual details, filters used, atmospheric conditions, sketch notes..." class="form-textarea"></textarea>
       </div>
 
+      <div class="form-row full-width">
+        <label>Attachments & Astro-Photos (JPG, PNG, WEBP, PDF)</label>
+        <div class="obs-file-dropzone" id="obs-dropzone">
+          <span class="dropzone-icon">📁</span>
+          <p class="dropzone-text">Drag & drop images or files here, or <button type="button" class="dropzone-browse-btn" id="browse-obs-files">browse files</button></p>
+          <span class="dropzone-hint">Max file size: 3MB per file (JPG, PNG, WEBP, PDF)</span>
+          <input type="file" id="obs-file-input" multiple accept="image/jpeg,image/jpg,image/png,image/webp,application/pdf" style="display:none;">
+        </div>
+        <div class="obs-file-previews" id="obs-file-previews"></div>
+      </div>
+
       <div class="modal-footer">
         <button type="button" id="cancel-observation-btn" class="modal-btn btn-secondary">Cancel</button>
         <button type="button" id="save-observation-btn" class="modal-btn btn-primary">Save Observation</button>
@@ -927,6 +938,15 @@ gtag('config', 'G-9747XL0FQQ');
       <button type="button" class="modal-btn btn-secondary" id="view-obs-close-btn">Close</button>
       <button type="button" class="modal-btn btn-primary" id="view-obs-edit-btn">✏️ Edit Session</button>
     </div>
+  </div>
+</div>
+
+<!-- 🖼️ FULLSCREEN IMAGE LIGHTBOX MODAL -->
+<div id="obs-lightbox-modal" class="modal-backdrop hidden" tabindex="-1" role="dialog" aria-modal="true">
+  <div class="lightbox-content">
+    <button type="button" class="lightbox-close-btn" id="close-obs-lightbox-btn" aria-label="Close image">✕</button>
+    <img id="obs-lightbox-img" src="" alt="Observation Attachment">
+    <div id="obs-lightbox-caption" class="lightbox-caption"></div>
   </div>
 </div>
 
