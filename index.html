@@ -708,6 +708,17 @@ gtag('config', 'G-9747XL0FQQ');
           <option value="moon">Moon</option>
         </select>
 
+        <select id="obs-history-filter-rating" class="history-select">
+          <option value="all">⭐ All Ratings</option>
+          <option value="5">⭐⭐⭐⭐⭐ 5 Stars</option>
+          <option value="4">⭐⭐⭐⭐ 4+ Stars</option>
+          <option value="3">⭐⭐⭐ 3+ Stars</option>
+        </select>
+
+        <select id="obs-history-filter-tag" class="history-select">
+          <option value="all">🏷️ All Tags</option>
+        </select>
+
         <button type="button" id="obs-history-fav-toggle" class="history-fav-btn" data-active="false">
           ⭐ Favorites Only
         </button>
@@ -715,6 +726,8 @@ gtag('config', 'G-9747XL0FQQ');
         <select id="obs-history-sort" class="history-select">
           <option value="newest">⌛ Sort: Newest First</option>
           <option value="oldest">⏳ Sort: Oldest First</option>
+          <option value="rating">⭐ Sort: Highest Rated</option>
+          <option value="duration">⏱️ Sort: Longest Duration</option>
           <option value="most-objects">🌌 Sort: Most Objects</option>
           <option value="favorites">⭐ Sort: Favorites First</option>
         </select>
@@ -814,9 +827,27 @@ gtag('config', 'G-9747XL0FQQ');
     </div>
 
     <form class="observation-form" onsubmit="return false;">
-      <div class="form-row full-width">
-        <label for="obs-title">Observation Title</label>
-        <input type="text" id="obs-title" placeholder="e.g. Saturn & Deep Sky Targets" class="form-input">
+      <div class="form-row grid-2">
+        <div>
+          <label for="obs-title">Observation Title</label>
+          <input type="text" id="obs-title" placeholder="e.g. Saturn & Deep Sky Targets" class="form-input">
+        </div>
+        <div>
+          <label>Session Rating & Favorite</label>
+          <div class="rating-fav-form-row">
+            <div class="star-rating-picker" id="obs-rating-picker" data-rating="5">
+              <span class="star-item active" data-value="1">★</span>
+              <span class="star-item active" data-value="2">★</span>
+              <span class="star-item active" data-value="3">★</span>
+              <span class="star-item active" data-value="4">★</span>
+              <span class="star-item active" data-value="5">★</span>
+            </div>
+            <label class="fav-checkbox-label">
+              <input type="checkbox" id="obs-favorite-checkbox">
+              <span class="fav-star-icon">⭐ Favorite</span>
+            </label>
+          </div>
+        </div>
       </div>
 
       <div class="form-row grid-3">
@@ -829,7 +860,7 @@ gtag('config', 'G-9747XL0FQQ');
           <input type="time" id="obs-start-time" class="form-input">
         </div>
         <div>
-          <label for="obs-end-time">End Time</label>
+          <label for="obs-end-time">End Time <span id="obs-duration-live-badge" class="obs-live-duration-tag">⏱️ 0h 0m</span></label>
           <input type="time" id="obs-end-time" class="form-input">
         </div>
       </div>
@@ -840,8 +871,8 @@ gtag('config', 'G-9747XL0FQQ');
           <input type="text" id="obs-location" placeholder="e.g. Backyard Observatory / Dark Site" class="form-input">
         </div>
         <div>
-          <label for="obs-weather">Weather</label>
-          <input type="text" id="obs-weather" placeholder="e.g. Clear, Calm, 15°C" class="form-input">
+          <label for="obs-weather">Weather Overview</label>
+          <input type="text" id="obs-weather" placeholder="e.g. Clear, Calm, Mild" class="form-input">
         </div>
       </div>
 
@@ -860,7 +891,9 @@ gtag('config', 'G-9747XL0FQQ');
         </div>
       </div>
 
-      <div class="form-row grid-3">
+      <!-- 🌤️ SKY & ATMOSPHERIC CONDITIONS -->
+      <div class="form-section-header">🌤️ Sky & Atmospheric Conditions</div>
+      <div class="form-row grid-4">
         <div>
           <label for="obs-seeing">Seeing (1–5)</label>
           <select id="obs-seeing" class="form-select">
@@ -895,6 +928,48 @@ gtag('config', 'G-9747XL0FQQ');
             <option value="9">Class 9 - Inner-City Sky</option>
           </select>
         </div>
+        <div>
+          <label for="obs-cloud-cover">Cloud Cover (%)</label>
+          <input type="number" id="obs-cloud-cover" min="0" max="100" placeholder="0" class="form-input">
+        </div>
+      </div>
+
+      <div class="form-row grid-3">
+        <div>
+          <label for="obs-temp">Temperature</label>
+          <input type="text" id="obs-temp" placeholder="e.g. 15°C" class="form-input">
+        </div>
+        <div>
+          <label for="obs-humidity">Humidity (%)</label>
+          <input type="text" id="obs-humidity" placeholder="e.g. 55%" class="form-input">
+        </div>
+        <div>
+          <label for="obs-wind">Wind Speed</label>
+          <input type="text" id="obs-wind" placeholder="e.g. 8 km/h" class="form-input">
+        </div>
+      </div>
+
+      <!-- 🏷️ TAGS (Built-in + Custom) -->
+      <div class="form-section-header">🏷️ Observation Tags</div>
+      <div class="form-row full-width">
+        <label>Built-in Categories & Custom Tags</label>
+        <div class="builtin-tags-picker" id="obs-builtin-tags">
+          <button type="button" class="tag-selector-chip" data-tag="Galaxy">🌌 Galaxy</button>
+          <button type="button" class="tag-selector-chip" data-tag="Nebula">☁️ Nebula</button>
+          <button type="button" class="tag-selector-chip" data-tag="Planet">🪐 Planet</button>
+          <button type="button" class="tag-selector-chip" data-tag="Moon">🌙 Moon</button>
+          <button type="button" class="tag-selector-chip" data-tag="Comet">☄️ Comet</button>
+          <button type="button" class="tag-selector-chip" data-tag="Asteroid">☄️ Asteroid</button>
+          <button type="button" class="tag-selector-chip" data-tag="Satellite">🛰️ Satellite</button>
+          <button type="button" class="tag-selector-chip" data-tag="Star Cluster">✨ Star Cluster</button>
+          <button type="button" class="tag-selector-chip" data-tag="Double Star">⭐ Double Star</button>
+          <button type="button" class="tag-selector-chip" data-tag="Variable Star">✨ Variable Star</button>
+        </div>
+        <div class="custom-tag-input-row" style="margin-top: 8px; display:flex; gap: 8px;">
+          <input type="text" id="obs-custom-tag-input" placeholder="Type custom tag and press Enter..." class="form-input" style="flex:1;">
+          <button type="button" id="add-custom-tag-btn" class="modal-btn btn-secondary" style="padding: 6px 14px; white-space:nowrap;">+ Add Tag</button>
+        </div>
+        <div class="active-tags-container" id="obs-active-tags" style="margin-top: 8px;"></div>
       </div>
 
       <div class="form-row full-width">
@@ -905,6 +980,17 @@ gtag('config', 'G-9747XL0FQQ');
       <div class="form-row full-width">
         <label for="obs-notes">Observation Notes</label>
         <textarea id="obs-notes" rows="3" placeholder="Describe visual details, filters used, atmospheric conditions, sketch notes..." class="form-textarea"></textarea>
+      </div>
+
+      <div class="form-row full-width">
+        <label>Attachments & Astro-Photos (JPG, PNG, WEBP, PDF)</label>
+        <div class="obs-file-dropzone" id="obs-dropzone">
+          <span class="dropzone-icon">📁</span>
+          <p class="dropzone-text">Drag & drop images or files here, or <button type="button" class="dropzone-browse-btn" id="browse-obs-files">browse files</button></p>
+          <span class="dropzone-hint">Max file size: 3MB per file (JPG, PNG, WEBP, PDF)</span>
+          <input type="file" id="obs-file-input" multiple accept="image/jpeg,image/jpg,image/png,image/webp,application/pdf" style="display:none;">
+        </div>
+        <div class="obs-file-previews" id="obs-file-previews"></div>
       </div>
 
       <div class="modal-footer">
@@ -927,6 +1013,15 @@ gtag('config', 'G-9747XL0FQQ');
       <button type="button" class="modal-btn btn-secondary" id="view-obs-close-btn">Close</button>
       <button type="button" class="modal-btn btn-primary" id="view-obs-edit-btn">✏️ Edit Session</button>
     </div>
+  </div>
+</div>
+
+<!-- 🖼️ FULLSCREEN IMAGE LIGHTBOX MODAL -->
+<div id="obs-lightbox-modal" class="modal-backdrop hidden" tabindex="-1" role="dialog" aria-modal="true">
+  <div class="lightbox-content">
+    <button type="button" class="lightbox-close-btn" id="close-obs-lightbox-btn" aria-label="Close image">✕</button>
+    <img id="obs-lightbox-img" src="" alt="Observation Attachment">
+    <div id="obs-lightbox-caption" class="lightbox-caption"></div>
   </div>
 </div>
 

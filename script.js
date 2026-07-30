@@ -13797,9 +13797,158 @@ function updateEclipseStatus() {
 }
 
 /* ==========================================================================
-   🔭 OBSERVATION MODAL OPEN/CLOSE LOGIC
+   🔭 OBSERVATION MODAL, ATTACHMENTS, RATING, TAGS & AI SUMMARY LOGIC
    ========================================================================== */
 let currentEditingObsId = null;
+let currentObsFiles = [];
+let currentObsSelectedRating = 5;
+let currentObsTags = [];
+
+function calculateSessionDurationFormatted(startTime, endTime) {
+  if (!startTime || !endTime) return { formatted: "", minutes: 0 };
+  const [sh, sm] = startTime.split(":").map(Number);
+  const [eh, em] = endTime.split(":").map(Number);
+  if (isNaN(sh) || isNaN(sm) || isNaN(eh) || isNaN(em)) return { formatted: "", minutes: 0 };
+
+  let startMins = sh * 60 + sm;
+  let endMins = eh * 60 + em;
+  if (endMins < startMins) endMins += 24 * 60; // Overnight session
+
+  const diffMins = endMins - startMins;
+  const hrs = Math.floor(diffMins / 60);
+  const mins = diffMins % 60;
+
+  let formatted = "";
+  if (hrs > 0 && mins > 0) formatted = `${hrs}h ${mins}m`;
+  else if (hrs > 0) formatted = `${hrs}h`;
+  else formatted = `${mins}m`;
+
+  return { formatted, minutes: diffMins };
+}
+
+function updateLiveDurationBadge() {
+  const start = document.getElementById("obs-start-time")?.value;
+  const end = document.getElementById("obs-end-time")?.value;
+  const badge = document.getElementById("obs-duration-live-badge");
+  if (!badge) return;
+  
+  const res = calculateSessionDurationFormatted(start, end);
+  if (res.formatted) {
+    badge.textContent = `⏱️ ${res.formatted}`;
+  } else {
+    badge.textContent = "⏱️ --";
+  }
+}
+
+function setModalRating(val) {
+  currentObsSelectedRating = Math.max(1, Math.min(5, parseInt(val || 5, 10)));
+  const picker = document.getElementById("obs-rating-picker");
+  if (picker) {
+    picker.setAttribute("data-rating", currentObsSelectedRating);
+    const stars = picker.querySelectorAll(".star-item");
+    stars.forEach(star => {
+      const starVal = parseInt(star.getAttribute("data-value"), 10);
+      star.classList.toggle("active", starVal <= currentObsSelectedRating);
+    });
+  }
+}
+
+function renderFormActiveTags() {
+  const container = document.getElementById("obs-active-tags");
+  if (!container) return;
+
+  container.innerHTML = currentObsTags.map(tag => `
+    <span class="tag-pill-badge" data-tag="${tag}">
+      🏷️ ${tag}
+      <button type="button" class="tag-pill-remove" data-tag="${tag}">✕</button>
+    </span>
+  `).join("");
+
+  // Highlight matching built-in chips
+  const builtinChips = document.querySelectorAll("#obs-builtin-tags .tag-selector-chip");
+  builtinChips.forEach(chip => {
+    const tagVal = chip.getAttribute("data-tag");
+    chip.classList.toggle("active", currentObsTags.includes(tagVal));
+  });
+}
+
+function addCustomTagFromInput() {
+  const input = document.getElementById("obs-custom-tag-input");
+  if (!input) return;
+  const tagVal = input.value.trim();
+  if (tagVal && !currentObsTags.includes(tagVal)) {
+    currentObsTags.push(tagVal);
+    renderFormActiveTags();
+    input.value = "";
+  }
+}
+
+function renderObsFilePreviews() {
+  const previewContainer = document.getElementById("obs-file-previews");
+  if (!previewContainer) return;
+
+  if (!currentObsFiles || !currentObsFiles.length) {
+    previewContainer.innerHTML = "";
+    return;
+  }
+
+  previewContainer.innerHTML = currentObsFiles.map(file => {
+    const isImg = file.type && file.type.startsWith("image/");
+    return `
+      <div class="obs-preview-card" data-id="${file.id}">
+        ${isImg ? `<img src="${file.data}" alt="${file.name}">` : `<span class="file-doc-icon">📄</span><span class="file-doc-name">${file.name}</span>`}
+        <button type="button" class="remove-file-btn" data-id="${file.id}" title="Remove attachment">✕</button>
+      </div>
+    `;
+  }).join("");
+}
+
+function handleObsFiles(fileList) {
+  if (!fileList || !fileList.length) return;
+
+  const validTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp", "application/pdf"];
+  const maxSizeBytes = 3 * 1024 * 1024; // 3MB limit
+
+  Array.from(fileList).forEach(file => {
+    if (!validTypes.includes(file.type) && !file.name.match(/\.(jpg|jpeg|png|webp|pdf)$/i)) {
+      if (typeof showToast === "function") showToast(`File '${file.name}' type not supported. Use JPG, PNG, WEBP, or PDF.`);
+      return;
+    }
+    if (file.size > maxSizeBytes) {
+      if (typeof showToast === "function") showToast(`File '${file.name}' exceeds 3MB size limit.`);
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      currentObsFiles.push({
+        id: "file_" + Date.now().toString(36) + Math.random().toString(36).substr(2, 4),
+        name: file.name,
+        type: file.type || (file.name.endsWith(".pdf") ? "application/pdf" : "image/jpeg"),
+        size: file.size,
+        data: e.target.result
+      });
+      renderObsFilePreviews();
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function openObsLightbox(src, caption) {
+  const modal = document.getElementById("obs-lightbox-modal");
+  const imgEl = document.getElementById("obs-lightbox-img");
+  const captionEl = document.getElementById("obs-lightbox-caption");
+  if (!modal || !imgEl) return;
+
+  imgEl.src = src;
+  if (captionEl) captionEl.textContent = caption || "";
+  modal.classList.remove("hidden");
+}
+
+function closeObsLightbox() {
+  const modal = document.getElementById("obs-lightbox-modal");
+  if (modal) modal.classList.add("hidden");
+}
 
 document.addEventListener("DOMContentLoaded", () => {
   const openBtn = document.getElementById("open-new-observation-btn");
@@ -13809,6 +13958,102 @@ document.addEventListener("DOMContentLoaded", () => {
   const saveBtn = document.getElementById("save-observation-btn");
   const container = document.getElementById("observation-list-container");
 
+  // Time Inputs Live Duration Listener
+  document.getElementById("obs-start-time")?.addEventListener("input", updateLiveDurationBadge);
+  document.getElementById("obs-end-time")?.addEventListener("input", updateLiveDurationBadge);
+
+  // Rating Picker Event Listeners
+  const ratingPicker = document.getElementById("obs-rating-picker");
+  if (ratingPicker) {
+    ratingPicker.addEventListener("click", (e) => {
+      const star = e.target.closest(".star-item");
+      if (star) setModalRating(star.getAttribute("data-value"));
+    });
+    ratingPicker.addEventListener("mouseover", (e) => {
+      const star = e.target.closest(".star-item");
+      if (star) {
+        const hoverVal = parseInt(star.getAttribute("data-value"), 10);
+        ratingPicker.querySelectorAll(".star-item").forEach(s => {
+          const val = parseInt(s.getAttribute("data-value"), 10);
+          s.classList.toggle("hover", val <= hoverVal);
+        });
+      }
+    });
+    ratingPicker.addEventListener("mouseout", () => {
+      ratingPicker.querySelectorAll(".star-item").forEach(s => s.classList.remove("hover"));
+    });
+  }
+
+  // Tags Event Listeners
+  document.getElementById("obs-builtin-tags")?.addEventListener("click", (e) => {
+    const chip = e.target.closest(".tag-selector-chip");
+    if (chip) {
+      const tagVal = chip.getAttribute("data-tag");
+      if (currentObsTags.includes(tagVal)) {
+        currentObsTags = currentObsTags.filter(t => t !== tagVal);
+      } else {
+        currentObsTags.push(tagVal);
+      }
+      renderFormActiveTags();
+    }
+  });
+
+  document.getElementById("add-custom-tag-btn")?.addEventListener("click", addCustomTagFromInput);
+  document.getElementById("obs-custom-tag-input")?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      addCustomTagFromInput();
+    }
+  });
+
+  document.getElementById("obs-active-tags")?.addEventListener("click", (e) => {
+    const removeBtn = e.target.closest(".tag-pill-remove");
+    if (removeBtn) {
+      const tagVal = removeBtn.getAttribute("data-tag");
+      currentObsTags = currentObsTags.filter(t => t !== tagVal);
+      renderFormActiveTags();
+    }
+  });
+
+  // Dropzone & File picker setup
+  const dropzone = document.getElementById("obs-dropzone");
+  const browseBtn = document.getElementById("browse-obs-files");
+  const fileInput = document.getElementById("obs-file-input");
+  const previewsContainer = document.getElementById("obs-file-previews");
+
+  browseBtn?.addEventListener("click", () => fileInput?.click());
+  fileInput?.addEventListener("change", (e) => handleObsFiles(e.target.files));
+
+  if (dropzone) {
+    dropzone.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      dropzone.classList.add("drag-over");
+    });
+    dropzone.addEventListener("dragleave", () => dropzone.classList.remove("drag-over"));
+    dropzone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dropzone.classList.remove("drag-over");
+      if (e.dataTransfer && e.dataTransfer.files) {
+        handleObsFiles(e.dataTransfer.files);
+      }
+    });
+  }
+
+  previewsContainer?.addEventListener("click", (e) => {
+    const removeBtn = e.target.closest(".remove-file-btn");
+    if (removeBtn) {
+      const fileId = removeBtn.dataset.id;
+      currentObsFiles = currentObsFiles.filter(f => f.id !== fileId);
+      renderObsFilePreviews();
+    }
+  });
+
+  // Lightbox listeners
+  document.getElementById("close-obs-lightbox-btn")?.addEventListener("click", closeObsLightbox);
+  document.getElementById("obs-lightbox-modal")?.addEventListener("click", (e) => {
+    if (e.target === document.getElementById("obs-lightbox-modal")) closeObsLightbox();
+  });
+
   function openModal(isEdit = false) {
     const modalTitle = document.querySelector("#observation-modal .modal-title");
     if (modalTitle) {
@@ -13816,15 +14061,27 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     if (!isEdit) {
       currentEditingObsId = null;
+      currentObsFiles = [];
+      setModalRating(5);
+      currentObsTags = [];
+      renderFormActiveTags();
+      const favCheckbox = document.getElementById("obs-favorite-checkbox");
+      if (favCheckbox) favCheckbox.checked = false;
       const form = document.querySelector(".observation-form");
       if (form) form.reset();
     }
+    renderObsFilePreviews();
+    updateLiveDurationBadge();
     if (modal) modal.classList.remove("hidden");
   }
 
   function closeModal() {
     if (modal) modal.classList.add("hidden");
     currentEditingObsId = null;
+    currentObsFiles = [];
+    currentObsTags = [];
+    renderObsFilePreviews();
+    renderFormActiveTags();
   }
 
   function saveObservationSession() {
@@ -13840,8 +14097,14 @@ document.addEventListener("DOMContentLoaded", () => {
     const seeing = document.getElementById("obs-seeing")?.value;
     const transparency = document.getElementById("obs-transparency")?.value;
     const bortle = document.getElementById("obs-bortle")?.value;
+    const cloudCover = document.getElementById("obs-cloud-cover")?.value?.trim();
+    const temperature = document.getElementById("obs-temp")?.value?.trim();
+    const humidity = document.getElementById("obs-humidity")?.value?.trim();
+    const windSpeed = document.getElementById("obs-wind")?.value?.trim();
     const objectsRaw = document.getElementById("obs-objects")?.value?.trim();
     const notes = document.getElementById("obs-notes")?.value?.trim();
+    const isFavorite = Boolean(document.getElementById("obs-favorite-checkbox")?.checked);
+    const durationData = calculateSessionDurationFormatted(startTime, endTime);
 
     let existing = [];
     try {
@@ -13859,6 +14122,8 @@ document.addEventListener("DOMContentLoaded", () => {
           date: date || existing[idx].date,
           startTime: startTime || "",
           endTime: endTime || "",
+          duration: durationData.formatted,
+          durationMinutes: durationData.minutes,
           location: location || "",
           weather: weather || "",
           telescope: telescope || "",
@@ -13867,8 +14132,16 @@ document.addEventListener("DOMContentLoaded", () => {
           seeing: seeing || "3",
           transparency: transparency || "3",
           bortle: bortle || "4",
+          cloudCover: cloudCover || "",
+          temperature: temperature || "",
+          humidity: humidity || "",
+          windSpeed: windSpeed || "",
+          rating: currentObsSelectedRating,
+          isFavorite,
+          tags: [...currentObsTags],
           objects: objectsRaw ? objectsRaw.split(",").map(s => s.trim()).filter(Boolean) : [],
-          notes: notes || ""
+          notes: notes || "",
+          files: currentObsFiles ? [...currentObsFiles] : []
         };
       }
     } else {
@@ -13878,6 +14151,8 @@ document.addEventListener("DOMContentLoaded", () => {
         date: date || new Date().toISOString().split("T")[0],
         startTime: startTime || "",
         endTime: endTime || "",
+        duration: durationData.formatted,
+        durationMinutes: durationData.minutes,
         location: location || "",
         weather: weather || "",
         telescope: telescope || "",
@@ -13886,8 +14161,16 @@ document.addEventListener("DOMContentLoaded", () => {
         seeing: seeing || "3",
         transparency: transparency || "3",
         bortle: bortle || "4",
+        cloudCover: cloudCover || "",
+        temperature: temperature || "",
+        humidity: humidity || "",
+        windSpeed: windSpeed || "",
+        rating: currentObsSelectedRating,
+        isFavorite,
+        tags: [...currentObsTags],
         objects: objectsRaw ? objectsRaw.split(",").map(s => s.trim()).filter(Boolean) : [],
         notes: notes || "",
+        files: currentObsFiles ? [...currentObsFiles] : [],
         createdAt: new Date().toISOString()
       };
       existing.push(newObservation);
@@ -13943,6 +14226,8 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("obs-history-filter-date")?.addEventListener("change", renderObservationHistory);
   document.getElementById("obs-history-filter-telescope")?.addEventListener("change", renderObservationHistory);
   document.getElementById("obs-history-filter-type")?.addEventListener("change", renderObservationHistory);
+  document.getElementById("obs-history-filter-rating")?.addEventListener("change", renderObservationHistory);
+  document.getElementById("obs-history-filter-tag")?.addEventListener("change", renderObservationHistory);
   document.getElementById("obs-history-sort")?.addEventListener("change", renderObservationHistory);
   
   const favToggleBtn = document.getElementById("obs-history-fav-toggle");
@@ -14036,6 +14321,148 @@ function duplicateObservation(obsId) {
 
 let activeViewObsId = null;
 
+// ======================================
+// AI OBSERVATION SUMMARY ENGINE
+// ======================================
+function generateAIObservationSummary(obs) {
+  const title = obs.title || "Observation Session";
+  const objectsArr = Array.isArray(obs.objects) ? obs.objects : (typeof obs.objects === "string" && obs.objects ? obs.objects.split(",") : []);
+  const bortleNum = parseInt(obs.bortle || 4, 10);
+  const seeingNum = parseInt(obs.seeing || 3, 10);
+  const transNum = parseInt(obs.transparency || 3, 10);
+  const cloudCover = obs.cloudCover ? parseInt(obs.cloudCover, 10) : 0;
+  const humidity = obs.humidity ? parseInt(obs.humidity, 10) : 50;
+  const temp = obs.temperature || "";
+  const wind = obs.windSpeed || "";
+  const telescope = obs.telescope || "Optical Setup";
+  const eyepiece = obs.eyepiece || "";
+  const camera = obs.camera || "";
+  const location = obs.location || "Observing Location";
+
+  // Compute Session Duration
+  let durationText = "Standard observing session";
+  if (obs.duration) {
+    durationText = `${obs.duration} detailed observing session`;
+  } else if (obs.startTime && obs.endTime) {
+    const hours = calculateSessionHours(obs.startTime, obs.endTime);
+    if (hours > 0) durationText = `${hours.toFixed(1)}-hour detailed observing session`;
+  }
+
+  // Bortle Sky Description
+  let skyQuality = "Suburban/Rural transition sky";
+  if (bortleNum <= 2) skyQuality = "Pristine dark sky site (Bortle " + bortleNum + ")";
+  else if (bortleNum <= 4) skyQuality = "Dark rural/suburban sky (Bortle " + bortleNum + ")";
+  else if (bortleNum <= 6) skyQuality = "Suburban light-polluted sky (Bortle " + bortleNum + ")";
+  else skyQuality = "Urban high light pollution environment (Bortle " + bortleNum + ")";
+
+  // Atmospheric State
+  let atmosphericState = "moderate atmospheric stability";
+  if (seeingNum >= 4) atmosphericState = "steady atmospheric seeing with minimal thermal turbulence";
+  else if (seeingNum <= 2) atmosphericState = "noticeable atmospheric turbulence and thermal distortion";
+
+  // Scientific Summary
+  const skySummaryDetails = [
+    `Seeing: ${seeingNum}/5`,
+    `Transparency: ${transNum}/5`,
+    `Cloud Cover: ${cloudCover}%`,
+    temp ? `Temp: ${temp}` : null,
+    humidity ? `Humidity: ${humidity}%` : null,
+    wind ? `Wind: ${wind}` : null
+  ].filter(Boolean).join(", ");
+
+  const scientificSummary = `Conducted a ${durationText} at ${location} under a ${skyQuality} (${skySummaryDetails}). Targeted ${objectsArr.length ? objectsArr.length + ' primary celestial object(s)' : 'astronomical targets'} utilizing the ${telescope}${eyepiece ? ' paired with ' + eyepiece : ''}${camera ? ' and ' + camera + ' imaging sensor' : ''}.`;
+
+  // Highlights
+  let highlights = "";
+  if (objectsArr.length) {
+    highlights = `Successfully logged visual details for ${objectsArr.join(", ")}. Primary targets demonstrated strong visual contrast and resolve under the ${bortleNum <= 4 ? 'dark sky background' : 'local optical setup'}.`;
+  } else {
+    highlights = `General sky survey and equipment calibration completed at ${location}. Excellent baseline session for tracking local light pollution and sky transparency.`;
+  }
+
+  // Follow-up Recommendations
+  const followUp = [];
+  if (objectsArr.some(o => /M\d+|NGC|Nebula/i.test(o))) {
+    followUp.push("Utilize a narrow-band UHC or O-III nebula filter to boost contrast on faint emission structures.");
+  }
+  if (objectsArr.some(o => /Jupiter|Saturn|Mars|Venus|Moon/i.test(o))) {
+    followUp.push("Increase magnification with a 6mm–9mm planetary eyepiece or 2x Barlow lens to resolve subtle surface belt structures and lunar rim details.");
+  }
+  if (cloudCover > 20) {
+    followUp.push("Schedule follow-up observations on clear nights with 0% cloud cover to observe uninterrupted faint deep-sky targets.");
+  }
+  if (bortleNum > 4) {
+    followUp.push("Consider scheduling a mobile dark-site field trip (Bortle 1–3) to unlock faint outer spiral arms and globular cluster resolution.");
+  } else {
+    followUp.push("Conduct high-resolution astrophotography long-exposure stacks to leverage the dark background sky.");
+  }
+
+  // Observing Tips
+  const observingTips = [];
+  observingTips.push(`Allow at least 30 minutes for thermal equilibration of the ${telescope} optical tube assembly before critical planetary/double-star inspection.`);
+  if (humidity > 70) observingTips.push("High relative humidity detected — attach a dew shield or dew heater band to prevent corrector lens fogging.");
+  if (bortleNum >= 4) observingTips.push("Use an observing hood or shield peripheral ambient lighting to preserve scotopic dark adaptation.");
+  observingTips.push("Practice averted vision techniques when examining deep-sky fuzzies and edge-on galaxies.");
+
+  // Revisit Targets
+  const revisitTargets = objectsArr.length ? objectsArr.slice(0, 3).join(", ") : "Messier 42 Orion Nebula, Saturn, M31 Andromeda Galaxy";
+
+  // Overall Quality Rating
+  const ratingScore = (obs.rating || 5) * 1.5 + (seeingNum * 0.8) + (transNum * 0.8) + (10 - bortleNum) * 0.5;
+  let qualityRating = "⭐⭐⭐ Good Session (7.5/10)";
+  if (ratingScore >= 12) qualityRating = "⭐⭐⭐⭐⭐ Exceptional Session (9.5/10)";
+  else if (ratingScore >= 9.5) qualityRating = "⭐⭐⭐⭐ Great Session (8.6/10)";
+  else if (ratingScore < 7) qualityRating = "⭐⭐ Fair Session (5.8/10)";
+
+  return {
+    generatedAt: new Date().toLocaleDateString() + " at " + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    scientificSummary,
+    highlights,
+    followUp: followUp.join(" "),
+    observingTips: observingTips.join(" "),
+    revisitTargets,
+    qualityRating
+  };
+}
+
+function renderAIObsSummaryContent(summary) {
+  if (!summary) return "";
+  return `
+    <div class="ai-summary-body">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+        <span class="ai-badge-quality">${summary.qualityRating}</span>
+        <span style="font-size:0.72rem; color:#94a3b8;">Generated ${summary.generatedAt}</span>
+      </div>
+      
+      <div class="ai-summary-section">
+        <h5>🔬 Scientific Summary</h5>
+        <p>${summary.scientificSummary}</p>
+      </div>
+
+      <div class="ai-summary-section">
+        <h5>✨ Session Highlights</h5>
+        <p>${summary.highlights}</p>
+      </div>
+
+      <div class="ai-summary-grid">
+        <div class="ai-summary-section">
+          <h5>🎯 Suggested Follow-Up</h5>
+          <p>${summary.followUp}</p>
+        </div>
+        <div class="ai-summary-section">
+          <h5>💡 Equipment & Observing Tips</h5>
+          <p>${summary.observingTips}</p>
+        </div>
+      </div>
+
+      <div class="ai-summary-section">
+        <h5>🔭 Objects Worth Revisiting</h5>
+        <p><strong>Recommended Targets:</strong> ${summary.revisitTargets}</p>
+      </div>
+    </div>
+  `;
+}
+
 function openObservationViewModal(obsId) {
   let observations = [];
   try {
@@ -14058,34 +14485,51 @@ function openObservationViewModal(obsId) {
 
   if (bodyEl) {
     const objectsArr = Array.isArray(obs.objects) ? obs.objects : (typeof obs.objects === "string" && obs.objects ? obs.objects.split(",") : []);
+    const tagsArr = Array.isArray(obs.tags) ? obs.tags : [];
+    const filesArr = Array.isArray(obs.files) ? obs.files : [];
+    const ratingVal = obs.rating || 5;
+    const ratingStars = "★".repeat(ratingVal) + "☆".repeat(5 - ratingVal);
     
     bodyEl.innerHTML = `
       <div class="view-obs-detail-grid">
         <div class="view-detail-item">
-          <span class="lbl">Date & Time</span>
-          <span class="val">📅 ${obs.date || "N/A"} (${obs.startTime || "--"} - ${obs.endTime || "--"})</span>
+          <span class="lbl">Session Rating & Status</span>
+          <span class="val" style="color: #f59e0b; font-weight: 700;">${ratingStars} (${ratingVal}/5) ${obs.isFavorite ? '⭐ Favorite' : ''}</span>
+        </div>
+        <div class="view-detail-item">
+          <span class="lbl">Date & Duration</span>
+          <span class="val">📅 ${obs.date || "N/A"} (${obs.startTime || "--"} - ${obs.endTime || "--"}) ${obs.duration ? '⏱️ ' + obs.duration : ''}</span>
         </div>
         <div class="view-detail-item">
           <span class="lbl">Location</span>
           <span class="val">📍 ${obs.location || "Not specified"}</span>
         </div>
         <div class="view-detail-item">
-          <span class="lbl">Telescope</span>
-          <span class="val">🔭 ${obs.telescope || "None / N/A"}</span>
+          <span class="lbl">Telescope & Gear</span>
+          <span class="val">🔭 ${obs.telescope || "None / N/A"} ${obs.eyepiece ? '| ' + obs.eyepiece : ''} ${obs.camera ? '| ' + obs.camera : ''}</span>
         </div>
         <div class="view-detail-item">
-          <span class="lbl">Atmosphere</span>
-          <span class="val">🌤️ Weather: ${obs.weather || "Clear"} | Bortle: ${obs.bortle || 4}</span>
+          <span class="lbl">Sky Quality & Bortle</span>
+          <span class="val">🌤️ Weather: ${obs.weather || "Clear"} | Bortle Class ${obs.bortle || 4}</span>
         </div>
         <div class="view-detail-item">
-          <span class="lbl">Seeing & Transparency</span>
-          <span class="val">👁️ Seeing: ${obs.seeing || 3}/5 | Trans: ${obs.transparency || 3}/5</span>
+          <span class="lbl">Atmospheric Conditions</span>
+          <span class="val">👁️ Seeing: ${obs.seeing || 3}/5 | Trans: ${obs.transparency || 3}/5 | Cloud: ${obs.cloudCover || 0}%</span>
         </div>
         <div class="view-detail-item">
-          <span class="lbl">Equipment</span>
-          <span class="val">🔍 Eye: ${obs.eyepiece || "N/A"} | Cam: ${obs.camera || "N/A"}</span>
+          <span class="lbl">Environment Details</span>
+          <span class="val">🌡️ Temp: ${obs.temperature || "N/A"} | Hum: ${obs.humidity ? obs.humidity + '%' : 'N/A'} | Wind: ${obs.windSpeed || "N/A"}</span>
         </div>
       </div>
+
+      ${tagsArr.length ? `
+        <div class="view-section-box">
+          <h4>🏷️ Categories & Tags (${tagsArr.length})</h4>
+          <div class="card-tags-row">
+            ${tagsArr.map(t => `<span class="obs-tag-pill">🏷️ ${t}</span>`).join("")}
+          </div>
+        </div>
+      ` : ''}
 
       ${objectsArr.length ? `
         <div class="view-section-box">
@@ -14102,7 +14546,80 @@ function openObservationViewModal(obsId) {
           <p style="white-space: pre-wrap; font-size: 0.9rem; color: rgba(224, 230, 237, 0.85); line-height: 1.5; background: rgba(255,255,255,0.03); padding: 12px; border-radius: 8px;">${obs.notes}</p>
         </div>
       ` : ''}
+
+      ${filesArr.length ? `
+        <div class="view-section-box">
+          <h4>📎 Attached Images & Files (${filesArr.length})</h4>
+          <div class="view-attachments-gallery">
+            ${filesArr.map(f => {
+              const isImg = f.type && f.type.startsWith("image/");
+              if (isImg) {
+                return `
+                  <div class="view-thumb-item" onclick="openObsLightbox('${f.data}', '${f.name}')">
+                    <img src="${f.data}" alt="${f.name}" title="Click to view full image: ${f.name}">
+                  </div>
+                `;
+              } else {
+                return `
+                  <a href="${f.data}" target="_blank" download="${f.name}" class="view-doc-item" title="Download PDF: ${f.name}">
+                    📄 ${f.name}
+                  </a>
+                `;
+              }
+            }).join("")}
+          </div>
+        </div>
+      ` : ''}
+
+      <div class="obs-ai-summary-container">
+        <div class="ai-summary-header">
+          <div class="ai-summary-title">🤖 AI Observation Summary</div>
+          <button type="button" id="trigger-ai-summary-btn" class="ai-gen-btn" data-id="${obs.id}">
+            ${obs.aiSummary ? '🔄 Regenerate AI Summary' : '✨ Generate AI Summary'}
+          </button>
+        </div>
+        <div id="ai-summary-content-box">
+          ${obs.aiSummary ? renderAIObsSummaryContent(obs.aiSummary) : `
+            <p style="font-size:0.85rem; color:#94a3b8; margin:0;">Click 'Generate AI Summary' to analyze session data, equipment performance, and atmospheric conditions.</p>
+          `}
+        </div>
+      </div>
     `;
+
+    // AI Summary Trigger handler
+    const aiBtn = document.getElementById("trigger-ai-summary-btn");
+    const aiBox = document.getElementById("ai-summary-content-box");
+    if (aiBtn && aiBox) {
+      aiBtn.addEventListener("click", () => {
+        aiBtn.classList.add("loading");
+        aiBtn.innerHTML = "⏳ Analyzing Session...";
+        
+        setTimeout(() => {
+          const generated = generateAIObservationSummary(obs);
+          obs.aiSummary = generated;
+
+          // Save to localStorage
+          let currentObsList = [];
+          try {
+            currentObsList = JSON.parse(localStorage.getItem("astroObservations") || "[]");
+          } catch (e) { currentObsList = []; }
+
+          const targetIdx = currentObsList.findIndex(o => o.id === obs.id);
+          if (targetIdx !== -1) {
+            currentObsList[targetIdx].aiSummary = generated;
+            localStorage.setItem("astroObservations", JSON.stringify(currentObsList));
+          }
+
+          aiBox.innerHTML = renderAIObsSummaryContent(generated);
+          aiBtn.classList.remove("loading");
+          aiBtn.innerHTML = "🔄 Regenerate AI Summary";
+
+          if (typeof showToast === "function") {
+            showToast("AI Observation Summary generated.");
+          }
+        }, 500);
+      });
+    }
   }
 
   if (editBtn) {
@@ -14135,6 +14652,14 @@ function editObservation(obsId, openModalFn) {
   if (!obs) return;
 
   currentEditingObsId = obs.id;
+  currentObsFiles = Array.isArray(obs.files) ? [...obs.files] : [];
+  setModalRating(obs.rating || 5);
+  currentObsTags = Array.isArray(obs.tags) ? [...obs.tags] : [];
+  renderFormActiveTags();
+
+  if (document.getElementById("obs-favorite-checkbox")) {
+    document.getElementById("obs-favorite-checkbox").checked = Boolean(obs.isFavorite);
+  }
 
   if (document.getElementById("obs-title")) document.getElementById("obs-title").value = obs.title || "";
   if (document.getElementById("obs-date")) document.getElementById("obs-date").value = obs.date || "";
@@ -14148,10 +14673,18 @@ function editObservation(obsId, openModalFn) {
   if (document.getElementById("obs-seeing")) document.getElementById("obs-seeing").value = obs.seeing || "3";
   if (document.getElementById("obs-transparency")) document.getElementById("obs-transparency").value = obs.transparency || "3";
   if (document.getElementById("obs-bortle")) document.getElementById("obs-bortle").value = obs.bortle || "4";
+  if (document.getElementById("obs-cloud-cover")) document.getElementById("obs-cloud-cover").value = obs.cloudCover || "";
+  if (document.getElementById("obs-temp")) document.getElementById("obs-temp").value = obs.temperature || "";
+  if (document.getElementById("obs-humidity")) document.getElementById("obs-humidity").value = obs.humidity || "";
+  if (document.getElementById("obs-wind")) document.getElementById("obs-wind").value = obs.windSpeed || "";
+
   if (document.getElementById("obs-objects")) {
     document.getElementById("obs-objects").value = Array.isArray(obs.objects) ? obs.objects.join(", ") : (obs.objects || "");
   }
   if (document.getElementById("obs-notes")) document.getElementById("obs-notes").value = obs.notes || "";
+
+  renderObsFilePreviews();
+  updateLiveDurationBadge();
 
   if (typeof openModalFn === "function") {
     openModalFn(true);
@@ -14168,8 +14701,12 @@ function deleteObservation(obsId) {
     observations = [];
   }
 
-  const updated = observations.filter(o => o.id !== obsId);
-  localStorage.setItem("astroObservations", JSON.stringify(updated));
+  observations = observations.filter(o => o.id !== obsId);
+  try {
+    localStorage.setItem("astroObservations", JSON.stringify(observations));
+  } catch (e) {
+    console.error("Error deleting observation:", e);
+  }
 
   renderObservations();
 
@@ -14246,11 +14783,28 @@ function renderObservationHistory() {
     }
   }
 
+  // Populate dynamic tag dropdown options
+  const tagSelect = document.getElementById("obs-history-filter-tag");
+  if (tagSelect) {
+    const currentTagVal = tagSelect.value;
+    const builtinTags = ["Galaxy", "Nebula", "Planet", "Moon", "Comet", "Asteroid", "Satellite", "Star Cluster", "Double Star", "Variable Star"];
+    const customTags = observations.flatMap(o => Array.isArray(o.tags) ? o.tags : []);
+    const allTags = Array.from(new Set([...builtinTags, ...customTags])).filter(Boolean);
+
+    tagSelect.innerHTML = '<option value="all">🏷️ All Tags</option>' +
+      allTags.map(t => `<option value="${t}">${t}</option>`).join("");
+    if (allTags.includes(currentTagVal)) {
+      tagSelect.value = currentTagVal;
+    }
+  }
+
   // Get Filter & Search Inputs
   const searchVal = (document.getElementById("obs-history-search")?.value || "").toLowerCase().trim();
   const dateVal = document.getElementById("obs-history-filter-date")?.value || "all";
   const scopeVal = document.getElementById("obs-history-filter-telescope")?.value || "all";
   const typeVal = document.getElementById("obs-history-filter-type")?.value || "all";
+  const ratingFilterVal = document.getElementById("obs-history-filter-rating")?.value || "all";
+  const tagFilterVal = document.getElementById("obs-history-filter-tag")?.value || "all";
   const sortVal = document.getElementById("obs-history-sort")?.value || "newest";
   const favOnly = document.getElementById("obs-history-fav-toggle")?.getAttribute("data-active") === "true";
 
@@ -14262,24 +14816,39 @@ function renderObservationHistory() {
     // 1. Favorites Filter
     if (favOnly && !obs.isFavorite) return false;
 
-    // 2. Search Text Matching
+    // 2. Rating Filter
+    if (ratingFilterVal !== "all") {
+      const r = obs.rating || 5;
+      const targetR = parseInt(ratingFilterVal, 10);
+      if (r < targetR) return false;
+    }
+
+    // 3. Tag Filter
+    if (tagFilterVal !== "all") {
+      const tags = Array.isArray(obs.tags) ? obs.tags : [];
+      if (!tags.includes(tagFilterVal)) return false;
+    }
+
+    // 4. Search Text Matching
     if (searchVal) {
       const objectsStr = Array.isArray(obs.objects) ? obs.objects.join(" ") : (obs.objects || "");
+      const tagsStr = Array.isArray(obs.tags) ? obs.tags.join(" ") : "";
       const matchTitle = (obs.title || "").toLowerCase().includes(searchVal);
       const matchLocation = (obs.location || "").toLowerCase().includes(searchVal);
       const matchTelescope = (obs.telescope || "").toLowerCase().includes(searchVal);
       const matchNotes = (obs.notes || "").toLowerCase().includes(searchVal);
       const matchObjects = objectsStr.toLowerCase().includes(searchVal);
+      const matchTags = tagsStr.toLowerCase().includes(searchVal);
 
-      if (!matchTitle && !matchLocation && !matchTelescope && !matchNotes && !matchObjects) return false;
+      if (!matchTitle && !matchLocation && !matchTelescope && !matchNotes && !matchObjects && !matchTags) return false;
     }
 
-    // 3. Telescope Filter
+    // 5. Telescope Filter
     if (scopeVal !== "all") {
       if ((obs.telescope || "").trim() !== scopeVal) return false;
     }
 
-    // 4. Object Type Filter
+    // 6. Object Type Filter
     if (typeVal !== "all") {
       const objectsArr = Array.isArray(obs.objects) ? obs.objects : (typeof obs.objects === "string" && obs.objects ? obs.objects.split(",") : []);
       const objectsCombined = objectsArr.join(" ").toLowerCase();
@@ -14290,7 +14859,7 @@ function renderObservationHistory() {
       if (typeVal === "moon" && !/\b(moon|lunar)\b/i.test(objectsCombined)) return false;
     }
 
-    // 5. Date Filter
+    // 7. Date Filter
     if (dateVal !== "all" && obs.date) {
       const obsDate = new Date(obs.date + "T00:00:00");
       if (!isNaN(obsDate.getTime())) {
@@ -14315,6 +14884,16 @@ function renderObservationHistory() {
     if (sortVal === "favorites") {
       if (a.isFavorite && !b.isFavorite) return -1;
       if (!a.isFavorite && b.isFavorite) return 1;
+    }
+    if (sortVal === "rating") {
+      const rA = a.rating || 5;
+      const rB = b.rating || 5;
+      if (rB !== rA) return rB - rA;
+    }
+    if (sortVal === "duration") {
+      const durA = a.durationMinutes || 0;
+      const durB = b.durationMinutes || 0;
+      if (durB !== durA) return durB - durA;
     }
     if (sortVal === "most-objects") {
       const aLen = Array.isArray(a.objects) ? a.objects.length : (a.objects ? String(a.objects).split(",").length : 0);
@@ -14348,7 +14927,10 @@ function renderObservationHistory() {
   // Render History Cards
   historyContainer.innerHTML = filtered.map(obs => {
     const objectsArr = Array.isArray(obs.objects) ? obs.objects : (typeof obs.objects === "string" && obs.objects ? obs.objects.split(",") : []);
+    const tagsArr = Array.isArray(obs.tags) ? obs.tags : [];
     const isFav = Boolean(obs.isFavorite);
+    const ratingVal = obs.rating || 5;
+    const ratingStars = "★".repeat(ratingVal) + "☆".repeat(5 - ratingVal);
     const objectsPreview = objectsArr.slice(0, 4);
     const remainingCount = objectsArr.length - objectsPreview.length;
 
@@ -14357,10 +14939,13 @@ function renderObservationHistory() {
         <div>
           <div class="card-header-row">
             <div>
-              <h4 class="card-obs-title">${obs.title || "Untitled Observation"}</h4>
-              <div class="card-obs-meta">
+              <div style="display:flex; align-items:center; gap:8px;">
+                <h4 class="card-obs-title" style="margin:0;">${obs.title || "Untitled Observation"}</h4>
+                <span class="card-rating-stars" title="${ratingVal}/5 Stars">${ratingStars}</span>
+              </div>
+              <div class="card-obs-meta" style="margin-top:4px;">
                 <span>📅 ${obs.date || "Unknown Date"}</span>
-                ${obs.startTime ? `<span>⏱️ ${obs.startTime}${obs.endTime ? ' - ' + obs.endTime : ''}</span>` : ''}
+                ${obs.duration ? `<span>⏱️ ${obs.duration}</span>` : (obs.startTime ? `<span>⏱️ ${obs.startTime}${obs.endTime ? ' - ' + obs.endTime : ''}</span>` : '')}
               </div>
             </div>
             <button type="button" class="card-fav-star ${isFav ? 'active' : ''}" data-id="${obs.id}" title="${isFav ? 'Unmark Favorite' : 'Mark Favorite'}">
@@ -14383,6 +14968,12 @@ function renderObservationHistory() {
             </div>
           </div>
 
+          ${tagsArr.length ? `
+            <div class="card-tags-row">
+              ${tagsArr.map(t => `<span class="obs-tag-pill">🏷️ ${t}</span>`).join("")}
+            </div>
+          ` : ''}
+
           ${objectsArr.length ? `
             <div class="card-objects-badges">
               ${objectsPreview.map(o => `<span class="obs-tag-badge">${o.trim()}</span>`).join("")}
@@ -14392,6 +14983,12 @@ function renderObservationHistory() {
 
           ${obs.notes ? `
             <p class="card-notes-preview" style="margin-top: 8px;">"${obs.notes}"</p>
+          ` : ''}
+
+          ${Array.isArray(obs.files) && obs.files.length ? `
+            <div class="obs-card-attachments">
+              📎 ${obs.files.length} Attachment${obs.files.length > 1 ? 's' : ''}
+            </div>
           ` : ''}
         </div>
 
