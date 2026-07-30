@@ -7235,3 +7235,165 @@ body.night-vision-active #toggle-night-btn {
   color: #34d399;
   border: 1px solid rgba(52, 211, 153, 0.3);
 }
+
+/* Form Section Headers */
+.form-section-header {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #a5b4fc;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 14px;
+  margin-bottom: 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Rating Picker & Favorite Checkbox */
+.rating-fav-form-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 6px;
+}
+
+.star-rating-picker {
+  display: inline-flex;
+  gap: 4px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.star-rating-picker .star-item {
+  font-size: 1.4rem;
+  color: rgba(255, 255, 255, 0.2);
+  transition: color 0.15s ease, transform 0.15s ease;
+}
+
+.star-rating-picker .star-item.active,
+.star-rating-picker .star-item.hover {
+  color: #f59e0b;
+}
+
+.star-rating-picker .star-item:hover {
+  transform: scale(1.2);
+}
+
+.fav-checkbox-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 0.88rem;
+  color: #e2e8f0;
+  user-select: none;
+}
+
+.fav-checkbox-label input[type="checkbox"] {
+  accent-color: #f59e0b;
+  width: 16px;
+  height: 16px;
+}
+
+.fav-star-icon {
+  font-weight: 600;
+}
+
+/* Live Session Duration Tag */
+.obs-live-duration-tag {
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: #34d399;
+  background: rgba(16, 185, 129, 0.15);
+  padding: 1px 6px;
+  border-radius: 10px;
+  margin-left: 6px;
+}
+
+/* Built-in & Custom Tags */
+.builtin-tags-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.tag-selector-chip {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 16px;
+  padding: 4px 10px;
+  font-size: 0.78rem;
+  color: #cbd5e1;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tag-selector-chip:hover {
+  background: rgba(99, 102, 241, 0.2);
+  border-color: #818cf8;
+  color: #fff;
+}
+
+.tag-selector-chip.active {
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  border-color: #818cf8;
+  color: #fff;
+  font-weight: 600;
+}
+
+.active-tags-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tag-pill-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(99, 102, 241, 0.2);
+  border: 1px solid rgba(129, 140, 248, 0.4);
+  color: #c7d2fe;
+  font-size: 0.76rem;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 14px;
+}
+
+.tag-pill-remove {
+  background: none;
+  border: none;
+  color: #fca5a5;
+  font-size: 0.75rem;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+
+.tag-pill-remove:hover {
+  color: #ef4444;
+}
+
+/* Card Rating & Tags Display */
+.card-rating-stars {
+  color: #f59e0b;
+  font-size: 0.85rem;
+  letter-spacing: 1px;
+}
+
+.card-tags-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.obs-tag-pill {
+  font-size: 0.72rem;
+  background: rgba(99, 102, 241, 0.15);
+  color: #a5b4fc;
+  border: 1px solid rgba(165, 180, 252, 0.25);
+  padding: 1px 7px;
+  border-radius: 10px;
+}
