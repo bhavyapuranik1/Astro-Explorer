@@ -6833,8 +6833,44 @@ body.night-vision-active #toggle-night-btn {
 
 /* Full View Modal styling */
 .full-view-modal {
-  max-width: 620px;
+  max-width: 680px;
   width: 90%;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  background: rgba(18, 24, 38, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  padding: 24px 28px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6), 0 0 30px rgba(99, 102, 241, 0.15);
+  overflow: hidden;
+}
+
+#view-obs-body {
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+  padding-right: 6px;
+  margin-bottom: 12px;
+}
+
+/* Custom scrollbar for view modal body */
+#view-obs-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+#view-obs-body::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 3px;
+}
+
+#view-obs-body::-webkit-scrollbar-thumb {
+  background: rgba(99, 102, 241, 0.4);
+  border-radius: 3px;
+}
+
+#view-obs-body::-webkit-scrollbar-thumb:hover {
+  background: rgba(99, 102, 241, 0.7);
 }
 
 .view-obs-detail-grid {
