@@ -15355,3 +15355,585 @@ function updateObservationStatistics(observations) {
   });
   if (totalLocationsEl) totalLocationsEl.textContent = locationsSet.size ? `${locationsSet.size} Location${locationsSet.size > 1 ? 's' : ''}` : "--";
 }
+
+/* ==========================================================================
+   💾 OBSERVATION IMPORT / EXPORT & BACKUP SYSTEM
+   ========================================================================== */
+
+let pendingImportObsList = null;
+let pendingImportFileName = "";
+
+function getFormattedDateStamp() {
+  const d = new Date();
+  return d.toISOString().split("T")[0]; // YYYY-MM-DD
+}
+
+// ----------------------------------------------------
+// EXPORT FUNCTIONS
+// ----------------------------------------------------
+function exportObservationsJSON(obsList, customFilename) {
+  const observations = obsList || JSON.parse(localStorage.getItem("astroObservations") || "[]");
+  if (!observations.length) {
+    if (typeof showToast === "function") showToast("No observations to export.");
+    return;
+  }
+
+  const payload = {
+    app: "Astro Explorer",
+    version: "2.0.0",
+    exportDate: new Date().toISOString(),
+    count: observations.length,
+    observations: observations
+  };
+
+  const jsonStr = JSON.stringify(payload, null, 2);
+  const blob = new Blob([jsonStr], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const fileName = customFilename || `astro_observations_${getFormattedDateStamp()}.json`;
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  if (typeof showToast === "function") showToast(`Exported ${observations.length} observation(s) to JSON.`);
+}
+
+function exportObservationsCSV(obsList, customFilename) {
+  const observations = obsList || JSON.parse(localStorage.getItem("astroObservations") || "[]");
+  if (!observations.length) {
+    if (typeof showToast === "function") showToast("No observations to export.");
+    return;
+  }
+
+  const headers = [
+    "ID", "Title", "Date", "Start Time", "End Time", "Duration", "Location", "Telescope",
+    "Eyepiece", "Camera", "Objects", "Seeing", "Transparency", "Bortle", "Cloud Cover (%)",
+    "Temperature", "Humidity (%)", "Wind Speed", "Rating", "Is Favorite", "Tags", "Weather",
+    "Notes", "AI Summary Quality", "AI Scientific Summary", "Attachment Count", "Created At"
+  ];
+
+  const escapeCSV = (field) => {
+    if (field === null || field === undefined) return '""';
+    const str = String(field);
+    if (str.includes('"') || str.includes(',') || str.includes('\n') || str.includes('\r')) {
+      return '"' + str.replace(/"/g, '""') + '"';
+    }
+    return '"' + str + '"';
+  };
+
+  const rows = observations.map(obs => {
+    const objectsStr = Array.isArray(obs.objects) ? obs.objects.join(", ") : (obs.objects || "");
+    const tagsStr = Array.isArray(obs.tags) ? obs.tags.join(", ") : "";
+    const filesCount = Array.isArray(obs.files) ? obs.files.length : 0;
+    const aiQuality = obs.aiSummary ? (obs.aiSummary.qualityRating || "") : "";
+    const aiSummaryText = obs.aiSummary ? (obs.aiSummary.scientificSummary || "") : "";
+
+    return [
+      obs.id || "",
+      obs.title || "Untitled",
+      obs.date || "",
+      obs.startTime || "",
+      obs.endTime || "",
+      obs.duration || "",
+      obs.location || "",
+      obs.telescope || "",
+      obs.eyepiece || "",
+      obs.camera || "",
+      objectsStr,
+      obs.seeing || "",
+      obs.transparency || "",
+      obs.bortle || "",
+      obs.cloudCover || "",
+      obs.temperature || "",
+      obs.humidity || "",
+      obs.windSpeed || "",
+      obs.rating || 5,
+      obs.isFavorite ? "Yes" : "No",
+      tagsStr,
+      obs.weather || "",
+      obs.notes || "",
+      aiQuality,
+      aiSummaryText,
+      filesCount,
+      obs.createdAt || ""
+    ].map(escapeCSV).join(",");
+  });
+
+  const csvContent = "\uFEFF" + [headers.join(","), ...rows].join("\n");
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const fileName = customFilename || `astro_observations_${getFormattedDateStamp()}.csv`;
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  if (typeof showToast === "function") showToast(`Exported ${observations.length} observation(s) to CSV.`);
+}
+
+function exportObservationsPDF(obsList, reportTitle) {
+  const observations = obsList || JSON.parse(localStorage.getItem("astroObservations") || "[]");
+  if (!observations.length) {
+    if (typeof showToast === "function") showToast("No observations to export.");
+    return;
+  }
+
+  const printWindow = window.open("", "_blank");
+  if (!printWindow) {
+    if (typeof showToast === "function") showToast("Please allow popups to generate PDF report.");
+    return;
+  }
+
+  const titleText = reportTitle || `Astro Explorer Observation Log Report (${getFormattedDateStamp()})`;
+
+  const cardsHtml = observations.map((obs, idx) => {
+    const objectsArr = Array.isArray(obs.objects) ? obs.objects : (obs.objects ? String(obs.objects).split(",") : []);
+    const tagsArr = Array.isArray(obs.tags) ? obs.tags : [];
+    const ratingVal = obs.rating || 5;
+    const ratingStars = "★".repeat(ratingVal) + "☆".repeat(5 - ratingVal);
+
+    return `
+      <div class="pdf-card">
+        <div class="pdf-card-header">
+          <div>
+            <h3>#${idx + 1}. ${obs.title || "Untitled Observation"}</h3>
+            <div class="pdf-meta">
+              📅 ${obs.date || "N/A"} | ⏱️ ${obs.duration || (obs.startTime ? obs.startTime + ' - ' + obs.endTime : 'N/A')} | 📍 ${obs.location || "N/A"}
+            </div>
+          </div>
+          <div class="pdf-rating">
+            ${ratingStars} (${ratingVal}/5) ${obs.isFavorite ? '⭐' : ''}
+          </div>
+        </div>
+
+        <div class="pdf-grid">
+          <div><strong>Telescope & Gear:</strong> ${obs.telescope || "N/A"} ${obs.eyepiece ? '| Eyepiece: ' + obs.eyepiece : ''} ${obs.camera ? '| Camera: ' + obs.camera : ''}</div>
+          <div><strong>Sky Quality:</strong> Bortle Class ${obs.bortle || 4} | Weather: ${obs.weather || 'Clear'}</div>
+          <div><strong>Seeing & Trans:</strong> Seeing: ${obs.seeing || 3}/5 | Transparency: ${obs.transparency || 3}/5 | Cloud: ${obs.cloudCover || 0}%</div>
+          <div><strong>Environment:</strong> Temp: ${obs.temperature || 'N/A'} | Hum: ${obs.humidity ? obs.humidity + '%' : 'N/A'} | Wind: ${obs.windSpeed || 'N/A'}</div>
+        </div>
+
+        ${tagsArr.length ? `
+          <div class="pdf-section">
+            <strong>Tags:</strong> ${tagsArr.map(t => `<span class="pdf-badge">🏷️ ${t}</span>`).join(" ")}
+          </div>
+        ` : ''}
+
+        ${objectsArr.length ? `
+          <div class="pdf-section">
+            <strong>Observed Objects (${objectsArr.length}):</strong> ${objectsArr.map(o => `<span class="pdf-badge">🌌 ${o.trim()}</span>`).join(" ")}
+          </div>
+        ` : ''}
+
+        ${obs.notes ? `
+          <div class="pdf-section">
+            <strong>Notes:</strong>
+            <p class="pdf-notes">${obs.notes}</p>
+          </div>
+        ` : ''}
+
+        ${obs.aiSummary ? `
+          <div class="pdf-section pdf-ai-box">
+            <strong>🤖 AI Scientific Summary (${obs.aiSummary.qualityRating}):</strong>
+            <p class="pdf-notes">${obs.aiSummary.scientificSummary}</p>
+          </div>
+        ` : ''}
+      </div>
+    `;
+  }).join("");
+
+  const docHtml = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>${titleText}</title>
+      <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #1e293b; padding: 20px; line-height: 1.5; }
+        .pdf-header { text-align: center; border-bottom: 3px solid #6366f1; padding-bottom: 12px; margin-bottom: 24px; }
+        .pdf-header h1 { margin: 0; color: #312e81; font-size: 22px; }
+        .pdf-header p { margin: 4px 0 0 0; color: #64748b; font-size: 13px; }
+        .pdf-card { border: 1px solid #cbd5e1; border-radius: 8px; padding: 14px; margin-bottom: 18px; page-break-inside: avoid; }
+        .pdf-card-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; margin-bottom: 10px; }
+        .pdf-card-header h3 { margin: 0; font-size: 16px; color: #1e1b4b; }
+        .pdf-meta { font-size: 12px; color: #64748b; margin-top: 2px; }
+        .pdf-rating { color: #d97706; font-weight: bold; font-size: 13px; }
+        .pdf-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; font-size: 12px; margin-bottom: 10px; background: #f8fafc; padding: 8px; border-radius: 6px; }
+        .pdf-section { font-size: 12px; margin-top: 8px; }
+        .pdf-badge { display: inline-block; background: #e0e7ff; color: #3730a3; padding: 1px 6px; border-radius: 4px; font-size: 11px; margin-right: 4px; }
+        .pdf-notes { background: #f1f5f9; padding: 6px 10px; border-radius: 6px; margin: 4px 0 0 0; white-space: pre-wrap; font-size: 11.5px; }
+        .pdf-ai-box { background: #f0fdf4; border: 1px solid #bbf7d0; padding: 8px; border-radius: 6px; margin-top: 8px; }
+        .pdf-footer { text-align: center; margin-top: 30px; font-size: 11px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 8px; }
+      </style>
+    </head>
+    <body>
+      <div class="pdf-header">
+        <h1>🔭 ASTRO EXPLORER — OBSERVATION LOG REPORT</h1>
+        <p>Generated on ${new Date().toLocaleString()} | Total Sessions Logged: ${observations.length}</p>
+      </div>
+
+      ${cardsHtml}
+
+      <div class="pdf-footer">
+        Astro Explorer 2.0 • Portable Astronomical Observation Backup & Log Report
+      </div>
+    </body>
+    </html>
+  `;
+
+  printWindow.document.write(docHtml);
+  printWindow.document.close();
+
+  setTimeout(() => {
+    printWindow.focus();
+    printWindow.print();
+  }, 400);
+
+  if (typeof showToast === "function") showToast(`Generated PDF report for ${observations.length} observation(s).`);
+}
+
+// ----------------------------------------------------
+// IMPORT FUNCTIONS
+// ----------------------------------------------------
+function handleImportFileSelect(file) {
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const errorBanner = document.getElementById("import-error-banner");
+    const previewModal = document.getElementById("obs-import-preview-modal");
+    const previewItemsContainer = document.getElementById("import-preview-items");
+    const metaFilename = document.getElementById("import-meta-filename");
+    const metaVersion = document.getElementById("import-meta-version");
+    const metaDate = document.getElementById("import-meta-date");
+    const metaCount = document.getElementById("import-meta-count");
+
+    if (errorBanner) {
+      errorBanner.classList.add("hidden");
+      errorBanner.textContent = "";
+    }
+
+    try {
+      const parsed = JSON.parse(e.target.result);
+      let obsList = [];
+      let version = "2.0.0";
+      let exportDate = new Date().toLocaleDateString();
+
+      if (Array.isArray(parsed)) {
+        obsList = parsed;
+      } else if (parsed && typeof parsed === "object" && Array.isArray(parsed.observations)) {
+        obsList = parsed.observations;
+        if (parsed.version) version = parsed.version;
+        if (parsed.exportDate) exportDate = new Date(parsed.exportDate).toLocaleDateString();
+      } else {
+        throw new Error("Invalid backup format. File does not contain an array of observations.");
+      }
+
+      if (!obsList.length) {
+        throw new Error("Backup file contains 0 observations.");
+      }
+
+      pendingImportObsList = obsList;
+      pendingImportFileName = file.name;
+
+      if (metaFilename) metaFilename.textContent = file.name;
+      if (metaVersion) metaVersion.textContent = version;
+      if (metaDate) metaDate.textContent = exportDate;
+      if (metaCount) metaCount.textContent = obsList.length;
+
+      if (previewItemsContainer) {
+        previewItemsContainer.innerHTML = obsList.slice(0, 10).map(o => `
+          <div class="import-preview-item">
+            <strong>${o.title || 'Untitled Session'}</strong> — 📅 ${o.date || 'No Date'} (${o.location || 'No Location'})
+          </div>
+        `).join("") + (obsList.length > 10 ? `<div class="import-preview-item" style="color:#818cf8; text-align:center;">+${obsList.length - 10} more observations</div>` : '');
+      }
+
+      if (previewModal) previewModal.classList.remove("hidden");
+
+    } catch (err) {
+      console.error("Import file validation error:", err);
+      if (typeof showToast === "function") showToast("Invalid backup file: " + err.message);
+      if (errorBanner) {
+        errorBanner.textContent = "❌ Import Failed: " + err.message;
+        errorBanner.classList.remove("hidden");
+      }
+      if (previewModal) previewModal.classList.remove("hidden");
+    }
+  };
+
+  reader.readAsText(file);
+}
+
+function confirmImportObservations() {
+  if (!pendingImportObsList || !pendingImportObsList.length) return;
+
+  const modeRadio = document.querySelector('input[name="import-mode"]:checked');
+  const importMode = modeRadio ? modeRadio.value : "merge";
+
+  let existing = [];
+  try {
+    existing = JSON.parse(localStorage.getItem("astroObservations") || "[]");
+  } catch (e) {
+    existing = [];
+  }
+
+  if (importMode === "replace") {
+    if (!confirm("🔴 ARE YOU ABSOLUTELY SURE?\n\nThis will PERMANENTLY DELETE all current observations and replace them with the backup file data.")) {
+      return;
+    }
+    existing = [...pendingImportObsList];
+  } else {
+    // Merge mode: skip duplicate IDs or duplicate title+date combos
+    const existingIds = new Set(existing.map(o => o.id).filter(Boolean));
+    const existingKeys = new Set(existing.map(o => `${(o.title||"").trim().toLowerCase()}_${o.date||""}`));
+
+    let addedCount = 0;
+    pendingImportObsList.forEach(obs => {
+      const key = `${(obs.title||"").trim().toLowerCase()}_${obs.date||""}`;
+      if (obs.id && existingIds.has(obs.id)) {
+        return; // skip duplicate ID
+      }
+      if (existingKeys.has(key)) {
+        return; // skip duplicate title + date
+      }
+
+      const restoredObs = {
+        ...obs,
+        id: obs.id || ("obs_" + Date.now().toString(36) + Math.random().toString(36).substr(2, 5))
+      };
+      existing.push(restoredObs);
+      addedCount++;
+    });
+
+    if (typeof showToast === "function") {
+      showToast(`Imported ${addedCount} new observation(s) (Skipped ${pendingImportObsList.length - addedCount} duplicates).`);
+    }
+  }
+
+  try {
+    localStorage.setItem("astroObservations", JSON.stringify(existing));
+  } catch (e) {
+    console.error("Error saving imported observations:", e);
+  }
+
+  const previewModal = document.getElementById("obs-import-preview-modal");
+  if (previewModal) previewModal.classList.add("hidden");
+
+  pendingImportObsList = null;
+  pendingImportFileName = "";
+
+  renderObservations();
+}
+
+// ----------------------------------------------------
+// LOCAL BACKUP SNAPSHOTS MANAGEMENT
+// ----------------------------------------------------
+function createLocalSnapshot() {
+  let existingObs = [];
+  try {
+    existingObs = JSON.parse(localStorage.getItem("astroObservations") || "[]");
+  } catch (e) {
+    existingObs = [];
+  }
+
+  if (!existingObs.length) {
+    if (typeof showToast === "function") showToast("No observations to back up.");
+    return;
+  }
+
+  let snapshots = [];
+  try {
+    snapshots = JSON.parse(localStorage.getItem("astroBackups") || "[]");
+  } catch (e) {
+    snapshots = [];
+  }
+
+  const jsonString = JSON.stringify(existingObs);
+  const sizeKB = (jsonString.length / 1024).toFixed(1);
+  const newSnapshot = {
+    id: "snap_" + Date.now().toString(36),
+    date: new Date().toLocaleDateString() + " " + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    count: existingObs.length,
+    sizeKB: sizeKB,
+    data: existingObs
+  };
+
+  snapshots.unshift(newSnapshot);
+  // Keep up to 10 latest snapshots
+  if (snapshots.length > 10) snapshots = snapshots.slice(0, 10);
+
+  try {
+    localStorage.setItem("astroBackups", JSON.stringify(snapshots));
+  } catch (e) {
+    console.error("Error saving local snapshot:", e);
+  }
+
+  renderLocalSnapshots();
+  if (typeof showToast === "function") showToast(`Instant local snapshot created (${existingObs.length} items, ${sizeKB} KB).`);
+}
+
+function renderLocalSnapshots() {
+  const container = document.getElementById("obs-snapshots-list-container");
+  if (!container) return;
+
+  let snapshots = [];
+  try {
+    snapshots = JSON.parse(localStorage.getItem("astroBackups") || "[]");
+  } catch (e) {
+    snapshots = [];
+  }
+
+  if (!snapshots.length) {
+    container.innerHTML = `<p class="snapshots-empty">No local snapshots created yet. Click 'Create Instant Snapshot' above to save a local backup point.</p>`;
+    return;
+  }
+
+  container.innerHTML = snapshots.map(snap => `
+    <div class="snapshot-item-row" data-id="${snap.id}">
+      <div class="snapshot-item-info">
+        <span class="snapshot-item-title">Backup Snapshot (${snap.count} Observations)</span>
+        <span class="snapshot-item-meta">📅 ${snap.date} | 💾 ${snap.sizeKB} KB</span>
+      </div>
+      <div class="snapshot-item-actions">
+        <button type="button" class="obs-btn-sm restore-snap-btn" data-id="${snap.id}" title="Restore this snapshot">🔄 Restore</button>
+        <button type="button" class="obs-btn-sm download-snap-btn" data-id="${snap.id}" title="Download JSON file">📥 Download</button>
+        <button type="button" class="obs-btn-sm delete-btn delete-snap-btn" data-id="${snap.id}" title="Delete snapshot">🗑️</button>
+      </div>
+    </div>
+  `).join("");
+}
+
+function restoreLocalSnapshot(snapId) {
+  let snapshots = [];
+  try {
+    snapshots = JSON.parse(localStorage.getItem("astroBackups") || "[]");
+  } catch (e) {
+    snapshots = [];
+  }
+
+  const snap = snapshots.find(s => s.id === snapId);
+  if (!snap || !snap.data) return;
+
+  if (!confirm(`Restore observation backup snapshot from ${snap.date} (${snap.count} observations)?\n\nThis will merge with your current observations without deleting unique items.`)) {
+    return;
+  }
+
+  let currentObs = [];
+  try {
+    currentObs = JSON.parse(localStorage.getItem("astroObservations") || "[]");
+  } catch (e) { currentObs = []; }
+
+  const currentIds = new Set(currentObs.map(o => o.id).filter(Boolean));
+  let added = 0;
+
+  snap.data.forEach(item => {
+    if (!currentIds.has(item.id)) {
+      currentObs.push(item);
+      added++;
+    }
+  });
+
+  localStorage.setItem("astroObservations", JSON.stringify(currentObs));
+  renderObservations();
+
+  if (typeof showToast === "function") {
+    showToast(`Restored snapshot! Added ${added} missing observation(s).`);
+  }
+}
+
+function downloadLocalSnapshotJSON(snapId) {
+  let snapshots = [];
+  try {
+    snapshots = JSON.parse(localStorage.getItem("astroBackups") || "[]");
+  } catch (e) {
+    snapshots = [];
+  }
+
+  const snap = snapshots.find(s => s.id === snapId);
+  if (!snap || !snap.data) return;
+
+  exportObservationsJSON(snap.data, `astro_backup_snapshot_${snap.id}.json`);
+}
+
+function deleteLocalSnapshot(snapId) {
+  let snapshots = [];
+  try {
+    snapshots = JSON.parse(localStorage.getItem("astroBackups") || "[]");
+  } catch (e) {
+    snapshots = [];
+  }
+
+  snapshots = snapshots.filter(s => s.id !== snapId);
+  localStorage.setItem("astroBackups", JSON.stringify(snapshots));
+  renderLocalSnapshots();
+
+  if (typeof showToast === "function") showToast("Local backup snapshot deleted.");
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  // Global Export Buttons
+  document.getElementById("obs-export-json-all-btn")?.addEventListener("click", () => exportObservationsJSON());
+  document.getElementById("obs-export-csv-all-btn")?.addEventListener("click", () => exportObservationsCSV());
+  document.getElementById("obs-export-pdf-all-btn")?.addEventListener("click", () => exportObservationsPDF());
+  document.getElementById("obs-create-snapshot-btn")?.addEventListener("click", createLocalSnapshot);
+
+  // Import Dropzone & Browse File Setup
+  const importDropzone = document.getElementById("obs-import-dropzone");
+  const browseImportBtn = document.getElementById("browse-import-backup-btn");
+  const importFileInput = document.getElementById("obs-import-file-input");
+
+  browseImportBtn?.addEventListener("click", () => importFileInput?.click());
+  importFileInput?.addEventListener("change", (e) => {
+    if (e.target.files && e.target.files.length) {
+      handleImportFileSelect(e.target.files[0]);
+    }
+  });
+
+  if (importDropzone) {
+    importDropzone.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      importDropzone.classList.add("drag-over");
+    });
+    importDropzone.addEventListener("dragleave", () => importDropzone.classList.remove("drag-over"));
+    importDropzone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      importDropzone.classList.remove("drag-over");
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) {
+        handleImportFileSelect(e.dataTransfer.files[0]);
+      }
+    });
+  }
+
+  // Import Preview Modal Buttons
+  document.getElementById("confirm-obs-import-btn")?.addEventListener("click", confirmImportObservations);
+  document.getElementById("cancel-obs-import-btn")?.addEventListener("click", () => {
+    document.getElementById("obs-import-preview-modal")?.classList.add("hidden");
+  });
+  document.getElementById("close-obs-import-modal")?.addEventListener("click", () => {
+    document.getElementById("obs-import-preview-modal")?.classList.add("hidden");
+  });
+
+  // Local Snapshots Container Click Delegation
+  const snapshotsContainer = document.getElementById("obs-snapshots-list-container");
+  if (snapshotsContainer) {
+    snapshotsContainer.addEventListener("click", (e) => {
+      const restoreBtn = e.target.closest(".restore-snap-btn");
+      const downloadBtn = e.target.closest(".download-snap-btn");
+      const deleteBtn = e.target.closest(".delete-snap-btn");
+
+      if (restoreBtn) restoreLocalSnapshot(restoreBtn.dataset.id);
+      else if (downloadBtn) downloadLocalSnapshotJSON(downloadBtn.dataset.id);
+      else if (deleteBtn) deleteLocalSnapshot(deleteBtn.dataset.id);
+    });
+  }
+
+  renderLocalSnapshots();
+});

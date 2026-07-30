@@ -816,6 +816,101 @@ gtag('config', 'G-9747XL0FQQ');
     </div>
   </section>
 
+  <!-- 7. Backup, Export & Import Management Section -->
+  <section class="observation-backup-section" aria-label="Observation Backup & Data Management">
+    <div class="backup-section-header">
+      <div class="backup-header-title">
+        <h3 class="backup-title">💾 Backup, Export & Data Management</h3>
+        <p class="backup-subtitle">Export observations to JSON, CSV or PDF, import backups, and manage local data snapshots.</p>
+      </div>
+      <div class="backup-header-actions">
+        <button type="button" id="obs-export-json-all-btn" class="obs-backup-btn btn-export">
+          📥 Export JSON
+        </button>
+        <button type="button" id="obs-export-csv-all-btn" class="obs-backup-btn btn-export">
+          📊 Export CSV
+        </button>
+        <button type="button" id="obs-export-pdf-all-btn" class="obs-backup-btn btn-export">
+          📄 Export PDF Report
+        </button>
+        <button type="button" id="obs-create-snapshot-btn" class="obs-backup-btn btn-snapshot">
+          ⚡ Create Instant Snapshot
+        </button>
+      </div>
+    </div>
+
+    <!-- Drag & Drop Import Box -->
+    <div class="backup-grid-row">
+      <div class="backup-dropzone-card">
+        <h4>📥 Import Observation Backup (JSON)</h4>
+        <div id="obs-import-dropzone" class="backup-dropzone">
+          <span class="dropzone-icon">📁</span>
+          <span class="dropzone-text">Drag & drop your <code>.json</code> observation backup file here</span>
+          <span class="dropzone-or">or</span>
+          <button type="button" id="browse-import-backup-btn" class="obs-browse-btn">Browse File</button>
+          <input type="file" id="obs-import-file-input" accept=".json,application/json" style="display:none;">
+        </div>
+      </div>
+
+      <div class="backup-snapshots-card">
+        <h4>💾 Local Snapshot Backups</h4>
+        <div id="obs-snapshots-list-container" class="snapshots-list-box">
+          <p class="snapshots-empty">No local snapshots created yet. Click 'Create Instant Snapshot' above to save a local backup point.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<!-- 📥 IMPORT PREVIEW MODAL -->
+<div id="obs-import-preview-modal" class="modal-backdrop hidden">
+  <div class="observation-modal-content import-preview-modal-content">
+    <div class="modal-header">
+      <h3 class="modal-title">📥 Import Observation Backup</h3>
+      <button type="button" id="close-obs-import-modal" class="modal-close-btn">✕</button>
+    </div>
+
+    <div class="import-preview-body">
+      <div id="import-file-meta-box" class="import-file-meta">
+        <div class="meta-item"><span class="lbl">File Name:</span> <span id="import-meta-filename" class="val">--</span></div>
+        <div class="meta-item"><span class="lbl">App Version:</span> <span id="import-meta-version" class="val">--</span></div>
+        <div class="meta-item"><span class="lbl">Export Date:</span> <span id="import-meta-date" class="val">--</span></div>
+        <div class="meta-item"><span class="lbl">Observations Found:</span> <span id="import-meta-count" class="val badge">0</span></div>
+      </div>
+
+      <div id="import-error-banner" class="import-error-banner hidden"></div>
+
+      <div class="import-options-box">
+        <h4>Choose Import Mode:</h4>
+        <label class="import-radio-label">
+          <input type="radio" name="import-mode" value="merge" checked>
+          <div>
+            <strong>🟢 Merge with Existing Observations (Recommended)</strong>
+            <p>Adds new observations without overwriting. Automatically skips duplicate session IDs or identical titles & dates.</p>
+          </div>
+        </label>
+
+        <label class="import-radio-label danger">
+          <input type="radio" name="import-mode" value="replace">
+          <div>
+            <strong>🔴 Replace All Observations</strong>
+            <p>Deletes all current observations and replaces them entirely with the backup file data.</p>
+          </div>
+        </label>
+      </div>
+
+      <div id="import-preview-list-box" class="import-preview-list-box">
+        <h5>Preview Observations to Import:</h5>
+        <div id="import-preview-items" class="import-preview-items"></div>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button type="button" id="cancel-obs-import-btn" class="modal-btn btn-secondary">Cancel</button>
+      <button type="button" id="confirm-obs-import-btn" class="modal-btn btn-primary">📥 Confirm Import</button>
+    </div>
+  </div>
 </div>
 
 <!-- 🔭 NEW OBSERVATION MODAL -->
