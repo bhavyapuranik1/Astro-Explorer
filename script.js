@@ -13938,8 +13938,190 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("obs-search-input")?.addEventListener("input", renderObservations);
   document.getElementById("obs-filter-select")?.addEventListener("change", renderObservations);
 
+  // Observation History controls listeners
+  document.getElementById("obs-history-search")?.addEventListener("input", renderObservationHistory);
+  document.getElementById("obs-history-filter-date")?.addEventListener("change", renderObservationHistory);
+  document.getElementById("obs-history-filter-telescope")?.addEventListener("change", renderObservationHistory);
+  document.getElementById("obs-history-filter-type")?.addEventListener("change", renderObservationHistory);
+  document.getElementById("obs-history-sort")?.addEventListener("change", renderObservationHistory);
+  
+  const favToggleBtn = document.getElementById("obs-history-fav-toggle");
+  if (favToggleBtn) {
+    favToggleBtn.addEventListener("click", () => {
+      const isCurrentlyActive = favToggleBtn.getAttribute("data-active") === "true";
+      favToggleBtn.setAttribute("data-active", isCurrentlyActive ? "false" : "true");
+      renderObservationHistory();
+    });
+  }
+
+  // Delegated history card clicks (View, Edit, Duplicate, Delete, Favorite Star)
+  const historyListContainer = document.getElementById("observation-history-list");
+  if (historyListContainer) {
+    historyListContainer.addEventListener("click", (e) => {
+      const favStar = e.target.closest(".card-fav-star");
+      const viewBtn = e.target.closest(".view-obs-btn");
+      const editBtn = e.target.closest(".history-edit-btn");
+      const dupBtn = e.target.closest(".dup-obs-btn");
+      const delBtn = e.target.closest(".history-del-btn");
+
+      if (favStar) {
+        toggleFavoriteObservation(favStar.dataset.id);
+      } else if (viewBtn) {
+        openObservationViewModal(viewBtn.dataset.id);
+      } else if (editBtn) {
+        editObservation(editBtn.dataset.id, openModal);
+      } else if (dupBtn) {
+        duplicateObservation(dupBtn.dataset.id);
+      } else if (delBtn) {
+        deleteObservation(delBtn.dataset.id);
+      }
+    });
+  }
+
+  // View modal close button listeners
+  document.getElementById("close-obs-view-btn")?.addEventListener("click", closeObservationViewModal);
+  document.getElementById("view-obs-close-btn")?.addEventListener("click", closeObservationViewModal);
+  document.getElementById("observation-view-modal")?.addEventListener("click", (e) => {
+    if (e.target === document.getElementById("observation-view-modal")) closeObservationViewModal();
+  });
+
   renderObservations();
 });
+
+function toggleFavoriteObservation(obsId) {
+  let observations = [];
+  try {
+    observations = JSON.parse(localStorage.getItem("astroObservations") || "[]");
+  } catch (e) {
+    observations = [];
+  }
+
+  const obs = observations.find(o => o.id === obsId);
+  if (obs) {
+    obs.isFavorite = !obs.isFavorite;
+    localStorage.setItem("astroObservations", JSON.stringify(observations));
+    renderObservations();
+    if (typeof showToast === "function") {
+      showToast(obs.isFavorite ? "Marked as Favorite ⭐" : "Removed from Favorites");
+    }
+  }
+}
+
+function duplicateObservation(obsId) {
+  let observations = [];
+  try {
+    observations = JSON.parse(localStorage.getItem("astroObservations") || "[]");
+  } catch (e) {
+    observations = [];
+  }
+
+  const obs = observations.find(o => o.id === obsId);
+  if (!obs) return;
+
+  const clone = {
+    ...JSON.parse(JSON.stringify(obs)),
+    id: "obs_" + Date.now().toString(36) + Math.random().toString(36).substr(2, 5),
+    title: (obs.title || "Observation") + " (Copy)",
+    createdAt: new Date().toISOString()
+  };
+
+  observations.push(clone);
+  localStorage.setItem("astroObservations", JSON.stringify(observations));
+  renderObservations();
+
+  if (typeof showToast === "function") {
+    showToast("Observation duplicated successfully.");
+  }
+}
+
+let activeViewObsId = null;
+
+function openObservationViewModal(obsId) {
+  let observations = [];
+  try {
+    observations = JSON.parse(localStorage.getItem("astroObservations") || "[]");
+  } catch (e) {
+    observations = [];
+  }
+
+  const obs = observations.find(o => o.id === obsId);
+  if (!obs) return;
+
+  activeViewObsId = obs.id;
+
+  const modal = document.getElementById("observation-view-modal");
+  const titleEl = document.getElementById("view-obs-title");
+  const bodyEl = document.getElementById("view-obs-body");
+  const editBtn = document.getElementById("view-obs-edit-btn");
+
+  if (titleEl) titleEl.textContent = obs.title || "Observation Details";
+
+  if (bodyEl) {
+    const objectsArr = Array.isArray(obs.objects) ? obs.objects : (typeof obs.objects === "string" && obs.objects ? obs.objects.split(",") : []);
+    
+    bodyEl.innerHTML = `
+      <div class="view-obs-detail-grid">
+        <div class="view-detail-item">
+          <span class="lbl">Date & Time</span>
+          <span class="val">📅 ${obs.date || "N/A"} (${obs.startTime || "--"} - ${obs.endTime || "--"})</span>
+        </div>
+        <div class="view-detail-item">
+          <span class="lbl">Location</span>
+          <span class="val">📍 ${obs.location || "Not specified"}</span>
+        </div>
+        <div class="view-detail-item">
+          <span class="lbl">Telescope</span>
+          <span class="val">🔭 ${obs.telescope || "None / N/A"}</span>
+        </div>
+        <div class="view-detail-item">
+          <span class="lbl">Atmosphere</span>
+          <span class="val">🌤️ Weather: ${obs.weather || "Clear"} | Bortle: ${obs.bortle || 4}</span>
+        </div>
+        <div class="view-detail-item">
+          <span class="lbl">Seeing & Transparency</span>
+          <span class="val">👁️ Seeing: ${obs.seeing || 3}/5 | Trans: ${obs.transparency || 3}/5</span>
+        </div>
+        <div class="view-detail-item">
+          <span class="lbl">Equipment</span>
+          <span class="val">🔍 Eye: ${obs.eyepiece || "N/A"} | Cam: ${obs.camera || "N/A"}</span>
+        </div>
+      </div>
+
+      ${objectsArr.length ? `
+        <div class="view-section-box">
+          <h4>🌌 Observed Objects (${objectsArr.length})</h4>
+          <div class="card-objects-badges">
+            ${objectsArr.map(obj => `<span class="obs-tag-badge">${obj.trim()}</span>`).join("")}
+          </div>
+        </div>
+      ` : ''}
+
+      ${obs.notes ? `
+        <div class="view-section-box">
+          <h4>📝 Observation Notes</h4>
+          <p style="white-space: pre-wrap; font-size: 0.9rem; color: rgba(224, 230, 237, 0.85); line-height: 1.5; background: rgba(255,255,255,0.03); padding: 12px; border-radius: 8px;">${obs.notes}</p>
+        </div>
+      ` : ''}
+    `;
+  }
+
+  if (editBtn) {
+    editBtn.onclick = () => {
+      closeObservationViewModal();
+      editObservation(obs.id, (isEdit) => {
+        const modalEl = document.getElementById("observation-modal");
+        if (modalEl) modalEl.classList.remove("hidden");
+      });
+    };
+  }
+
+  if (modal) modal.classList.remove("hidden");
+}
+
+function closeObservationViewModal() {
+  const modal = document.getElementById("observation-view-modal");
+  if (modal) modal.classList.add("hidden");
+}
 
 function editObservation(obsId, openModalFn) {
   let observations = [];
@@ -13996,14 +14178,12 @@ function deleteObservation(obsId) {
   }
 }
 
-
 // ======================================
-// Timeline Calendar Logic
+// Timeline Calendar & History Logic
 // ======================================
 let currentCalendarDate = new Date();
 
 function renderObservations() {
-  // We still need to update stats
   let observations = [];
   try {
     observations = JSON.parse(localStorage.getItem("astroObservations") || "[]");
@@ -14034,13 +14214,198 @@ function renderObservations() {
   if (!observations.length) {
     if (emptyCard) emptyCard.style.display = "flex";
     if (calendarContainer) calendarContainer.style.display = "none";
+  } else {
+    if (emptyCard) emptyCard.style.display = "none";
+    if (calendarContainer) calendarContainer.style.display = "flex";
+  }
+
+  renderTimelineCalendar();
+  renderObservationHistory();
+}
+
+function renderObservationHistory() {
+  const historyContainer = document.getElementById("observation-history-list");
+  if (!historyContainer) return;
+
+  let observations = [];
+  try {
+    observations = JSON.parse(localStorage.getItem("astroObservations") || "[]");
+  } catch (e) {
+    observations = [];
+  }
+
+  // Populate dynamic telescope dropdown options
+  const scopeSelect = document.getElementById("obs-history-filter-telescope");
+  if (scopeSelect) {
+    const currentVal = scopeSelect.value;
+    const telescopes = Array.from(new Set(observations.map(o => (o.telescope || "").trim()).filter(Boolean)));
+    scopeSelect.innerHTML = '<option value="all">🔭 All Telescopes</option>' + 
+      telescopes.map(t => `<option value="${t}">${t}</option>`).join("");
+    if (telescopes.includes(currentVal)) {
+      scopeSelect.value = currentVal;
+    }
+  }
+
+  // Get Filter & Search Inputs
+  const searchVal = (document.getElementById("obs-history-search")?.value || "").toLowerCase().trim();
+  const dateVal = document.getElementById("obs-history-filter-date")?.value || "all";
+  const scopeVal = document.getElementById("obs-history-filter-telescope")?.value || "all";
+  const typeVal = document.getElementById("obs-history-filter-type")?.value || "all";
+  const sortVal = document.getElementById("obs-history-sort")?.value || "newest";
+  const favOnly = document.getElementById("obs-history-fav-toggle")?.getAttribute("data-active") === "true";
+
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  // Filter Observations
+  let filtered = observations.filter(obs => {
+    // 1. Favorites Filter
+    if (favOnly && !obs.isFavorite) return false;
+
+    // 2. Search Text Matching
+    if (searchVal) {
+      const objectsStr = Array.isArray(obs.objects) ? obs.objects.join(" ") : (obs.objects || "");
+      const matchTitle = (obs.title || "").toLowerCase().includes(searchVal);
+      const matchLocation = (obs.location || "").toLowerCase().includes(searchVal);
+      const matchTelescope = (obs.telescope || "").toLowerCase().includes(searchVal);
+      const matchNotes = (obs.notes || "").toLowerCase().includes(searchVal);
+      const matchObjects = objectsStr.toLowerCase().includes(searchVal);
+
+      if (!matchTitle && !matchLocation && !matchTelescope && !matchNotes && !matchObjects) return false;
+    }
+
+    // 3. Telescope Filter
+    if (scopeVal !== "all") {
+      if ((obs.telescope || "").trim() !== scopeVal) return false;
+    }
+
+    // 4. Object Type Filter
+    if (typeVal !== "all") {
+      const objectsArr = Array.isArray(obs.objects) ? obs.objects : (typeof obs.objects === "string" && obs.objects ? obs.objects.split(",") : []);
+      const objectsCombined = objectsArr.join(" ").toLowerCase();
+
+      if (typeVal === "messier" && !/\bm\d{1,3}\b/i.test(objectsCombined)) return false;
+      if (typeVal === "ngc" && !/\bngc\d{1,4}\b/i.test(objectsCombined)) return false;
+      if (typeVal === "planet" && !/\b(jupiter|saturn|mars|venus|mercury|uranus|neptune)\b/i.test(objectsCombined)) return false;
+      if (typeVal === "moon" && !/\b(moon|lunar)\b/i.test(objectsCombined)) return false;
+    }
+
+    // 5. Date Filter
+    if (dateVal !== "all" && obs.date) {
+      const obsDate = new Date(obs.date + "T00:00:00");
+      if (!isNaN(obsDate.getTime())) {
+        if (dateVal === "today" && obsDate < startOfToday) return false;
+        if (dateVal === "week") {
+          const sevenDaysAgo = new Date(startOfToday);
+          sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+          if (obsDate < sevenDaysAgo) return false;
+        }
+        if (dateVal === "month") {
+          const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+          if (obsDate < startOfMonth) return false;
+        }
+      }
+    }
+
+    return true;
+  });
+
+  // Sort Observations
+  filtered.sort((a, b) => {
+    if (sortVal === "favorites") {
+      if (a.isFavorite && !b.isFavorite) return -1;
+      if (!a.isFavorite && b.isFavorite) return 1;
+    }
+    if (sortVal === "most-objects") {
+      const aLen = Array.isArray(a.objects) ? a.objects.length : (a.objects ? String(a.objects).split(",").length : 0);
+      const bLen = Array.isArray(b.objects) ? b.objects.length : (b.objects ? String(b.objects).split(",").length : 0);
+      if (bLen !== aLen) return bLen - aLen;
+    }
+    
+    const dateA = new Date((a.date || "") + "T" + (a.startTime || "00:00"));
+    const dateB = new Date((b.date || "") + "T" + (b.startTime || "00:00"));
+    const timeA = !isNaN(dateA.getTime()) ? dateA.getTime() : 0;
+    const timeB = !isNaN(dateB.getTime()) ? dateB.getTime() : 0;
+
+    if (sortVal === "oldest") {
+      return timeA - timeB;
+    }
+    // Default newest first
+    return timeB - timeA;
+  });
+
+  // Render Empty State if no matches
+  if (!filtered.length) {
+    historyContainer.innerHTML = `
+      <div class="obs-no-match-card" style="grid-column: 1 / -1;">
+        <span style="font-size: 2rem; display: block; margin-bottom: 8px;">🔍</span>
+        No observations match your selected search or filters.
+      </div>
+    `;
     return;
   }
 
-  if (emptyCard) emptyCard.style.display = "none";
-  if (calendarContainer) calendarContainer.style.display = "flex";
+  // Render History Cards
+  historyContainer.innerHTML = filtered.map(obs => {
+    const objectsArr = Array.isArray(obs.objects) ? obs.objects : (typeof obs.objects === "string" && obs.objects ? obs.objects.split(",") : []);
+    const isFav = Boolean(obs.isFavorite);
+    const objectsPreview = objectsArr.slice(0, 4);
+    const remainingCount = objectsArr.length - objectsPreview.length;
 
-  renderTimelineCalendar();
+    return `
+      <div class="obs-history-card ${isFav ? 'is-favorite' : ''}">
+        <div>
+          <div class="card-header-row">
+            <div>
+              <h4 class="card-obs-title">${obs.title || "Untitled Observation"}</h4>
+              <div class="card-obs-meta">
+                <span>📅 ${obs.date || "Unknown Date"}</span>
+                ${obs.startTime ? `<span>⏱️ ${obs.startTime}${obs.endTime ? ' - ' + obs.endTime : ''}</span>` : ''}
+              </div>
+            </div>
+            <button type="button" class="card-fav-star ${isFav ? 'active' : ''}" data-id="${obs.id}" title="${isFav ? 'Unmark Favorite' : 'Mark Favorite'}">
+              ${isFav ? '★' : '☆'}
+            </button>
+          </div>
+
+          <div class="card-details-grid" style="margin-top: 12px;">
+            <div class="card-detail-item" title="Location">
+              <span class="icon">📍</span> ${obs.location || "N/A"}
+            </div>
+            <div class="card-detail-item" title="Telescope">
+              <span class="icon">🔭</span> ${obs.telescope || "N/A"}
+            </div>
+            <div class="card-detail-item" title="Weather">
+              <span class="icon">🌤️</span> ${obs.weather || "Clear"}
+            </div>
+            <div class="card-detail-item" title="Seeing & Transparency">
+              <span class="icon">👁️</span> S:${obs.seeing || 3}/5 | T:${obs.transparency || 3}/5
+            </div>
+          </div>
+
+          ${objectsArr.length ? `
+            <div class="card-objects-badges">
+              ${objectsPreview.map(o => `<span class="obs-tag-badge">${o.trim()}</span>`).join("")}
+              ${remainingCount > 0 ? `<span class="obs-tag-badge">+${remainingCount} more</span>` : ''}
+            </div>
+          ` : ''}
+
+          ${obs.notes ? `
+            <p class="card-notes-preview" style="margin-top: 8px;">"${obs.notes}"</p>
+          ` : ''}
+        </div>
+
+        <div class="card-footer-actions">
+          <div class="card-action-group">
+            <button type="button" class="obs-btn-sm view-obs-btn" data-id="${obs.id}">👁️ View</button>
+            <button type="button" class="obs-btn-sm history-edit-btn" data-id="${obs.id}">✏️ Edit</button>
+            <button type="button" class="obs-btn-sm dup-obs-btn" data-id="${obs.id}">📋 Copy</button>
+          </div>
+          <button type="button" class="obs-btn-sm delete-btn history-del-btn" data-id="${obs.id}" title="Delete Observation">🗑️</button>
+        </div>
+      </div>
+    `;
+  }).join("");
 }
 
 function renderTimelineCalendar() {

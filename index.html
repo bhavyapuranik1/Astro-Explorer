@@ -679,6 +679,52 @@ gtag('config', 'G-9747XL0FQQ');
     </div>
   </div>
 
+  <!-- Observation History Section -->
+  <section class="observation-history-section" aria-label="Observation History Sessions">
+    <div class="history-controls-header">
+      <h3 class="history-section-title">📜 Observation History</h3>
+      <div class="history-filters-bar">
+        <div class="history-search-box">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="obs-history-search" class="history-input" placeholder="Search history notes, objects, titles...">
+        </div>
+
+        <select id="obs-history-filter-date" class="history-select">
+          <option value="all">📅 All Dates</option>
+          <option value="today">Today</option>
+          <option value="week">This Week</option>
+          <option value="month">This Month</option>
+        </select>
+
+        <select id="obs-history-filter-telescope" class="history-select">
+          <option value="all">🔭 All Telescopes</option>
+        </select>
+
+        <select id="obs-history-filter-type" class="history-select">
+          <option value="all">🌌 All Object Types</option>
+          <option value="messier">Messier (M)</option>
+          <option value="ngc">NGC Catalog</option>
+          <option value="planet">Planets</option>
+          <option value="moon">Moon</option>
+        </select>
+
+        <button type="button" id="obs-history-fav-toggle" class="history-fav-btn" data-active="false">
+          ⭐ Favorites Only
+        </button>
+
+        <select id="obs-history-sort" class="history-select">
+          <option value="newest">⌛ Sort: Newest First</option>
+          <option value="oldest">⏳ Sort: Oldest First</option>
+          <option value="most-objects">🌌 Sort: Most Objects</option>
+          <option value="favorites">⭐ Sort: Favorites First</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Observation Cards Grid -->
+    <div id="observation-history-list" class="observation-history-grid"></div>
+  </section>
+
   <!-- 5. Observation Timeline Calendar Container -->
   <div id="observation-calendar-container" class="observation-calendar-container">
     <div class="calendar-header">
@@ -866,6 +912,21 @@ gtag('config', 'G-9747XL0FQQ');
         <button type="button" id="save-observation-btn" class="modal-btn btn-primary">Save Observation</button>
       </div>
     </form>
+  </div>
+</div>
+
+<!-- 👁️ FULL OBSERVATION VIEW MODAL -->
+<div id="observation-view-modal" class="modal-backdrop hidden" tabindex="-1" role="dialog" aria-modal="true">
+  <div class="modal-card full-view-modal">
+    <div class="modal-header">
+      <h3 id="view-obs-title" class="modal-title">Observation Details</h3>
+      <button type="button" class="modal-close-btn" id="close-obs-view-btn" aria-label="Close modal">✕</button>
+    </div>
+    <div class="modal-body" id="view-obs-body"></div>
+    <div class="modal-footer">
+      <button type="button" class="modal-btn btn-secondary" id="view-obs-close-btn">Close</button>
+      <button type="button" class="modal-btn btn-primary" id="view-obs-edit-btn">✏️ Edit Session</button>
+    </div>
   </div>
 </div>
 
