@@ -785,17 +785,27 @@ gtag('config', 'G-9747XL0FQQ');
           <option value="spirit">Spirit</option>
         </select>
       </label>
-      <label>Sol (Martian Day):
-        <input type="number" id="mars-sol-input" value="1000" min="1" max="4000" style="width:90px;" />
+      <label>Date Type:
+        <select id="mars-date-type-select">
+          <option value="sol" selected>Sol (Martian Day)</option>
+          <option value="earth_date">Earth Date</option>
+        </select>
+      </label>
+      <label id="mars-sol-label">Sol:
+        <input type="number" id="mars-sol-input" value="1000" min="0" max="5000" style="width:90px;" />
+      </label>
+      <label id="mars-earth-date-label" style="display:none;">Earth Date:
+        <input type="date" id="mars-earth-date-input" value="2015-05-30" style="width:135px;" />
       </label>
       <label>Camera:
         <select id="mars-camera-select">
           <option value="all">All Cameras</option>
-          <option value="FHAZ">Front Hazard Avoidance</option>
-          <option value="RHAZ">Rear Hazard Avoidance</option>
-          <option value="MAST">Mast Camera (Mastcam)</option>
-          <option value="NAVCAM">Navigation Camera</option>
-          <option value="PANCAM">Panoramic Camera</option>
+          <option value="FHAZ">Front Hazard Avoidance (FHAZ)</option>
+          <option value="RHAZ">Rear Hazard Avoidance (RHAZ)</option>
+          <option value="MAST">Mast Camera (MAST)</option>
+          <option value="CHEMCAM">Chemistry & Camera (CHEMCAM)</option>
+          <option value="NAVCAM">Navigation Camera (NAVCAM)</option>
+          <option value="PANCAM">Panoramic Camera (PANCAM)</option>
         </select>
       </label>
       <button type="button" id="mars-load-btn" class="nasa-btn-primary">Fetch Mars Photos</button>

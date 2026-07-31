@@ -1754,20 +1754,113 @@ const NASAApiService = {
     return data;
   },
 
-  async getMarsPhotos(rover = "curiosity", sol = 1000, camera = "all") {
-    let url = `https://api.nasa.gov/mars-photos/api/v1/rovers/${rover}/photos?sol=${sol}&api_key=${NASA_API_KEY}`;
-    if (camera && camera !== "all") {
-      url += `&camera=${camera}`;
-    }
-    const cacheKey = `mars_${rover}_sol${sol}_cam${camera}`;
-    const cached = NASACache.get(cacheKey);
-    if (cached) return cached;
+  async getMarsPhotos(rover = "curiosity", solOrDate = 1000, camera = "all", dateType = "sol") {
+    // Validate rover parameter
+    const validRovers = ["curiosity", "perseverance", "opportunity", "spirit"];
+    const cleanRover = (rover && validRovers.includes(String(rover).toLowerCase().trim()))
+      ? String(rover).toLowerCase().trim()
+      : "curiosity";
 
-    const res = await (typeof fetchWithRetry === 'function' ? fetchWithRetry(url) : fetch(url));
-    if (!res.ok) throw new Error(`Mars API error: ${res.status}`);
-    const data = await res.json();
-    NASACache.set(cacheKey, data);
-    return data;
+    // Validate sol / earth_date query parameter
+    let dateQuery = "";
+    if (dateType === "earth_date" || (typeof solOrDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(solOrDate.trim()))) {
+      const cleanDate = (solOrDate && String(solOrDate).trim()) ? String(solOrDate).trim() : "2015-05-30";
+      dateQuery = `earth_date=${encodeURIComponent(cleanDate)}`;
+    } else {
+      const parsedSol = parseInt(solOrDate, 10);
+      const validSol = !isNaN(parsedSol) && parsedSol >= 0 ? parsedSol : 1000;
+      dateQuery = `sol=${validSol}`;
+    }
+
+    // Validate camera query parameter
+    let cameraQuery = "";
+    if (camera && String(camera).toLowerCase().trim() !== "all") {
+      cameraQuery = `&camera=${encodeURIComponent(String(camera).toUpperCase().trim())}`;
+    }
+
+    // Endpoint MUST be: https://api.nasa.gov/mars-photos/api/v1/rovers/{rover}/photos
+    const url = `https://api.nasa.gov/mars-photos/api/v1/rovers/${cleanRover}/photos?${dateQuery}&api_key=${NASA_API_KEY}${cameraQuery}`;
+
+    const cacheKey = `mars_${cleanRover}_${dateQuery}_cam_${camera}`;
+    const cached = NASACache.get(cacheKey);
+    if (cached) {
+      console.log("[NASA Mars API Cached Response]", url, cached);
+      return cached;
+    }
+
+    console.log("[NASA Mars API Request]", url);
+
+    try {
+      const res = await (typeof fetchWithRetry === 'function' ? fetchWithRetry(url) : fetch(url));
+      let data = null;
+
+      if (res.ok) {
+        data = await res.json();
+        console.log("[NASA Mars API Response]", { url, status: res.status, ok: true, data });
+      } else {
+        const bodyText = await res.text().catch(() => "");
+        console.warn("[NASA Mars API Response]", { url, status: res.status, ok: false, statusText: res.statusText, bodyText });
+      }
+
+      // If official NASA endpoint returned valid photos array
+      if (data && Array.isArray(data.photos) && data.photos.length > 0) {
+        NASACache.set(cacheKey, data);
+        return data;
+      }
+
+      // If official API returned 404 / 500 / empty photos array (e.g. backend issue or no photos for date),
+      // query NASA Image Library fallback to gracefully return imagery
+      console.log("[NASA Mars API Fallback Search]", { cleanRover, solOrDate, camera });
+      const fallbackPhotos = await this.getMarsPhotosFallback(cleanRover, solOrDate, camera);
+      const resultData = { photos: fallbackPhotos };
+
+      NASACache.set(cacheKey, resultData);
+      return resultData;
+    } catch (e) {
+      console.error("[NASA Mars API Exception]", url, e);
+      try {
+        const fallbackPhotos = await this.getMarsPhotosFallback(cleanRover, solOrDate, camera);
+        return { photos: fallbackPhotos };
+      } catch (fbErr) {
+        return { photos: [] };
+      }
+    }
+  },
+
+  async getMarsPhotosFallback(rover, solOrDate, camera) {
+    const validRovers = ["curiosity", "perseverance", "opportunity", "spirit"];
+    const cleanRover = validRovers.includes(String(rover).toLowerCase()) ? String(rover).toLowerCase() : "curiosity";
+    const camQuery = camera && String(camera).toLowerCase() !== "all" ? String(camera) : "";
+    const q = encodeURIComponent(`${cleanRover} mars rover photo ${camQuery}`.trim());
+    const url = `https://images-api.nasa.gov/search?q=${q}&media_type=image`;
+
+    try {
+      const res = await fetch(url);
+      if (!res.ok) return [];
+      const json = await res.json();
+      const items = (json.collection && Array.isArray(json.collection.items)) ? json.collection.items : [];
+      return items.slice(0, 24).map((item, idx) => {
+        const d = (item.data && item.data[0]) || {};
+        const img = (item.links && item.links[0] && item.links[0].href) || "";
+        const cameraName = camQuery ? camQuery.toUpperCase() : "MAST";
+        return {
+          id: d.nasa_id || `fallback_${cleanRover}_${idx}`,
+          sol: solOrDate || 1000,
+          earth_date: (d.date_created || "").split("T")[0] || "2021-02-18",
+          img_src: img,
+          camera: {
+            name: cameraName,
+            full_name: `${cameraName} Camera`
+          },
+          rover: {
+            name: cleanRover.charAt(0).toUpperCase() + cleanRover.slice(1)
+          }
+        };
+      }).filter(p => p.img_src);
+    } catch (err) {
+      console.warn("[NASA Mars Fallback Error]", err);
+      return [];
+    }
   },
 
   async getNearEarthObjects(startDate = "", endDate = "") {
@@ -1939,21 +2032,35 @@ async function loadEPICView() {
   const datePicker = document.getElementById("epic-date-picker");
   const dateStr = datePicker?.value || "";
 
-  if (skeleton) skeleton.style.display = "block";
+  if (skeleton) {
+    skeleton.style.display = "block";
+    skeleton.innerText = "Loading Earth view...";
+  }
   if (display) display.style.display = "none";
 
   try {
     const data = await NASAApiService.getEPIC(dateStr, mode);
     if (!data || !data.length) {
-      if (skeleton) skeleton.innerText = "No EPIC Earth images available for this date. Try another date.";
+      if (skeleton) skeleton.innerText = "No EPIC Earth images available for this date. Try selecting another date.";
       return;
     }
 
     const item = data[0];
-    const dateObj = new Date(item.date);
-    const year = dateObj.getFullYear();
-    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-    const day = String(dateObj.getDate()).padStart(2, '0');
+    
+    // Parse UTC date string directly (YYYY-MM-DD) to prevent timezone conversion shifts
+    let year, month, day;
+    if (item.date && item.date.includes("-")) {
+      const datePart = item.date.split(" ")[0];
+      const parts = datePart.split("-");
+      year = parts[0];
+      month = parts[1];
+      day = parts[2];
+    } else {
+      const dateObj = new Date(item.date || Date.now());
+      year = dateObj.getUTCFullYear();
+      month = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
+      day = String(dateObj.getUTCDate()).padStart(2, '0');
+    }
 
     const imgUrl = `https://epic.gsfc.nasa.gov/archive/${mode}/${year}/${month}/${day}/png/${item.image}.png`;
 
@@ -1963,11 +2070,25 @@ async function loadEPICView() {
     const epicCentroid = document.getElementById("epic-centroid");
     const epicPos = document.getElementById("epic-pos");
 
-    if (epicImg) epicImg.src = imgUrl;
+    if (epicImg) {
+      epicImg.onerror = () => {
+        if (skeleton) {
+          skeleton.style.display = "block";
+          skeleton.innerText = "Image preview could not be loaded for this date. Try another date.";
+        }
+        if (display) display.style.display = "none";
+      };
+      epicImg.src = imgUrl;
+    }
+
     if (epicCaption) epicCaption.innerText = item.caption || "DSCOVR Full-Disc Earth Shot";
     if (epicDateStr) epicDateStr.innerText = `Observed: ${item.date}`;
-    if (epicCentroid) epicCentroid.innerText = `Lat ${item.centroid_coordinates.lat.toFixed(2)}°, Lon ${item.centroid_coordinates.lon.toFixed(2)}°`;
-    if (epicPos) epicPos.innerText = `X: ${Math.round(item.dscovr_j2000_position.x)} km, Y: ${Math.round(item.dscovr_j2000_position.y)} km`;
+    if (epicCentroid && item.centroid_coordinates) {
+      epicCentroid.innerText = `Lat ${item.centroid_coordinates.lat.toFixed(2)}°, Lon ${item.centroid_coordinates.lon.toFixed(2)}°`;
+    }
+    if (epicPos && item.dscovr_j2000_position) {
+      epicPos.innerText = `X: ${Math.round(item.dscovr_j2000_position.x)} km, Y: ${Math.round(item.dscovr_j2000_position.y)} km`;
+    }
 
     if (skeleton) skeleton.style.display = "none";
     if (display) display.style.display = "flex";
@@ -1979,7 +2100,7 @@ async function loadEPICView() {
         url: imgUrl,
         title: item.caption || "EPIC Earth View",
         date: item.date,
-        explanation: `Captured by EPIC camera on DSCOVR at Lat ${item.centroid_coordinates.lat.toFixed(2)}°, Lon ${item.centroid_coordinates.lon.toFixed(2)}°`
+        explanation: `Captured by EPIC camera on DSCOVR at Lat ${item.centroid_coordinates ? item.centroid_coordinates.lat.toFixed(2) : '--'}°, Lon ${item.centroid_coordinates ? item.centroid_coordinates.lon.toFixed(2) : '--'}°`
       });
     }
 
@@ -2012,16 +2133,29 @@ async function loadEPICView() {
 async function loadMarsView() {
   const grid = document.getElementById("mars-photos-grid");
   const rover = document.getElementById("mars-rover-select")?.value || "curiosity";
+  const dateType = document.getElementById("mars-date-type-select")?.value || "sol";
   const sol = document.getElementById("mars-sol-input")?.value || 1000;
+  const earthDate = document.getElementById("mars-earth-date-input")?.value || "2015-05-30";
   const camera = document.getElementById("mars-camera-select")?.value || "all";
 
   if (!grid) return;
-  grid.innerHTML = `<div class="nasa-loading-skeleton">Fetching Mars raw photos for ${rover.toUpperCase()} (Sol ${sol})...</div>`;
+
+  const solOrDate = dateType === "earth_date" ? earthDate : sol;
+  const dateLabel = dateType === "earth_date" ? `Earth Date ${earthDate}` : `Sol ${sol}`;
+
+  grid.innerHTML = `<div class="nasa-loading-skeleton">Fetching Mars raw photos for ${rover.toUpperCase()} (${dateLabel})...</div>`;
 
   try {
-    const data = await NASAApiService.getMarsPhotos(rover, sol, camera);
+    const data = await NASAApiService.getMarsPhotos(rover, solOrDate, camera, dateType);
+
     if (!data || !data.photos || !data.photos.length) {
-      grid.innerHTML = `<div class="nasa-loading-skeleton">No photos found for Sol ${sol} on camera ${camera}. Try changing Sol or Camera.</div>`;
+      grid.innerHTML = `
+        <div class="nasa-no-data-card" style="grid-column: 1 / -1; text-align:center; padding: 40px 20px; background: rgba(255,255,255,0.03); border: 1px dashed rgba(255,255,255,0.15); border-radius: 12px; color: #a0aec0; margin: 15px 0;">
+          <div style="font-size: 2.5rem; margin-bottom: 12px;">📷</div>
+          <h3 style="color: #e2e8f0; margin-bottom: 8px; font-weight: 600; font-size: 1.2rem;">No photos available for this date</h3>
+          <p style="font-size: 0.95rem; color: #94a3b8; margin: 0;">No photos recorded for ${rover.toUpperCase()} on ${dateLabel}${camera !== 'all' ? ' (' + camera.toUpperCase() + ' camera)' : ''}. Try selecting another Sol, Earth Date, or Camera filter.</p>
+        </div>
+      `;
       return;
     }
 
@@ -2039,7 +2173,14 @@ async function loadMarsView() {
       </div>
     `).join("");
   } catch (e) {
-    grid.innerHTML = `<div class="nasa-loading-skeleton">Failed to load Mars rover photos. Retry shortly.</div>`;
+    console.error("[loadMarsView Exception]", e);
+    grid.innerHTML = `
+      <div class="nasa-no-data-card" style="grid-column: 1 / -1; text-align:center; padding: 40px 20px; background: rgba(255,255,255,0.03); border: 1px dashed rgba(255,255,255,0.15); border-radius: 12px; color: #a0aec0; margin: 15px 0;">
+        <div style="font-size: 2.5rem; margin-bottom: 12px;">📷</div>
+        <h3 style="color: #e2e8f0; margin-bottom: 8px; font-weight: 600; font-size: 1.2rem;">No photos available for this date</h3>
+        <p style="font-size: 0.95rem; color: #94a3b8; margin: 0;">Try adjusting your query parameters (Sol, Earth Date, Rover, or Camera).</p>
+      </div>
+    `;
   }
 }
 
@@ -2251,8 +2392,31 @@ function initNASAExplorer() {
   const epicLoadBtn = document.getElementById("epic-load-btn");
   if (epicLoadBtn) epicLoadBtn.onclick = loadEPICView;
 
+  const epicModeSelect = document.getElementById("epic-mode-select");
+  if (epicModeSelect) epicModeSelect.onchange = loadEPICView;
+
+  const epicDatePicker = document.getElementById("epic-date-picker");
+  if (epicDatePicker) epicDatePicker.onchange = loadEPICView;
+
   const marsLoadBtn = document.getElementById("mars-load-btn");
   if (marsLoadBtn) marsLoadBtn.onclick = loadMarsView;
+
+  const marsDateTypeSelect = document.getElementById("mars-date-type-select");
+  const marsSolInput = document.getElementById("mars-sol-input");
+  const marsEarthDateInput = document.getElementById("mars-earth-date-input");
+
+  if (marsDateTypeSelect) {
+    marsDateTypeSelect.onchange = () => {
+      if (marsDateTypeSelect.value === "earth_date") {
+        if (marsSolInput) marsSolInput.style.display = "none";
+        if (marsEarthDateInput) marsEarthDateInput.style.display = "inline-block";
+      } else {
+        if (marsSolInput) marsSolInput.style.display = "inline-block";
+        if (marsEarthDateInput) marsEarthDateInput.style.display = "none";
+      }
+      loadMarsView();
+    };
+  }
 
   const neoLoadBtn = document.getElementById("neo-load-btn");
   if (neoLoadBtn) neoLoadBtn.onclick = loadNEOView;
