@@ -1681,6 +1681,630 @@ function cleanNASAOldCache() {
 }
 
 
+/* ===================================================
+   🚀 CENTRALIZED NASA API SERVICE & EXPLORER MODULE
+   =================================================== */
+
+const NASA_API_KEY = "7jYgA8NDOyNHfLpSbuEP2uncSWByYecDXKkYa6bJ";
+
+const NASACache = {
+  get(key) {
+    try {
+      const raw = localStorage.getItem(`NASA_CACHE_${key}`);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (Date.now() - parsed.timestamp > 86400000) { // 24h TTL
+        localStorage.removeItem(`NASA_CACHE_${key}`);
+        return null;
+      }
+      return parsed.data;
+    } catch (e) {
+      return null;
+    }
+  },
+  set(key, data) {
+    try {
+      localStorage.setItem(`NASA_CACHE_${key}`, JSON.stringify({
+        timestamp: Date.now(),
+        data
+      }));
+    } catch (e) {
+      console.warn("NASA cache save error:", e);
+    }
+  }
+};
+
+const NASAApiService = {
+  async getAPOD(dateStr = "") {
+    const cacheKey = `apod_${dateStr || 'today'}`;
+    const cached = NASACache.get(cacheKey);
+    if (cached) return cached;
+
+    const url = `https://api.nasa.gov/planetary/apod?api_key=${NASA_API_KEY}${dateStr ? `&date=${dateStr}` : ''}`;
+    const res = await (typeof fetchWithRetry === 'function' ? fetchWithRetry(url) : fetch(url));
+    if (!res.ok) throw new Error(`APOD API error: ${res.status}`);
+    const data = await res.json();
+    NASACache.set(cacheKey, data);
+    return data;
+  },
+
+  async getAPODRandom() {
+    const url = `https://api.nasa.gov/planetary/apod?api_key=${NASA_API_KEY}&count=1`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("APOD random fetch error");
+    const data = await res.json();
+    return data[0];
+  },
+
+  async getEPIC(dateStr = "", mode = "natural") {
+    let endpoint = `https://api.nasa.gov/EPIC/api/${mode}`;
+    if (dateStr) {
+      endpoint += `/date/${dateStr}`;
+    }
+    endpoint += `?api_key=${NASA_API_KEY}`;
+
+    const cacheKey = `epic_${mode}_${dateStr || 'latest'}`;
+    const cached = NASACache.get(cacheKey);
+    if (cached) return cached;
+
+    const res = await (typeof fetchWithRetry === 'function' ? fetchWithRetry(endpoint) : fetch(endpoint));
+    if (!res.ok) throw new Error(`EPIC API error: ${res.status}`);
+    const data = await res.json();
+    NASACache.set(cacheKey, data);
+    return data;
+  },
+
+  async getMarsPhotos(rover = "curiosity", sol = 1000, camera = "all") {
+    let url = `https://api.nasa.gov/mars-photos/api/v1/rovers/${rover}/photos?sol=${sol}&api_key=${NASA_API_KEY}`;
+    if (camera && camera !== "all") {
+      url += `&camera=${camera}`;
+    }
+    const cacheKey = `mars_${rover}_sol${sol}_cam${camera}`;
+    const cached = NASACache.get(cacheKey);
+    if (cached) return cached;
+
+    const res = await (typeof fetchWithRetry === 'function' ? fetchWithRetry(url) : fetch(url));
+    if (!res.ok) throw new Error(`Mars API error: ${res.status}`);
+    const data = await res.json();
+    NASACache.set(cacheKey, data);
+    return data;
+  },
+
+  async getNearEarthObjects(startDate = "", endDate = "") {
+    const today = new Date().toISOString().split("T")[0];
+    const sDate = startDate || today;
+    const eDate = endDate || today;
+    const url = `https://api.nasa.gov/neo/rest/v1/feed?start_date=${sDate}&end_date=${eDate}&api_key=${NASA_API_KEY}`;
+
+    const cacheKey = `neo_${sDate}_${eDate}`;
+    const cached = NASACache.get(cacheKey);
+    if (cached) return cached;
+
+    const res = await (typeof fetchWithRetry === 'function' ? fetchWithRetry(url) : fetch(url));
+    if (!res.ok) throw new Error(`NeoWs API error: ${res.status}`);
+    const data = await res.json();
+    NASACache.set(cacheKey, data);
+    return data;
+  },
+
+  async searchNASALibrary(query = "astronomy", mediaType = "image") {
+    const url = `https://images-api.nasa.gov/search?q=${encodeURIComponent(query)}&media_type=${mediaType}`;
+    const cacheKey = `library_${query}_${mediaType}`;
+    const cached = NASACache.get(cacheKey);
+    if (cached) return cached;
+
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Library API error: ${res.status}`);
+    const data = await res.json();
+    NASACache.set(cacheKey, data);
+    return data;
+  }
+};
+
+/* FAVORITES SYSTEM */
+function getNASAFavorites() {
+  try {
+    return JSON.parse(localStorage.getItem("nasaFavorites") || "[]");
+  } catch (e) {
+    return [];
+  }
+}
+
+function updateNASAFavBadge() {
+  const countEl = document.getElementById("nasa-fav-count");
+  if (countEl) {
+    countEl.innerText = getNASAFavorites().length;
+  }
+}
+
+function toggleNASAFavorite(item) {
+  let favs = getNASAFavorites();
+  const id = item.id || item.url || item.name;
+  const idx = favs.findIndex(f => (f.id || f.url || f.name) === id);
+
+  if (idx >= 0) {
+    favs.splice(idx, 1);
+    if (typeof showToast === "function") showToast("⭐ Removed from NASA Favorites");
+  } else {
+    favs.push({
+      ...item,
+      id,
+      savedAt: new Date().toISOString()
+    });
+    if (typeof showToast === "function") showToast("⭐ Added to NASA Favorites!");
+  }
+
+  localStorage.setItem("nasaFavorites", JSON.stringify(favs));
+  updateNASAFavBadge();
+}
+
+/* SHARED IMAGE LIGHTBOX VIEWER */
+let currentModalItem = null;
+
+function openNASAImageViewer(mediaItem) {
+  currentModalItem = mediaItem;
+  const modal = document.getElementById("nasa-image-viewer-modal");
+  const img = document.getElementById("nasa-modal-img");
+  const title = document.getElementById("nasa-modal-title");
+  const subtitle = document.getElementById("nasa-modal-date");
+  const desc = document.getElementById("nasa-modal-desc");
+
+  if (!modal || !img) return;
+
+  img.src = mediaItem.url || mediaItem.hdurl || mediaItem.src || "";
+  if (title) title.innerText = mediaItem.title || mediaItem.name || "NASA Media View";
+  if (subtitle) subtitle.innerText = mediaItem.date || mediaItem.sol ? `Sol ${mediaItem.sol}` : "";
+  if (desc) desc.innerText = mediaItem.explanation || mediaItem.desc || mediaItem.caption || "";
+
+  modal.style.display = "flex";
+}
+
+function closeNASAImageViewer() {
+  const modal = document.getElementById("nasa-image-viewer-modal");
+  if (modal) modal.style.display = "none";
+}
+
+/* MAIN NASA EXPLORER HUB CONTROLLER */
+let currentNASAView = "home";
+
+function switchNASAView(targetView) {
+  currentNASAView = targetView;
+
+  // Nav buttons
+  document.querySelectorAll(".nasa-nav-btn").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.nasaView === targetView);
+  });
+
+  // Subviews
+  document.querySelectorAll(".nasa-subview").forEach(sub => {
+    sub.classList.toggle("active", sub.id === `nasa-view-${targetView}`);
+  });
+
+  // Breadcrumb
+  const breadcrumb = document.getElementById("nasa-breadcrumb");
+  if (breadcrumb) {
+    const viewNames = {
+      home: "Home",
+      apod: "Astronomy Picture of the Day",
+      epic: "EPIC Earth Imaging",
+      mars: "Mars Rover Photos",
+      neo: "Near Earth Objects",
+      library: "NASA Media Library",
+      favorites: "Saved Favorites"
+    };
+    breadcrumb.innerText = `NASA Explorer > ${viewNames[targetView] || targetView}`;
+  }
+
+  // Load target view content
+  if (targetView === "home") loadNASAHomeHub();
+  else if (targetView === "apod") loadNASA();
+  else if (targetView === "epic") loadEPICView();
+  else if (targetView === "mars") loadMarsView();
+  else if (targetView === "neo") loadNEOView();
+  else if (targetView === "library") loadLibraryView();
+  else if (targetView === "favorites") loadFavoritesView();
+}
+
+async function loadNASAHomeHub() {
+  try {
+    // 1. Fetch APOD for hero preview
+    const apod = await NASAApiService.getAPOD();
+    const homeApodImg = document.getElementById("home-card-apod-img");
+    if (homeApodImg && apod && apod.url) {
+      homeApodImg.src = apod.url;
+    }
+
+    // 2. Fetch NEO count
+    const neoData = await NASAApiService.getNearEarthObjects();
+    if (neoData && neoData.element_count) {
+      const astStat = document.getElementById("nasa-stat-asteroids");
+      if (astStat) astStat.innerText = neoData.element_count;
+    }
+
+    // 3. Set stat items
+    const solStat = document.getElementById("nasa-stat-rover-sol");
+    if (solStat) solStat.innerText = "Sol 1000+";
+
+    const epicStat = document.getElementById("nasa-stat-epic-date");
+    if (epicStat) epicStat.innerText = "DSCOVR L1";
+  } catch (e) {
+    console.warn("NASA Home Hub load error:", e);
+  }
+}
+
+async function loadEPICView() {
+  const display = document.getElementById("epic-display");
+  const skeleton = document.getElementById("epic-skeleton");
+  const mode = document.getElementById("epic-mode-select")?.value || "natural";
+  const datePicker = document.getElementById("epic-date-picker");
+  const dateStr = datePicker?.value || "";
+
+  if (skeleton) skeleton.style.display = "block";
+  if (display) display.style.display = "none";
+
+  try {
+    const data = await NASAApiService.getEPIC(dateStr, mode);
+    if (!data || !data.length) {
+      if (skeleton) skeleton.innerText = "No EPIC Earth images available for this date. Try another date.";
+      return;
+    }
+
+    const item = data[0];
+    const dateObj = new Date(item.date);
+    const year = dateObj.getFullYear();
+    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const day = String(dateObj.getDate()).padStart(2, '0');
+
+    const imgUrl = `https://epic.gsfc.nasa.gov/archive/${mode}/${year}/${month}/${day}/png/${item.image}.png`;
+
+    const epicImg = document.getElementById("epic-img");
+    const epicCaption = document.getElementById("epic-caption");
+    const epicDateStr = document.getElementById("epic-date-str");
+    const epicCentroid = document.getElementById("epic-centroid");
+    const epicPos = document.getElementById("epic-pos");
+
+    if (epicImg) epicImg.src = imgUrl;
+    if (epicCaption) epicCaption.innerText = item.caption || "DSCOVR Full-Disc Earth Shot";
+    if (epicDateStr) epicDateStr.innerText = `Observed: ${item.date}`;
+    if (epicCentroid) epicCentroid.innerText = `Lat ${item.centroid_coordinates.lat.toFixed(2)}°, Lon ${item.centroid_coordinates.lon.toFixed(2)}°`;
+    if (epicPos) epicPos.innerText = `X: ${Math.round(item.dscovr_j2000_position.x)} km, Y: ${Math.round(item.dscovr_j2000_position.y)} km`;
+
+    if (skeleton) skeleton.style.display = "none";
+    if (display) display.style.display = "flex";
+
+    // Bind HD Lightbox button
+    const hdBtn = document.getElementById("epic-hd-btn");
+    if (hdBtn) {
+      hdBtn.onclick = () => openNASAImageViewer({
+        url: imgUrl,
+        title: item.caption || "EPIC Earth View",
+        date: item.date,
+        explanation: `Captured by EPIC camera on DSCOVR at Lat ${item.centroid_coordinates.lat.toFixed(2)}°, Lon ${item.centroid_coordinates.lon.toFixed(2)}°`
+      });
+    }
+
+    // Bind Download button
+    const dlBtn = document.getElementById("epic-download-btn");
+    if (dlBtn) {
+      dlBtn.onclick = () => {
+        const link = document.createElement("a");
+        link.href = imgUrl;
+        link.download = `epic-earth-${item.image}.png`;
+        link.target = "_blank";
+        link.click();
+      };
+    }
+
+    // Bind Fav button
+    const favBtn = document.getElementById("epic-fav-btn");
+    if (favBtn) {
+      favBtn.onclick = () => toggleNASAFavorite({
+        url: imgUrl,
+        title: "EPIC Earth Shot " + item.date,
+        date: item.date
+      });
+    }
+  } catch (e) {
+    if (skeleton) skeleton.innerText = "Unable to fetch EPIC Earth data. Please retry.";
+  }
+}
+
+async function loadMarsView() {
+  const grid = document.getElementById("mars-photos-grid");
+  const rover = document.getElementById("mars-rover-select")?.value || "curiosity";
+  const sol = document.getElementById("mars-sol-input")?.value || 1000;
+  const camera = document.getElementById("mars-camera-select")?.value || "all";
+
+  if (!grid) return;
+  grid.innerHTML = `<div class="nasa-loading-skeleton">Fetching Mars raw photos for ${rover.toUpperCase()} (Sol ${sol})...</div>`;
+
+  try {
+    const data = await NASAApiService.getMarsPhotos(rover, sol, camera);
+    if (!data || !data.photos || !data.photos.length) {
+      grid.innerHTML = `<div class="nasa-loading-skeleton">No photos found for Sol ${sol} on camera ${camera}. Try changing Sol or Camera.</div>`;
+      return;
+    }
+
+    grid.innerHTML = data.photos.slice(0, 24).map(p => `
+      <div class="nasa-media-card">
+        <img src="${p.img_src}" alt="Mars Photo" class="nasa-media-img" onclick="openNASAImageViewer({url: '${p.img_src}', title: '${p.rover.name} Rover - ${p.camera.full_name}', date: 'Sol ${p.sol} (${p.earth_date})', explanation: 'Captured by ${p.camera.full_name} aboard ${p.rover.name}.'})" />
+        <div class="nasa-media-info">
+          <h4 class="nasa-media-title">${p.rover.name} - ${p.camera.name}</h4>
+          <span class="nasa-media-meta">Sol ${p.sol} • ${p.earth_date}</span>
+          <div class="nasa-media-actions">
+            <button type="button" class="nasa-btn-secondary" onclick="openNASAImageViewer({url: '${p.img_src}', title: '${p.rover.name} Rover - ${p.camera.full_name}', date: 'Sol ${p.sol} (${p.earth_date})'})">🔍 View</button>
+            <button type="button" class="nasa-btn-primary" onclick="toggleNASAFavorite({url: '${p.img_src}', title: '${p.rover.name} Sol ${p.sol} (${p.camera.name})', sol: ${p.sol}})">⭐ Fav</button>
+          </div>
+        </div>
+      </div>
+    `).join("");
+  } catch (e) {
+    grid.innerHTML = `<div class="nasa-loading-skeleton">Failed to load Mars rover photos. Retry shortly.</div>`;
+  }
+}
+
+async function loadNEOView() {
+  const grid = document.getElementById("neo-asteroids-grid");
+  const datePicker = document.getElementById("neo-date-picker");
+  const dateStr = datePicker?.value || "";
+  const hazardFilter = document.getElementById("neo-hazard-select")?.value || "all";
+  const sortBy = document.getElementById("neo-sort-select")?.value || "distance";
+
+  if (!grid) return;
+  grid.innerHTML = `<div class="nasa-loading-skeleton">Fetching Near-Earth Asteroid data...</div>`;
+
+  try {
+    const data = await NASAApiService.getNearEarthObjects(dateStr, dateStr);
+    if (!data || !data.near_earth_objects) {
+      grid.innerHTML = `<div class="nasa-loading-skeleton">No asteroid approach records available for date.</div>`;
+      return;
+    }
+
+    let list = Object.values(data.near_earth_objects).flat();
+
+    if (hazardFilter === "hazardous") {
+      list = list.filter(a => a.is_potentially_hazardous_asteroid);
+    }
+
+    // Sort
+    if (sortBy === "distance") {
+      list.sort((a, b) => Number(a.close_approach_data[0]?.miss_distance?.kilometers || 0) - Number(b.close_approach_data[0]?.miss_distance?.kilometers || 0));
+    } else if (sortBy === "size") {
+      list.sort((a, b) => Number(b.estimated_diameter?.meters?.estimated_diameter_max || 0) - Number(a.estimated_diameter?.meters?.estimated_diameter_max || 0));
+    } else if (sortBy === "velocity") {
+      list.sort((a, b) => Number(b.close_approach_data[0]?.relative_velocity?.kilometers_per_hour || 0) - Number(a.close_approach_data[0]?.relative_velocity?.kilometers_per_hour || 0));
+    }
+
+    grid.innerHTML = list.map(a => {
+      const approach = a.close_approach_data[0] || {};
+      const isHaz = a.is_potentially_hazardous_asteroid;
+      const speed = Math.round(Number(approach.relative_velocity?.kilometers_per_hour || 0));
+      const missKm = Math.round(Number(approach.miss_distance?.kilometers || 0));
+      const sizeM = Math.round(Number(a.estimated_diameter?.meters?.estimated_diameter_max || 0));
+
+      return `
+        <div class="nasa-media-card" style="border-top: 4px solid ${isHaz ? '#ef4444' : '#10b981'};">
+          <div class="nasa-media-info">
+            <h4 class="nasa-media-title">${isHaz ? '🔴' : '🟢'} ${a.name}</h4>
+            <span class="nasa-media-meta">Approach Date: ${approach.close_approach_date || 'Today'}</span>
+            <div style="font-size: 0.82rem; color: #cbd5e1; margin-top: 4px; display: flex; flex-direction: column; gap: 4px;">
+              <div>🚀 Velocity: <strong>${speed.toLocaleString()} km/h</strong></div>
+              <div>📏 Diameter: <strong>${sizeM} meters</strong></div>
+              <div>🌍 Miss Distance: <strong>${missKm.toLocaleString()} km</strong></div>
+              <div>⚠️ Hazard Rating: <strong>${isHaz ? 'Potentially Hazardous' : 'Safe Orbit'}</strong></div>
+            </div>
+            <div class="nasa-media-actions" style="margin-top: 10px;">
+              <button type="button" class="nasa-btn-primary" onclick="toggleNASAFavorite({name: '${a.name}', speed: ${speed}, missKm: ${missKm}, isHaz: ${isHaz}})">⭐ Save Asteroid</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join("");
+  } catch (e) {
+    grid.innerHTML = `<div class="nasa-loading-skeleton">Unable to fetch NeoWs asteroid data. Retry.</div>`;
+  }
+}
+
+async function loadLibraryView() {
+  const grid = document.getElementById("library-media-grid");
+  const query = document.getElementById("library-search-input")?.value || "astronomy";
+  const mediaType = document.getElementById("library-media-select")?.value || "image";
+
+  if (!grid) return;
+  grid.innerHTML = `<div class="nasa-loading-skeleton">Searching NASA Media Library for "${query}"...</div>`;
+
+  try {
+    const data = await NASAApiService.searchNASALibrary(query, mediaType);
+    const items = data.collection?.items || [];
+
+    if (!items.length) {
+      grid.innerHTML = `<div class="nasa-loading-skeleton">No NASA media items found matching "${query}".</div>`;
+      return;
+    }
+
+    grid.innerHTML = items.slice(0, 20).map(item => {
+      const d = item.data[0] || {};
+      const links = item.links || [];
+      const thumb = links.find(l => l.rel === "preview")?.href || "";
+
+      return `
+        <div class="nasa-media-card">
+          ${thumb ? `<img src="${thumb}" alt="${d.title}" class="nasa-media-img" onclick="openNASAImageViewer({url: '${thumb}', title: '${(d.title || '').replace(/'/g, "")}', date: '${d.date_created ? d.date_created.split('T')[0] : ''}', explanation: '${(d.description || '').replace(/'/g, "").slice(0, 300)}'})" />` : ''}
+          <div class="nasa-media-info">
+            <h4 class="nasa-media-title">${d.title || 'NASA Media'}</h4>
+            <span class="nasa-media-meta">${d.date_created ? d.date_created.split('T')[0] : ''} • ${d.center || 'NASA'}</span>
+            <div class="nasa-media-actions">
+              ${thumb ? `<button type="button" class="nasa-btn-secondary" onclick="openNASAImageViewer({url: '${thumb}', title: '${(d.title || '').replace(/'/g, "")}', date: '${d.date_created ? d.date_created.split('T')[0] : ''}', explanation: '${(d.description || '').replace(/'/g, "").slice(0, 300)}'})">🔍 View</button>` : ''}
+              <button type="button" class="nasa-btn-primary" onclick="toggleNASAFavorite({title: '${(d.title || '').replace(/'/g, "")}', url: '${thumb}', id: '${d.nasa_id}'})">⭐ Fav</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join("");
+  } catch (e) {
+    grid.innerHTML = `<div class="nasa-loading-skeleton">Error searching NASA media library. Retry.</div>`;
+  }
+}
+
+function loadFavoritesView() {
+  const grid = document.getElementById("nasa-favorites-grid");
+  if (!grid) return;
+
+  const favs = getNASAFavorites();
+  if (!favs.length) {
+    grid.innerHTML = `<div class="nasa-loading-skeleton">No saved NASA favorites yet. Click ⭐ Favorite on any APOD, EPIC Earth shot, Mars photo, or Asteroid card to save items here!</div>`;
+    return;
+  }
+
+  grid.innerHTML = favs.map(f => `
+    <div class="nasa-media-card">
+      ${f.url ? `<img src="${f.url}" alt="${f.title || f.name}" class="nasa-media-img" onclick="openNASAImageViewer({url: '${f.url}', title: '${f.title || f.name}', date: '${f.date || ''}'})" />` : ''}
+      <div class="nasa-media-info">
+        <h4 class="nasa-media-title">${f.title || f.name || 'Saved Favorite'}</h4>
+        <span class="nasa-media-meta">Saved: ${f.savedAt ? f.savedAt.split('T')[0] : 'Recently'}</span>
+        <div class="nasa-media-actions">
+          ${f.url ? `<button type="button" class="nasa-btn-secondary" onclick="openNASAImageViewer({url: '${f.url}', title: '${f.title || f.name}', date: '${f.date || ''}'})">🔍 View</button>` : ''}
+          <button type="button" class="nasa-btn-secondary" style="color:#ef4444;" onclick="toggleNASAFavorite({id: '${f.id}'}); loadFavoritesView();">🗑 Remove</button>
+        </div>
+      </div>
+    </div>
+  `).join("");
+}
+
+/* INITIALIZE NASA EXPLORER BINDINGS */
+function initNASAExplorer() {
+  // Navigation tabs
+  document.querySelectorAll(".nasa-nav-btn").forEach(btn => {
+    btn.addEventListener("click", () => switchNASAView(btn.dataset.nasaView));
+  });
+
+  // Home service card targets
+  document.querySelectorAll(".nasa-service-card").forEach(card => {
+    card.addEventListener("click", () => switchNASAView(card.dataset.viewTarget));
+  });
+
+  // Refresh & Favorites header action buttons
+  const refreshBtn = document.getElementById("nasa-refresh-btn");
+  if (refreshBtn) refreshBtn.onclick = () => switchNASAView(currentNASAView);
+
+  const favTabBtn = document.getElementById("nasa-fav-tab-btn");
+  if (favTabBtn) favTabBtn.onclick = () => switchNASAView("favorites");
+
+  // Global search input
+  const globalSearchBtn = document.getElementById("nasa-global-search-btn");
+  const globalSearchInput = document.getElementById("nasa-global-search");
+  if (globalSearchBtn && globalSearchInput) {
+    const runGlobalSearch = () => {
+      const q = globalSearchInput.value.trim();
+      if (!q) return;
+      const libInput = document.getElementById("library-search-input");
+      if (libInput) libInput.value = q;
+      switchNASAView("library");
+    };
+    globalSearchBtn.onclick = runGlobalSearch;
+    globalSearchInput.onkeydown = (e) => { if (e.key === "Enter") runGlobalSearch(); };
+  }
+
+  // APOD Random, Fav, Share buttons
+  const randomApodBtn = document.getElementById("apod-random-btn");
+  if (randomApodBtn) {
+    randomApodBtn.onclick = async () => {
+      showToast("🎲 Fetching Random APOD...");
+      try {
+        const item = await NASAApiService.getAPODRandom();
+        const datePicker = document.getElementById("date-picker");
+        if (datePicker && item.date) datePicker.value = item.date;
+        loadNASA();
+      } catch (e) {
+        showToast("Unable to fetch random APOD");
+      }
+    };
+  }
+
+  const apodFavBtn = document.getElementById("apod-fav-btn");
+  if (apodFavBtn) {
+    apodFavBtn.onclick = () => {
+      const img = document.getElementById("apod-img");
+      const title = document.getElementById("apod-title");
+      const desc = document.getElementById("apod-desc");
+      if (img && img.src) {
+        toggleNASAFavorite({
+          url: img.src,
+          title: title ? title.innerText : "APOD Image",
+          explanation: desc ? desc.innerText : ""
+        });
+      }
+    };
+  }
+
+  const apodShareBtn = document.getElementById("apod-share-btn");
+  if (apodShareBtn) {
+    apodShareBtn.onclick = () => {
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(location.href);
+        showToast("🔗 NASA Explorer link copied to clipboard!");
+      }
+    };
+  }
+
+  // Subview filter load buttons
+  const epicLoadBtn = document.getElementById("epic-load-btn");
+  if (epicLoadBtn) epicLoadBtn.onclick = loadEPICView;
+
+  const marsLoadBtn = document.getElementById("mars-load-btn");
+  if (marsLoadBtn) marsLoadBtn.onclick = loadMarsView;
+
+  const neoLoadBtn = document.getElementById("neo-load-btn");
+  if (neoLoadBtn) neoLoadBtn.onclick = loadNEOView;
+
+  const libSearchBtn = document.getElementById("library-search-btn");
+  if (libSearchBtn) libSearchBtn.onclick = loadLibraryView;
+
+  // Modal Lightbox bindings
+  const modalCloseBtn = document.getElementById("nasa-modal-close-btn");
+  if (modalCloseBtn) modalCloseBtn.onclick = closeNASAImageViewer;
+
+  const modalOverlay = document.getElementById("nasa-image-viewer-modal");
+  if (modalOverlay) {
+    modalOverlay.onclick = (e) => {
+      if (e.target === modalOverlay) closeNASAImageViewer();
+    };
+  }
+
+  const modalFavBtn = document.getElementById("nasa-modal-fav-btn");
+  if (modalFavBtn) {
+    modalFavBtn.onclick = () => {
+      if (currentModalItem) toggleNASAFavorite(currentModalItem);
+    };
+  }
+
+  const modalShareBtn = document.getElementById("nasa-modal-share-btn");
+  if (modalShareBtn) {
+    modalShareBtn.onclick = () => {
+      if (currentModalItem && currentModalItem.url && navigator.clipboard) {
+        navigator.clipboard.writeText(currentModalItem.url);
+        showToast("🔗 Image direct link copied to clipboard!");
+      }
+    };
+  }
+
+  const modalDlBtn = document.getElementById("nasa-modal-download-btn");
+  if (modalDlBtn) {
+    modalDlBtn.onclick = () => {
+      if (currentModalItem && currentModalItem.url) {
+        const link = document.createElement("a");
+        link.href = currentModalItem.url;
+        link.download = "nasa-hd-media.jpg";
+        link.target = "_blank";
+        link.click();
+      }
+    };
+  }
+
+  updateNASAFavBadge();
+}
+
+/* MAIN LOAD ENTRY POINT PRESERVING LEGACY API BINDINGS */
 function loadNASA() {
   const img = document.getElementById("apod-img");
   const title = document.getElementById("apod-title");
@@ -1697,84 +2321,31 @@ function loadNASA() {
   }
 
   if (selectedDate && nasaMemoryCache[selectedDate]) {
-
-    renderNASA(
-      nasaMemoryCache[selectedDate]
-    );
-
-    setTimeout(() => {
-
-      refreshNASA(selectedDate);
-
-    }, 100);
-
-    const { prev, next } = getAdjacentDates(selectedDate);
-
-    Promise.all([
-
-      prefetchAPOD(prev),
-
-      !isFuture(next)
-        ? prefetchAPOD(next)
-        : Promise.resolve()
-
-    ]);
+    renderNASA(nasaMemoryCache[selectedDate]);
+    setTimeout(() => { refreshNASA(selectedDate); }, 100);
     return;
-
   }
 
   if (selectedDate && nasaCache[selectedDate]) {
     const cached = nasaCache[selectedDate];
-
     if (!cached || cached.code) {
       if (desc) desc.innerText = "Data not available for this date ❌";
       return;
     }
-
     renderNASA(cached);
-
-    const { prev, next } = getAdjacentDates(selectedDate);
-    prefetchAPOD(prev);
-    if (!isFuture(next)) prefetchAPOD(next);
-  } else if (selectedDate) {
-
-    if (desc) desc.innerText = "Checking availability... 🔍";
-
-    let url = `https://api.nasa.gov/planetary/apod?api_key=7jYgA8NDOyNHfLpSbuEP2uncSWByYecDXKkYa6bJ&date=${selectedDate}`;
-
-    fetchWithRetry(url)
-      .then(res => {
-        if (!res.ok) throw new Error("API Error");
-        return res.json();
-      })
+  } else {
+    if (desc) desc.innerText = "Checking NASA APOD availability... 🔍";
+    NASAApiService.getAPOD(selectedDate || "")
       .then(data => {
         if (!data || data.code) {
           if (desc) desc.innerText = "Data not available ❌";
           return;
         }
-
-        nasaCache[selectedDate] = data;
-
-        nasaMemoryCache[selectedDate] = data;
-
-        localStorage.setItem(
-
-          "NASA_CACHE",
-
-          JSON.stringify(nasaCache)
-
-        );
-
-        cleanNASAOldCache();
-        const preload = new Image();
-
-        preload.src = data.hdurl || data.url;
+        if (selectedDate) {
+          nasaCache[selectedDate] = data;
+          nasaMemoryCache[selectedDate] = data;
+        }
         renderNASA(data);
-        showToast("📦 Loaded from cache");
-
-        const { prev, next } = getAdjacentDates(selectedDate);
-        prefetchAPOD(prev);
-        if (!isFuture(next)) prefetchAPOD(next);
       })
       .catch(() => {
         if (desc) desc.innerText = "Data not available ❌";
@@ -1784,202 +2355,33 @@ function loadNASA() {
   function renderNASA(data) {
     if (data.media_type === "image") {
       currentHDImage = data.hdurl || data.url;
-
       if (videoContainer) videoContainer.innerHTML = "";
-
       if (img) {
         img.style.display = "block";
-
         const preImg = new Image();
         preImg.src = data.url;
-
         preImg.onload = () => {
           img.src = data.url;
           img.style.opacity = "1";
         };
       }
-
       if (title) title.innerText = data.title;
       if (desc) desc.innerText = data.explanation;
     } else if (data.media_type === "video") {
       if (img) img.style.display = "none";
-
       let videoURL = data.url;
-
-      // 🎯 YouTube / embeddable
       if (videoURL.includes("youtube.com") || videoURL.includes("youtu.be")) {
         if (videoURL.includes("watch?v=")) {
           videoURL = videoURL.replace("watch?v=", "embed/");
         }
-
         if (videoContainer) {
-          videoContainer.innerHTML = `
-            <iframe src="${videoURL}" frameborder="0" allowfullscreen></iframe>
-          `;
-
-          videoContainer.style.opacity = "0";
-          videoContainer.style.transition = "opacity 0.3s ease";
-
-          requestAnimationFrame(() => {
-            videoContainer.style.opacity = "1";
-          });
-        }
-      } else {
-        // ❌ fallback restore
-        if (videoContainer) {
-          videoContainer.innerHTML = `
-            <div style="padding:20px; text-align:center;">
-              <p>⚠️ This video cannot be embedded</p>
-              <a href="${videoURL}" target="_blank">▶️ Watch Video</a>
-            </div>
-          `;
+          videoContainer.innerHTML = `<iframe src="${videoURL}" frameborder="0" allowfullscreen style="width:100%; height:320px; border-radius:10px;"></iframe>`;
         }
       }
-
       if (title) title.innerText = data.title + " 🎥";
       if (desc) desc.innerText = data.explanation;
     }
   }
-
-
-  // ☄️ ASTEROIDS (FIXED 🔥)
-  fetchWithRetry("https://api.nasa.gov/neo/rest/v1/feed?api_key=7jYgA8NDOyNHfLpSbuEP2uncSWByYecDXKkYa6bJ")
-    .then(res => res.json())
-    .then(data => {
-
-      const container = document.getElementById("asteroid-container");
-      if (!container) return;
-      container.innerHTML = "";
-
-      // 🔥 FLATTEN
-      let asteroids = Object.values(data.near_earth_objects).flat();
-
-      // 🔥 CLEAN (remove invalid)
-      asteroids = asteroids.filter(a => a.close_approach_data.length > 0);
-
-      // 🔍 SEARCH
-      if (searchQuery) {
-        asteroids = asteroids.filter(obj =>
-          obj.name.toLowerCase().includes(searchQuery)
-        );
-      }
-
-      // ⚠️ HAZARD
-      if (showHazardOnly) {
-        asteroids = asteroids.filter(a => a.is_potentially_hazardous_asteroid);
-      }
-
-      asteroids.forEach(a => {
-        const approachData = a.close_approach_data[0];
-
-        const speed = Number(approachData.relative_velocity.kilometers_per_hour);
-        const missDistance = Number(approachData.miss_distance.kilometers);
-        const size = a.estimated_diameter.meters.estimated_diameter_max;
-        const distanceFactor = missDistance / 1000000;
-
-        const dangerScore = Math.round(
-          (speed / 1000) +
-          (size * 0.2) -
-          (distanceFactor * 2)
-        );
-
-        a.dangerScore = Math.max(0, dangerScore);
-      });
-
-      // 🔥 STEP 2: sort
-      asteroids.sort((a, b) => b.dangerScore - a.dangerScore);
-
-      // 🌍 CLOSEST
-      if (showNewestOnly) {
-        asteroids = asteroids.slice(0, 10);
-      }
-
-
-      // 🔥 FIND CLOSEST
-      let closest = asteroids[0];
-
-      asteroids.forEach(obj => {
-        const dist = Number(obj.close_approach_data[0].miss_distance.kilometers);
-        const minDist = Number(closest.close_approach_data[0].miss_distance.kilometers);
-
-        if (dist < minDist) {
-          closest = obj;
-        }
-      });
-
-      // 🔥 CREATE CARDS
-      asteroids.forEach((obj, index) => {
-
-        const isNewest = index < 5;
-        const isHazard = obj.is_potentially_hazardous_asteroid;
-
-        const card = createAsteroidCard(obj, isNewest);
-
-        if (!card) return;
-
-        // 🥇 TOP 3
-        if (index === 0) {
-          const text = showHazardOnly
-            ? "🔥 TOP HAZARD"
-            : "🔥 MOST DANGEROUS";
-
-          card.innerHTML += `<p style="color: yellow; font-weight: bold;">
-    ${text}
-  </p>`;
-        }
-        else if (index === 1) {
-          const text = showHazardOnly
-            ? "⚠️ HIGH HAZARD"
-            : "⚡ HIGH THREAT";
-
-          card.innerHTML += `<p style="color: orange; font-weight: bold;">
-    ${text}
-  </p>`;
-        }
-        else if (index === 2) {
-          const text = showHazardOnly
-            ? "⚠️ MODERATE HAZARD"
-            : "⚠️ ELEVATED RISK";
-
-          card.innerHTML += `<p style="color: lightgreen; font-weight: bold;">
-    ${text}
-  </p>`;
-        }
-
-        // 🎯 highlight
-        if (obj.name === closest.name) card.classList.add("closest-card");
-        if (isHazard) card.classList.add("hazard-card");
-
-        card.addEventListener("click", () => {
-          const modal = document.getElementById("asteroid-modal");
-          const modalBody = document.getElementById("modal-body");
-
-          const approachData = obj.close_approach_data[0];
-          if (!approachData) return;
-
-          const speed = Math.round(approachData.relative_velocity.kilometers_per_hour);
-          const missDistance = Math.round(approachData.miss_distance.kilometers);
-          const approachDate = approachData.close_approach_date;
-
-          if (modalBody) {
-            modalBody.innerHTML = `
-            <h2>${obj.name}</h2>
-            <p>🚀 Speed: ${speed} km/h</p>
-            <p>📏 Diameter: ${Math.round(obj.estimated_diameter.meters.estimated_diameter_max)} m</p>
-            <p>🌍 Miss Distance: ${missDistance} km</p>
-            <p>📅 Approach Date: ${approachDate}</p>
-            <p>⚠️ Hazard: ${isHazard ? "Yes" : "No"}</p>
-          `;
-          }
-
-          if (modal) modal.classList.add("show");
-        }); // 🔵 event end
-
-        container.appendChild(card);
-
-      }); // 🔵 forEach end
-
-    });
 }
 
 function buildSkyConfig() {
@@ -6107,6 +6509,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 
   // 🔥 IMPORTANT
+  if (typeof initNASAExplorer === "function") initNASAExplorer();
   loadNASA();
 
   if (!window.skyLoaded) {

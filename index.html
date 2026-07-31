@@ -551,44 +551,342 @@ gtag('config', 'G-9747XL0FQQ');
 </div> <!-- 🔥 SKY TAB CLOSED PROPERLY -->
 
 <!-- NASA -->
+<!-- 🚀 NASA EXPLORER HUB -->
 <div id="nasa" class="tab-content" style="display:none;">
 
-  <h2> NASA Picture of the Day</h2>
+  <!-- 1. Common NASA Header -->
+  <header class="nasa-hub-header">
+    <div class="nasa-hub-top">
+      <div class="nasa-hub-brand">
+        <h1 class="nasa-hub-title">🚀 NASA Explorer</h1>
+        <div class="nasa-hub-breadcrumb" id="nasa-breadcrumb">NASA Explorer > Home</div>
+      </div>
+      <div class="nasa-hub-search-wrapper">
+        <input type="text" id="nasa-global-search" class="nasa-hub-search-input" placeholder="Search APOD, Mars Rovers, EPIC Earth, Asteroids, Library..." />
+        <button type="button" id="nasa-global-search-btn" class="nasa-hub-search-btn">🔍</button>
+      </div>
+      <div class="nasa-hub-top-actions">
+        <button type="button" id="nasa-refresh-btn" class="nasa-icon-btn" title="Refresh Service Data">🔄</button>
+        <button type="button" id="nasa-fav-tab-btn" class="nasa-icon-btn" title="Saved Favorites">⭐ <span id="nasa-fav-count" class="nasa-badge">0</span></button>
+      </div>
+    </div>
 
-  <div class="nasa-controls">
+    <!-- Sub-navigation Tabs -->
+    <nav class="nasa-nav-tabs" aria-label="NASA Services Navigation">
+      <button type="button" class="nasa-nav-btn active" data-nasa-view="home">🏠 Home</button>
+      <button type="button" class="nasa-nav-btn" data-nasa-view="apod">🖼️ APOD</button>
+      <button type="button" class="nasa-nav-btn" data-nasa-view="epic">🌍 EPIC Earth</button>
+      <button type="button" class="nasa-nav-btn" data-nasa-view="mars">🚀 Mars Rovers</button>
+      <button type="button" class="nasa-nav-btn" data-nasa-view="neo">☄️ Near-Earth Asteroids</button>
+      <button type="button" class="nasa-nav-btn" data-nasa-view="library">📚 NASA Library</button>
+    </nav>
+  </header>
 
-    <button id="prev-btn">⬅️</button>
+  <!-- 2. View: NASA Home -->
+  <div id="nasa-view-home" class="nasa-subview active">
+    <!-- Hero Banner -->
+    <section class="nasa-hero">
+      <div class="nasa-hero-content">
+        <span class="nasa-hero-pill">✨ NASA Core Services Hub</span>
+        <h2 class="nasa-hero-heading">Explore the Universe with NASA Public Data</h2>
+        <p class="nasa-hero-text">Discover daily astronomy pictures, deep space mission archives, live Earth imagery, and real-time asteroid tracking.</p>
+        <div class="nasa-hero-stats">
+          <div class="nasa-stat-item">
+            <span class="nasa-stat-val" id="nasa-stat-asteroids">--</span>
+            <span class="nasa-stat-lbl">Asteroids Today</span>
+          </div>
+          <div class="nasa-stat-item">
+            <span class="nasa-stat-val" id="nasa-stat-rover-sol">--</span>
+            <span class="nasa-stat-lbl">Mars Rover Sol</span>
+          </div>
+          <div class="nasa-stat-item">
+            <span class="nasa-stat-val" id="nasa-stat-epic-date">--</span>
+            <span class="nasa-stat-lbl">Latest Earth Shot</span>
+          </div>
+        </div>
+      </div>
+    </section>
 
-    <input type="date" id="date-picker">
+    <!-- Services Grid -->
+    <section class="nasa-services-section">
+      <h3 class="nasa-section-title">🛰️ NASA Services</h3>
+      <div class="nasa-services-grid">
 
-    <button id="next-btn">➡️</button>
+        <!-- Service 1: APOD -->
+        <div class="nasa-service-card" data-view-target="apod">
+          <div class="nasa-service-img-wrapper">
+            <img src="https://images-assets.nasa.gov/image/PIA12348/PIA12348~thumb.jpg" alt="APOD Preview" class="nasa-service-img" id="home-card-apod-img" />
+            <span class="nasa-service-badge">Daily Feature</span>
+          </div>
+          <div class="nasa-service-body">
+            <h4 class="nasa-service-title">Astronomy Picture of the Day</h4>
+            <p class="nasa-service-desc">Each day a different image or photograph of our fascinating universe is featured, along with a brief explanation.</p>
+            <div class="nasa-service-footer">
+              <span class="nasa-service-time">Updated Daily</span>
+              <button type="button" class="nasa-btn-primary">Explore APOD →</button>
+            </div>
+          </div>
+        </div>
 
-    <button id="load-btn">Load</button>
+        <!-- Service 2: EPIC Earth -->
+        <div class="nasa-service-card" data-view-target="epic">
+          <div class="nasa-service-img-wrapper">
+            <img src="https://epic.gsfc.nasa.gov/archive/natural/2024/01/01/png/epic_1b_20240101003634.png" alt="EPIC Preview" class="nasa-service-img" id="home-card-epic-img" />
+            <span class="nasa-service-badge">Live Earth</span>
+          </div>
+          <div class="nasa-service-body">
+            <h4 class="nasa-service-title">EPIC Earth Imaging</h4>
+            <p class="nasa-service-desc">Full-disc imagery of Earth taken by the EPIC camera onboard the DSCOVR spacecraft 1 million miles away.</p>
+            <div class="nasa-service-footer">
+              <span class="nasa-service-time">Daily Earth Views</span>
+              <button type="button" class="nasa-btn-primary">View Earth →</button>
+            </div>
+          </div>
+        </div>
 
-    <button id="download-btn">
-      ⬇ Download
-    </button>
+        <!-- Service 3: Mars Rover Photos -->
+        <div class="nasa-service-card" data-view-target="mars">
+          <div class="nasa-service-img-wrapper">
+            <img src="https://mars.nasa.gov/msl-raw-images/proj/msl/redops/ods/surface/sol/03000/opgs/edr/fcam/FLB_663996500EDR_F0850000FHAZ00337M_.JPG" alt="Mars Rover Preview" class="nasa-service-img" id="home-card-mars-img" />
+            <span class="nasa-service-badge">Red Planet</span>
+          </div>
+          <div class="nasa-service-body">
+            <h4 class="nasa-service-title">Mars Rover Photos</h4>
+            <p class="nasa-service-desc">Browse raw photos taken by NASA's Mars rovers Curiosity, Perseverance, Opportunity, and Spirit on the surface of Mars.</p>
+            <div class="nasa-service-footer">
+              <span class="nasa-service-time">Curiosity & Perseverance</span>
+              <button type="button" class="nasa-btn-primary">Browse Rovers →</button>
+            </div>
+          </div>
+        </div>
 
+        <!-- Service 4: Near Earth Objects -->
+        <div class="nasa-service-card" data-view-target="neo">
+          <div class="nasa-service-img-wrapper">
+            <div class="nasa-service-placeholder-icon">☄️</div>
+            <span class="nasa-service-badge">Asteroids</span>
+          </div>
+          <div class="nasa-service-body">
+            <h4 class="nasa-service-title">Near Earth Objects (NeoWs)</h4>
+            <p class="nasa-service-desc">Track asteroids and comets making close approaches to Earth today with size, velocity, and hazard status data.</p>
+            <div class="nasa-service-footer">
+              <span class="nasa-service-time">Real-time Feed</span>
+              <button type="button" class="nasa-btn-primary">Track Asteroids →</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Service 5: NASA Image Library -->
+        <div class="nasa-service-card" data-view-target="library">
+          <div class="nasa-service-img-wrapper">
+            <div class="nasa-service-placeholder-icon">📚</div>
+            <span class="nasa-service-badge">Media Archive</span>
+          </div>
+          <div class="nasa-service-body">
+            <h4 class="nasa-service-title">NASA Image & Video Library</h4>
+            <p class="nasa-service-desc">Search thousands of high-resolution astronomy images, mission videos, and historical space flight audio recordings.</p>
+            <div class="nasa-service-footer">
+              <span class="nasa-service-time">Millions of Media</span>
+              <button type="button" class="nasa-btn-primary">Search Archive →</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
   </div>
 
-  <div class="nasa-container">
+  <!-- 3. View: APOD -->
+  <div id="nasa-view-apod" class="nasa-subview">
+    <div class="nasa-view-header">
+      <h2>🖼️ Astronomy Picture of the Day</h2>
+      <p>Discover the cosmos through NASA's daily featured photograph and expert explanation.</p>
+    </div>
 
-    <div class="nasa-left">
+    <!-- Legacy Controls & Container preserved for compatibility -->
+    <div class="nasa-controls">
+      <button id="prev-btn" type="button">⬅️ Prev</button>
+      <input type="date" id="date-picker">
+      <button id="next-btn" type="button">➡️ Next</button>
+      <button id="load-btn" type="button">Load</button>
+      <button id="apod-random-btn" class="nasa-btn-secondary" type="button">🎲 Random</button>
+      <button id="download-btn" type="button">⬇ Download</button>
+      <button id="apod-fav-btn" class="nasa-btn-secondary" type="button">⭐ Favorite</button>
+      <button id="apod-share-btn" class="nasa-btn-secondary" type="button">🔗 Share</button>
+    </div>
 
-      <img id="apod-img">
-
-      <div id="video-container"></div>
-
-      <div class="image-box">
-        <p id="apod-title"></p>
+    <div class="nasa-container">
+      <div class="nasa-left">
+        <img id="apod-img" alt="APOD Image">
+        <div id="video-container"></div>
+        <div class="image-box">
+          <p id="apod-title"></p>
+        </div>
       </div>
+      <div class="nasa-content">
+        <p id="apod-desc"></p>
+      </div>
+    </div>
+  </div>
 
+  <!-- 4. View: EPIC Earth -->
+  <div id="nasa-view-epic" class="nasa-subview">
+    <div class="nasa-view-header">
+      <h2>🌍 EPIC Earth Polychromatic Imaging</h2>
+      <p>Full-disc Earth observations from DSCOVR spacecraft positioned at Lagrange Point L1.</p>
+    </div>
+    <div class="nasa-filter-bar">
+      <label>Mode:
+        <select id="epic-mode-select">
+          <option value="natural">Natural Color</option>
+          <option value="enhanced">Enhanced Color</option>
+        </select>
+      </label>
+      <label>Date:
+        <input type="date" id="epic-date-picker" />
+      </label>
+      <button type="button" id="epic-load-btn" class="nasa-btn-primary">Load Earth View</button>
+    </div>
+    <div id="epic-container" class="nasa-content-card">
+      <div class="nasa-loading-skeleton" id="epic-skeleton">Loading Earth view...</div>
+      <div id="epic-display" style="display:none;">
+        <div class="epic-image-wrapper">
+          <img id="epic-img" alt="Earth EPIC View" class="epic-main-img" />
+        </div>
+        <div class="epic-details">
+          <h3 id="epic-caption">Earth View</h3>
+          <p id="epic-date-str"></p>
+          <div class="epic-coords-grid">
+            <div><strong>Lat/Lon Centroid:</strong> <span id="epic-centroid">--</span></div>
+            <div><strong>DSCOVR Position:</strong> <span id="epic-pos">--</span></div>
+          </div>
+          <div class="epic-actions">
+            <button type="button" id="epic-hd-btn" class="nasa-btn-secondary">🔍 Fullscreen Lightbox</button>
+            <button type="button" id="epic-download-btn" class="nasa-btn-primary">⬇ Download Earth Shot</button>
+            <button type="button" id="epic-fav-btn" class="nasa-btn-secondary">⭐ Favorite</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. View: Mars Rover Photos -->
+  <div id="nasa-view-mars" class="nasa-subview">
+    <div class="nasa-view-header">
+      <h2>🚀 Mars Rover Photos</h2>
+      <p>Explore raw imagery sent directly from the surface of Mars by NASA's robotic explorers.</p>
+    </div>
+    <div class="nasa-filter-bar">
+      <label>Rover:
+        <select id="mars-rover-select">
+          <option value="curiosity" selected>Curiosity</option>
+          <option value="perseverance">Perseverance</option>
+          <option value="opportunity">Opportunity</option>
+          <option value="spirit">Spirit</option>
+        </select>
+      </label>
+      <label>Sol (Martian Day):
+        <input type="number" id="mars-sol-input" value="1000" min="1" max="4000" style="width:90px;" />
+      </label>
+      <label>Camera:
+        <select id="mars-camera-select">
+          <option value="all">All Cameras</option>
+          <option value="FHAZ">Front Hazard Avoidance</option>
+          <option value="RHAZ">Rear Hazard Avoidance</option>
+          <option value="MAST">Mast Camera (Mastcam)</option>
+          <option value="NAVCAM">Navigation Camera</option>
+          <option value="PANCAM">Panoramic Camera</option>
+        </select>
+      </label>
+      <button type="button" id="mars-load-btn" class="nasa-btn-primary">Fetch Mars Photos</button>
     </div>
 
-    <div class="nasa-content">
-      <p id="apod-desc"></p>
+    <!-- Mars Photo Grid -->
+    <div id="mars-photos-grid" class="nasa-card-grid"></div>
+  </div>
+
+  <!-- 6. View: Near Earth Objects (NeoWs) -->
+  <div id="nasa-view-neo" class="nasa-subview">
+    <div class="nasa-view-header">
+      <h2>☄️ Near Earth Objects (NeoWs)</h2>
+      <p>Real-time tracking of asteroids and comets approaching Earth's orbit.</p>
+    </div>
+    <div class="nasa-filter-bar">
+      <label>Date:
+        <input type="date" id="neo-date-picker" />
+      </label>
+      <label>Hazard Filter:
+        <select id="neo-hazard-select">
+          <option value="all">All Asteroids</option>
+          <option value="hazardous">🔴 Potentially Hazardous Only</option>
+        </select>
+      </label>
+      <label>Sort By:
+        <select id="neo-sort-select">
+          <option value="distance">Close Approach Distance</option>
+          <option value="size">Max Estimated Diameter</option>
+          <option value="velocity">Relative Velocity</option>
+        </select>
+      </label>
+      <button type="button" id="neo-load-btn" class="nasa-btn-primary">Check Asteroids</button>
     </div>
 
+    <!-- NeoWs Asteroid Grid -->
+    <div id="neo-asteroids-grid" class="nasa-card-grid"></div>
+  </div>
+
+  <!-- 7. View: NASA Image Library -->
+  <div id="nasa-view-library" class="nasa-subview">
+    <div class="nasa-view-header">
+      <h2>📚 NASA Image & Video Library</h2>
+      <p>Search millions of official NASA photographs, space mission videos, and audio recordings.</p>
+    </div>
+    <div class="nasa-filter-bar">
+      <input type="text" id="library-search-input" placeholder="Search e.g. James Webb, Saturn, Apollo 11, Black Hole..." style="flex:1; min-width:200px;" />
+      <label>Media:
+        <select id="library-media-select">
+          <option value="image" selected>Images</option>
+          <option value="video">Videos</option>
+          <option value="audio">Audio</option>
+        </select>
+      </label>
+      <button type="button" id="library-search-btn" class="nasa-btn-primary">Search Library</button>
+    </div>
+
+    <!-- Media Library Grid -->
+    <div id="library-media-grid" class="nasa-card-grid"></div>
+  </div>
+
+  <!-- 8. View: Favorites -->
+  <div id="nasa-view-favorites" class="nasa-subview">
+    <div class="nasa-view-header">
+      <h2>⭐ Saved NASA Favorites</h2>
+      <p>Your saved space photos, Earth views, Mars rover shots, and asteroid records.</p>
+    </div>
+    <div id="nasa-favorites-grid" class="nasa-card-grid"></div>
+  </div>
+
+</div>
+
+<!-- 9. Shared Reusable NASA Image Lightbox Viewer Modal -->
+<div id="nasa-image-viewer-modal" class="nasa-modal-overlay" style="display:none;">
+  <div class="nasa-modal-content">
+    <button type="button" id="nasa-modal-close-btn" class="nasa-modal-close">✕</button>
+    <div class="nasa-modal-body">
+      <div class="nasa-modal-media-wrapper">
+        <img id="nasa-modal-img" alt="NASA Image Viewer" />
+      </div>
+      <div class="nasa-modal-info">
+        <h3 id="nasa-modal-title">NASA Media Title</h3>
+        <p id="nasa-modal-date" class="nasa-modal-subtitle"></p>
+        <p id="nasa-modal-desc" class="nasa-modal-text"></p>
+        <div class="nasa-modal-actions">
+          <button type="button" id="nasa-modal-download-btn" class="nasa-btn-primary">⬇ Download HD</button>
+          <button type="button" id="nasa-modal-share-btn" class="nasa-btn-secondary">🔗 Copy Link</button>
+          <button type="button" id="nasa-modal-fav-btn" class="nasa-btn-secondary">⭐ Save Favorite</button>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
