@@ -60,7 +60,7 @@ const AstroSettings = {
     bubbleStyle: "rounded",
     messageWidth: "85",
     animations: true,
-    responseLength: "medium",
+    responseLength: "balanced",
     creativity: "Balanced",
     aiModel: "openai/gpt-4o-mini",
     saveChatHistory: true,
@@ -5507,6 +5507,364 @@ data-index="${index}"
 
 }
 
+/* ==========================================================================
+   ASTRO AI CONTEXT ENGINE (Centralized Application State & Prompt Compiler)
+   ========================================================================== */
+
+const AstroContextEngine = {
+  _cache: {
+    lastQuery: "",
+    lastTimestamp: 0,
+    cachedContext: null
+  },
+
+  // 1. COLLECT & PRIORITIZE APPLICATION CONTEXT
+  collectContext(userQuery = "", options = {}) {
+    const now = Date.now();
+    const query = (userQuery || "").trim();
+
+    if (this._cache.cachedContext && this._cache.lastQuery === query && (now - this._cache.lastTimestamp < 2000)) {
+      return this._cache.cachedContext;
+    }
+
+    const qLower = query.toLowerCase();
+
+    // Priority Flags & Smart Token Optimization
+    const isGeneralQuery = !query || query.length < 5;
+    const mentionsEquipment = /telescope|eyepiece|aperture|focal|camera|sensor|magnification|barlow|fov|mount|filter|binning/i.test(qLower);
+    const mentionsObject = /planet|star|galaxy|nebula|cluster|messier|ngc|moon|sun|mars|jupiter|saturn|m31|m42|m57|orion|andromeda/i.test(qLower) || !!currentAIObject;
+    const mentionsSky = /sky|tonight|bortle|seeing|altitude|azimuth|horizon|weather|moon|twilight|constellation|visible|rise|set/i.test(qLower);
+    const mentionsAstrophotography = /photo|image|exposure|fwhm|trailing|stack|camera|iso|gain|vignette|flat|dark|bias|plate/i.test(qLower);
+    const hasImageAttachment = typeof attachments !== "undefined" && attachments.some(a => a.type === "image");
+    const hasObsAttachment = typeof attachedObservationContext !== "undefined" && !!attachedObservationContext?.text;
+    const isResearchActive = typeof researchMode !== "undefined" && !!researchMode;
+
+    const sourcesIncluded = [];
+    const sourcesSkipped = [];
+    const contextBlocks = {};
+
+    // PRIORITY 1 & 2: Explicit Attachments
+    if (hasObsAttachment) {
+      contextBlocks.attachedContext = `Attached Observation Log:\n${attachedObservationContext.text}`;
+      sourcesIncluded.push("Attached Observation");
+    } else {
+      sourcesSkipped.push("Attached Observation");
+    }
+
+    if (typeof attachments !== "undefined" && attachments.length > 0) {
+      const attDesc = attachments.map(a => `- ${a.name || a.type} (${a.type})`).join("\n");
+      contextBlocks.attachmentList = `Active Attachments:\n${attDesc}`;
+      sourcesIncluded.push("File Attachments");
+    }
+
+    // PRIORITY 3: Real-Time Sky Context
+    const skyData = this.getRealTimeSkyState();
+    if (mentionsSky || mentionsObject || isGeneralQuery) {
+      contextBlocks.realTimeSky = `Real-Time Sky & Environment:
+- UTC: ${skyData.utcTime} | Local Time: ${skyData.localTime}
+- Location: Lat ${skyData.lat}°, Lon ${skyData.lon}° | Elevation: ${skyData.elevation}m | Timezone: ${skyData.timezone}
+- Light Pollution: Bortle ${skyData.bortleScale} | Local Sidereal Time: ${skyData.lst}
+- Moon State: ${skyData.moonPhase} (${skyData.moonIllum}% illum), Alt ${skyData.moonAlt}°
+- Zenith Constellation: ${skyData.zenithConstellation} | Hemisphere: ${skyData.hemisphere}
+- Sky Scale: ${skyData.fovScale}° FOV`;
+      sourcesIncluded.push("Real-Time Sky");
+    } else {
+      sourcesSkipped.push("Real-Time Sky (Optimized)");
+    }
+
+    // PRIORITY 4: Active Celestial Object Context
+    if (currentAIObject && (mentionsObject || isGeneralQuery || !query)) {
+      const obj = currentAIObject;
+      contextBlocks.activeObject = `Selected Celestial Object:
+- Name: ${obj.name || "Unknown"} (Catalog: ${obj.catalog || obj.id || "N/A"})
+- Type: ${obj.type || "Unknown"} | Constellation: ${obj.constellation || "Unknown"}
+- Coords: RA ${obj.ra || "N/A"}, Dec ${obj.dec || "N/A"} | Position: Alt ${obj.alt !== undefined ? obj.alt + "°" : "N/A"}, Az ${obj.az !== undefined ? obj.az + "°" : "N/A"}
+- Physical: Visual Mag ${obj.magnitude || obj.mag || "N/A"}, Size ${obj.size || "N/A"}, Distance ${obj.distance || "N/A"}
+- Visibility: ${obj.visibility || (obj.alt > 0 ? "Above Horizon" : "Below Horizon")}`;
+      sourcesIncluded.push("Active Celestial Object");
+    } else if (currentAIObject) {
+      sourcesSkipped.push("Active Object (Optimized)");
+    } else {
+      sourcesSkipped.push("Active Object (None)");
+    }
+
+    // PRIORITY 5: Telescope & Camera / Optical Setup
+    if (mentionsEquipment || mentionsAstrophotography || isGeneralQuery) {
+      const scopeData = this.getTelescopeSetupState();
+      contextBlocks.telescopeCamera = `Telescope & Optical Setup:
+- Selected Scope: ${scopeData.telescopeName} (Aperture: ${scopeData.aperture}mm, FL: ${scopeData.focalLength}mm, f/${scopeData.focalRatio})
+- Eyepiece / Magnification: ${scopeData.eyepieceName} | Mag: ${scopeData.magnification}x | True FOV: ${scopeData.tfov}°
+- Camera: ${scopeData.cameraName} (Sensor: ${scopeData.sensorSize}, Pixel: ${scopeData.pixelSize}µm)
+- Image Scale: ${scopeData.imageScale} arcsec/px | Binning: ${scopeData.binning}`;
+      sourcesIncluded.push("Telescope & Camera Specs");
+    } else {
+      sourcesSkipped.push("Telescope Specs (Optimized)");
+    }
+
+    // PRIORITY 6: FOV Simulation Context
+    if (typeof TelescopeManager !== "undefined" && TelescopeManager.fovActive && (mentionsEquipment || mentionsAstrophotography)) {
+      contextBlocks.fovSimulation = `FOV Simulator Framing State:
+- Simulator Active: Yes
+- Frame Rotation: ${TelescopeManager.rotation || 0}°
+- Active TFOV: ${TelescopeManager.currentTFOV || "N/A"}°
+- Sensor Orientation: ${TelescopeManager.sensorOrientation || "Landscape"}`;
+      sourcesIncluded.push("FOV Simulator State");
+    } else {
+      sourcesSkipped.push("FOV Simulator (Inactive/Optimized)");
+    }
+
+    // PRIORITY 7: Active Observation Session Context
+    const latestObs = this.getLatestObservationState();
+    if (latestObs && (qLower.includes("observation") || qLower.includes("session") || qLower.includes("log"))) {
+      contextBlocks.observationSession = `Active Observation Session:
+- Title: ${latestObs.title}
+- Target: ${latestObs.object} | Date: ${latestObs.date}
+- Equipment: ${latestObs.telescope || "N/A"} | Location: ${latestObs.location || "N/A"}
+- Notes: ${latestObs.notes || "None"}`;
+      sourcesIncluded.push("Observation Session Log");
+    } else {
+      sourcesSkipped.push("Observation Session (Not requested)");
+    }
+
+    // PRIORITY 8: AI Memory Filtering
+    const relevantMemories = this.filterRelevantMemories(qLower);
+    if (relevantMemories.length > 0) {
+      contextBlocks.memory = `User Profile & Relevant Memories:\n${relevantMemories.map(m => `- ${m}`).join("\n")}`;
+      sourcesIncluded.push(`AI Memory (${relevantMemories.length})`);
+    } else {
+      sourcesSkipped.push("AI Memory (No relevant items)");
+    }
+
+    // PRIORITY 9: Deep Research Mode
+    if (isResearchActive) {
+      contextBlocks.research = `🧠 DEEP RESEARCH MODE ACTIVE:
+- Provide rigorous astronomical & astrophysical derivations.
+- Include physical optics equations (Magnification M=Ft/Fe, True FOV TFOV=AFOV/M, Exit Pupil EP=D/M, Redshift z, Rayleigh/Dawes limits).
+- Use canonical catalog designations (Messier, NGC, IC, Caldwell, Bayer/Flamsteed).
+- State scientific confidence levels and explicitly label consensus vs hypotheses.`;
+      sourcesIncluded.push("Deep Research Mode Rules");
+    } else {
+      sourcesSkipped.push("Deep Research Mode (Disabled)");
+    }
+
+    // PRIORITY 10: Vision Context
+    if (hasImageAttachment) {
+      contextBlocks.vision = `📷 ASTROPHOTOGRAPHY VISION ANALYSIS ACTIVE:
+- Perform optical & astronomical evaluation of uploaded image.
+- Assess star focus (FWHM), trailing, noise, background gradients, and vignetting.
+- Provide plate-solving target identification and capture improvement advice.`;
+      sourcesIncluded.push("Astrophotography Vision Guidance");
+    } else {
+      sourcesSkipped.push("Vision Analysis (No images)");
+    }
+
+    // COMPILE ORDERED STACK
+    const stackParts = [];
+    if (contextBlocks.memory) stackParts.push(contextBlocks.memory);
+    if (contextBlocks.realTimeSky) stackParts.push(contextBlocks.realTimeSky);
+    if (contextBlocks.observationSession) stackParts.push(contextBlocks.observationSession);
+    if (contextBlocks.attachedContext) stackParts.push(contextBlocks.attachedContext);
+    if (contextBlocks.attachmentList) stackParts.push(contextBlocks.attachmentList);
+    if (contextBlocks.activeObject) stackParts.push(contextBlocks.activeObject);
+    if (contextBlocks.telescopeCamera) stackParts.push(contextBlocks.telescopeCamera);
+    if (contextBlocks.fovSimulation) stackParts.push(contextBlocks.fovSimulation);
+    if (contextBlocks.vision) stackParts.push(contextBlocks.vision);
+    if (contextBlocks.research) stackParts.push(contextBlocks.research);
+
+    const compiledContextString = stackParts.join("\n\n");
+    const finalCombinedPrompt = compiledContextString
+      ? `${compiledContextString}\n\n[USER REQUEST]\n${query}`
+      : query;
+
+    const totalCharLength = finalCombinedPrompt.length;
+    const estimatedTokens = Math.ceil(totalCharLength / 4);
+
+    const result = {
+      userQuery: query,
+      contextBlocks,
+      compiledContextString,
+      finalCombinedPrompt,
+      debugInfo: {
+        sourcesIncluded,
+        sourcesSkipped,
+        memoryCount: relevantMemories.length,
+        estimatedTokens,
+        totalCharLength,
+        activeObjectName: currentAIObject?.name || "None",
+        researchActive: isResearchActive,
+        visionActive: hasImageAttachment
+      }
+    };
+
+    this._cache = {
+      lastQuery: query,
+      lastTimestamp: now,
+      cachedContext: result
+    };
+
+    this.updateDebugPanelUI(result);
+    return result;
+  },
+
+  getRealTimeSkyState() {
+    const now = new Date();
+    const utcTime = now.toUTCString();
+    const localTime = now.toLocaleString();
+
+    let lat = 28.6139;
+    let lon = 77.2090;
+    let elevation = 216;
+
+    if (typeof userLocation !== "undefined" && userLocation && userLocation.lat) {
+      lat = userLocation.lat;
+      lon = userLocation.lon;
+    } else if (localStorage.getItem("astroUserLat")) {
+      lat = parseFloat(localStorage.getItem("astroUserLat"));
+      lon = parseFloat(localStorage.getItem("astroUserLon"));
+    }
+
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+    const bortleScale = localStorage.getItem("bortleScale") || (typeof lightPollution !== "undefined" ? lightPollution : 4);
+
+    const d = (now.getTime() / 86400000) - 10957.5;
+    const lstVal = (18.697374558 + 24.06570982441908 * d + lon / 15) % 24;
+    const lstHours = Math.floor((lstVal + 24) % 24);
+    const lstMins = Math.floor((((lstVal + 24) % 24) - lstHours) * 60);
+    const lstStr = `${String(lstHours).padStart(2, '0')}:${String(lstMins).padStart(2, '0')} LST`;
+
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+    const day = now.getDate();
+    const c = Math.floor(365.25 * year) + Math.floor(year / 400) - Math.floor(year / 100);
+    const moonAge = (c + day + (month * 30.6) + 0.5) % 29.53;
+    const moonIllum = Math.round((1 - Math.cos((moonAge / 29.53) * 2 * Math.PI)) * 50);
+
+    let moonPhaseName = "New Moon";
+    if (moonAge > 1 && moonAge <= 6.5) moonPhaseName = "Waxing Crescent";
+    else if (moonAge > 6.5 && moonAge <= 8.5) moonPhaseName = "First Quarter";
+    else if (moonAge > 8.5 && moonAge <= 13.5) moonPhaseName = "Waxing Gibbous";
+    else if (moonAge > 13.5 && moonAge <= 15.5) moonPhaseName = "Full Moon";
+    else if (moonAge > 15.5 && moonAge <= 21.5) moonPhaseName = "Waning Gibbous";
+    else if (moonAge > 21.5 && moonAge <= 23.5) moonPhaseName = "Third Quarter";
+    else if (moonAge > 23.5 && moonAge <= 28.5) moonPhaseName = "Waning Crescent";
+
+    const hemisphere = lat >= 0 ? "Northern" : "Southern";
+    const zenithConst = lat > 40 ? "Cygnus / Ursa Major" : (lat < -20 ? "Crux / Centaurus" : "Orion / Pegasus");
+    const fovScale = typeof Celestial !== "undefined" && Celestial.zoom ? (180 / Celestial.zoom()).toFixed(1) : "60.0";
+
+    return {
+      utcTime,
+      localTime,
+      lat: lat.toFixed(4),
+      lon: lon.toFixed(4),
+      elevation,
+      timezone,
+      bortleScale,
+      lst: lstStr,
+      moonPhase: moonPhaseName,
+      moonIllum,
+      moonAlt: (35).toFixed(0),
+      zenithConstellation: zenithConst,
+      hemisphere,
+      fovScale
+    };
+  },
+
+  getTelescopeSetupState() {
+    let aperture = parseFloat(localStorage.getItem("astroAperture")) || 200;
+    let focalLength = parseFloat(localStorage.getItem("astroFocalLength")) || 1000;
+    let telescopeName = localStorage.getItem("astroTelescopeName") || "8\" Newton Reflector";
+    let eyepieceName = localStorage.getItem("astroEyepieceName") || "25mm Plössl";
+    let epFocal = parseFloat(localStorage.getItem("astroEyepieceFocal")) || 25;
+    let epAFOV = parseFloat(localStorage.getItem("astroEyepieceAFOV")) || 52;
+    let cameraName = localStorage.getItem("astroCameraName") || "CMOS Astro Camera";
+    let pixelSize = parseFloat(localStorage.getItem("astroPixelSize")) || 3.76;
+    let sensorSize = localStorage.getItem("astroSensorSize") || "23.5 x 15.7 mm (APS-C)";
+
+    const focalRatio = (focalLength / (aperture || 1)).toFixed(1);
+    const magnification = Math.round(focalLength / (epFocal || 1));
+    const tfov = (epAFOV / (magnification || 1)).toFixed(2);
+    const imageScale = ((206.265 * pixelSize) / (focalLength || 1)).toFixed(2);
+
+    return {
+      telescopeName,
+      aperture,
+      focalLength,
+      focalRatio,
+      eyepieceName,
+      magnification,
+      tfov,
+      cameraName,
+      sensorSize,
+      pixelSize,
+      imageScale,
+      binning: "1x1"
+    };
+  },
+
+  getLatestObservationState() {
+    try {
+      const obs = JSON.parse(localStorage.getItem("astroObservations") || "[]");
+      return obs.length ? obs[0] : null;
+    } catch (e) {
+      return null;
+    }
+  },
+
+  filterRelevantMemories(queryLower) {
+    if (typeof astroMemory === "undefined" || !astroMemory?.memories?.length) return [];
+    
+    return astroMemory.memories
+      .map(m => {
+        if (m.key && m.value) return `${m.key}: ${m.value}`;
+        return m.text || "";
+      })
+      .filter(text => {
+        if (!text) return false;
+        const tLower = text.toLowerCase();
+        if (!queryLower || queryLower.length < 5) return true;
+        return queryLower.split(" ").some(word => word.length > 3 && tLower.includes(word)) ||
+               tLower.includes("telescope") || tLower.includes("bortle") || tLower.includes("camera") || tLower.includes("location");
+      })
+      .slice(0, 5);
+  },
+
+  updateDebugPanelUI(contextResult) {
+    const modal = document.getElementById("context-debug-modal");
+    if (!modal || modal.style.display === "none") return;
+
+    const info = contextResult.debugInfo;
+
+    const incContainer = document.getElementById("debug-sources-included");
+    if (incContainer) {
+      incContainer.innerHTML = info.sourcesIncluded.map(s => `<span class="context-debug-pill included">✓ ${s}</span>`).join("");
+    }
+
+    const skipContainer = document.getElementById("debug-sources-skipped");
+    if (skipContainer) {
+      skipContainer.innerHTML = info.sourcesSkipped.map(s => `<span class="context-debug-pill skipped">✗ ${s}</span>`).join("");
+    }
+
+    const tokenEl = document.getElementById("debug-token-count");
+    if (tokenEl) tokenEl.textContent = `~${info.estimatedTokens} tokens (${info.totalCharLength} chars)`;
+
+    const memEl = document.getElementById("debug-memory-count");
+    if (memEl) memEl.textContent = `${info.memoryCount} active`;
+
+    const objEl = document.getElementById("debug-active-object");
+    if (objEl) objEl.textContent = info.activeObjectName;
+
+    const resEl = document.getElementById("debug-research-status");
+    if (resEl) resEl.textContent = info.researchActive ? "ON" : "OFF";
+
+    const visEl = document.getElementById("debug-vision-status");
+    if (visEl) visEl.textContent = info.visionActive ? "ON" : "OFF";
+
+    const previewEl = document.getElementById("debug-prompt-preview");
+    if (previewEl) previewEl.textContent = contextResult.finalCombinedPrompt;
+  }
+};
+
 function createConversationContext(userInput) {
 
   return `
@@ -6371,74 +6729,81 @@ ATTACHMENT MANDATE (CRITICAL):
   3. State at least one key observation or finding for EACH uploaded image and file.
 ` : "";
 
-        let responseInstruction = "";
-
-        switch (String(responseLength).toLowerCase()) {
-
-          case "short":
-
-            responseInstruction = `
-RESPONSE LENGTH MODE: SHORT
-- Provide a concise, high-density summary focused on direct key findings.
-- Keep explanations brief and to the point.
-- Avoid lengthy background introduction.
-${attachmentMandate ? attachmentMandate : "- Focus on concise key takeaways."}
-`;
-
-            break;
-
-          case "medium":
-
-            responseInstruction = `
-RESPONSE LENGTH MODE: MEDIUM
-- Provide a balanced, clear explanation.
-- Use structured sections or bullet points where helpful.
-- Ensure thorough coverage of all user questions and findings.
-${attachmentMandate ? attachmentMandate : ""}
-`;
-
-            break;
-
-          case "detailed":
-          case "long":
-
-            responseInstruction = `
-RESPONSE LENGTH MODE: DETAILED / LONG
-- Provide a comprehensive, in-depth explanation and scientific analysis.
-- Use Markdown headings, bullet points, and tables where appropriate.
-- Explain concepts step by step, fully integrating all findings.
-${attachmentMandate ? attachmentMandate : ""}
-`;
-
-            break;
-
-          default:
-
-            responseInstruction = `
-RESPONSE LENGTH MODE: BALANCED
-- Provide a clear, structured explanation covering all key aspects.
-${attachmentMandate ? attachmentMandate : ""}
-`;
-
-            break;
-
+        const maxResponsePref = String(responseLength).toLowerCase();
+        let maxResponseCapDesc = "";
+        if (maxResponsePref === "compact" || maxResponsePref === "short") {
+          maxResponseCapDesc = "MAXIMUM RESPONSE PREFERENCE: COMPACT (Upper limit: keep even complex topics concise unless explicitly requested by user).";
+        } else if (maxResponsePref === "unlimited" || maxResponsePref === "long" || maxResponsePref === "detailed") {
+          maxResponseCapDesc = "MAXIMUM RESPONSE PREFERENCE: UNLIMITED (Upper limit: allow very detailed explanations when needed, but never be verbose for simple questions).";
+        } else {
+          maxResponseCapDesc = "MAXIMUM RESPONSE PREFERENCE: BALANCED (Upper limit: natural conversational length, expand only when useful).";
         }
 
-        const endpoint = useCloud
-          ? "https://astro-exp-seven.vercel.app/api/chat"
-          : "https://openrouter.ai/api/v1/chat/completions";
+        const responseInstruction = `
+==================================================
+ADAPTIVE RESPONSE ENGINE INSTRUCTIONS
+==================================================
+You are Astro AI operating with an Adaptive Response Engine. Do NOT use a fixed response length. Analyze every user message dynamically before writing.
 
-        const headers = useCloud
+STEP 1 — DETECT USER INTENT:
+Classify user intent (Greeting, Casual Chat, Quick Question, Simple Fact, Definition, Comparison, Explanation, Tutorial, Troubleshooting, Observation Analysis, Astrophotography Analysis, Programming, Astronomy Research, Deep Scientific Research, Mathematical Derivation, Creative Writing, Brainstorming, Follow-up Question).
+
+STEP 2 & 3 — ADAPTIVE COMPLEXITY & RESPONSE SIZING:
+- Complexity 1 (Greetings, 'Hi', 'Hello', 'Thanks', 'Yes/No'): 1–2 sentences.
+- Complexity 2 (Simple facts e.g. "What is Mars?"): 3–6 sentences concise answer.
+- Complexity 3 (Moderate explanations/comparisons e.g. "Explain neutron stars"): 6–12 sentences.
+- Complexity 4 (Advanced topics, tutorials e.g. "How does Webb detect exoplanets?"): Detailed structured explanation with sections.
+- Complexity 5 (Expert research, mathematical derivations): Full research response.
+
+STEP 4 — USER EXPLICIT REQUEST OVERRIDE:
+If the user explicitly requests "explain in detail", "teach me", "research", or "long answer", generate a comprehensive response regardless of default length. If the user asks for "short answer", "one line", "briefly", "TL;DR", generate a concise response.
+
+STEP 5 — MAXIMUM RESPONSE PREFERENCE:
+${maxResponseCapDesc}
+CRITICAL: Maximum Response Preference acts ONLY as an upper bound limit. It must NEVER force longer responses for simple queries.
+
+STEP 6 — CREATIVITY & STYLE:
+Creativity setting dictates writing style, NOT response length:
+- Precise: Scientific, direct, minimal adjectives, professional.
+- Balanced: Friendly, natural, conversational.
+- Creative: Analogies, visual descriptions, storytelling, Carl Sagan inspired astronomy tone.
+
+STEP 7 & 8 — CONTEXT AWARENESS & ANTI-VERBOSITY RULES:
+- Never repeat existing context or restate the user's question.
+- ABSOLUTELY NO FILLER WORDS (Never start with "Certainly!", "Of course!", "As an AI...", "I'd be happy to...").
+- Skip unnecessary introductions and conclusions.
+
+STEP 9 & 10 — SMART EXPANSION & FOLLOW-UPS:
+- Simple questions remain concise; tutorials expand naturally.
+- For follow-up questions ("Why?", "How?", "Tell me more"), expand directly from previous content without repeating past facts.
+
+STEP 11 — ASTRONOMY SPECIALIZATION:
+- Simple object identification -> Short.
+- Observation advice -> Medium.
+- Astrophotography troubleshooting -> Detailed step-by-step.
+- Research mode -> Expert scientific response.
+
+${attachmentMandate}
+`;
+
+        let selectedModel = getSelectedAIModel();
+        const selectedProvider = getSelectedAIProvider();
+
+        const isDirectOpenRouter = (selectedProvider === "openrouter" && !useCloud && localStorage.getItem("OPENROUTER_API_KEY"));
+
+        const endpoint = isDirectOpenRouter
+          ? "https://openrouter.ai/api/v1/chat/completions"
+          : "https://astro-exp-seven.vercel.app/api/chat";
+
+        const headers = isDirectOpenRouter
           ? {
-            "Content-Type": "application/json"
-          }
-          : {
-            "Authorization":
-              "Bearer " +
-              localStorage.getItem("OPENROUTER_API_KEY"),
+            "Authorization": "Bearer " + localStorage.getItem("OPENROUTER_API_KEY"),
             "Content-Type": "application/json",
             "HTTP-Referer": location.origin,
             "X-Title": "Astro AI"
+          }
+          : {
+            "Content-Type": "application/json"
           };
 
         let temperature = 0.8;
@@ -6457,7 +6822,7 @@ ${attachmentMandate ? attachmentMandate : ""}
             break;
         }
 
-        let selectedModel = getSelectedAIModel();
+        selectedModel = getSelectedAIModel();
 
         const imageAttachments = uploadedAttachments.filter(f => f.type === "image");
         const hasImages = imageAttachments.length > 0;
@@ -6493,48 +6858,42 @@ ${attachmentMandate ? attachmentMandate : ""}
 
         const isGPT5 = selectedModel === "openai/gpt-5";
 
-        const memoryContext = buildMemoryContext(question);
-
-        const finalUserPrompt = isGPT5
-          ? [
-            memoryContext ? `User Memory:\n${memoryContext}` : "",
-            currentAIObject ? `Target Object: ${currentAIObject.name}` : "",
-            `Question: ${question}`
-          ].filter(Boolean).join("\n\n")
-          : [
-            memoryContext ? `User Memory:\n${memoryContext}` : "",
-            finalPrompt ? finalPrompt : "",
-            `Question: ${question}`
-          ].filter(Boolean).join("\n\n");
+        const contextResult = AstroContextEngine.collectContext(question);
+        const finalUserPrompt = contextResult.finalCombinedPrompt;
 
         const DEFAULT_TOKEN_PROFILE = {
-          short: 1024,
-          medium: 2048,
-          detailed: 4096
+          compact: 1536,
+          short: 1536,
+          balanced: 3072,
+          medium: 3072,
+          unlimited: 8192,
+          detailed: 8192,
+          long: 8192
         };
 
         const MODEL_TOKEN_OVERRIDES = {};
 
         const profile = MODEL_TOKEN_OVERRIDES[selectedModel] || DEFAULT_TOKEN_PROFILE;
 
-        let maxTokens = profile.medium;
+        let maxTokens = profile.balanced;
 
         switch (String(responseLength).toLowerCase()) {
+          case "compact":
           case "short":
-            maxTokens = profile.short;
+            maxTokens = profile.compact || 1536;
             break;
 
-          case "medium":
-            maxTokens = profile.medium;
-            break;
-
+          case "unlimited":
           case "detailed":
           case "long":
-            maxTokens = profile.detailed;
+            maxTokens = profile.unlimited || 8192;
             break;
 
+          case "balanced":
+          case "medium":
           default:
-            maxTokens = profile.medium;
+            maxTokens = profile.balanced || 3072;
+            break;
         }
 
         const logSanitizer = (typeof sanitizeLogObject === "function") ? sanitizeLogObject : (obj => obj);
@@ -6576,8 +6935,6 @@ ${attachmentMandate ? attachmentMandate : ""}
             }))
           ]
           : (finalUserPrompt + (attachmentPrompt && String(attachmentPrompt).trim() !== "" ? "\n\n" + attachmentPrompt : ""));
-
-        const selectedProvider = getSelectedAIProvider();
 
         const requestBody = {
           model: selectedModel,
@@ -6695,7 +7052,10 @@ ${attachmentMandate ? attachmentMandate : ""}
             const affordTokens = match ? parseInt(match[1], 10) : null;
 
             if (affordTokens !== null && (affordTokens <= 0 || affordTokens < 32)) {
-              reply = "Your OpenRouter account does not have enough remaining credits to generate a response. Please add credits or choose a free model.";
+              const currentProvName = (typeof AI_PROVIDERS !== "undefined" && AI_PROVIDERS[selectedProvider])
+                ? AI_PROVIDERS[selectedProvider].name
+                : (selectedProvider === "google_ai_studio" ? "Google AI Studio" : selectedProvider === "groq" ? "Groq" : "AI Provider");
+              reply = `Your ${currentProvName} account does not have enough remaining credits/quota to generate a response. Please select another model or provider.`;
             } else {
               const retryMaxTokens = (affordTokens !== null && affordTokens >= 32)
                 ? Math.max(128, affordTokens - 64)
@@ -6724,7 +7084,7 @@ ${attachmentMandate ? attachmentMandate : ""}
 
         if (data && data.error) {
           const httpStatus = response.status;
-          reply = formatApiErrorResponse(httpStatus, data.error);
+          reply = formatApiErrorResponse(httpStatus, data.error, selectedProvider);
 
           // Update model status tracking cleanly based on HTTP status
           if (httpStatus === 401) {
@@ -7032,6 +7392,157 @@ document
 
   });
 
+function createAIActionToolbar(text) {
+  const actions = document.createElement("div");
+  actions.className = "message-actions ai-response-toolbar";
+  actions.innerHTML = `
+    <button class="message-copy-btn" title="Copy Message">📋</button>
+    <button class="speak-btn" title="Read Aloud">🔊</button>
+    <button class="regen-btn" title="Regenerate Answer">🔄</button>
+    <button class="save-memory-btn" title="Save to AI Memory">📌</button>
+    <button class="save-obs-note-btn" title="Save as Observation Note">⭐</button>
+    <button class="export-md-btn" title="Export as Markdown">📤</button>
+    <button class="like-btn" title="Helpful">👍</button>
+    <button class="dislike-btn" title="Not Helpful">👎</button>
+  `;
+
+  const copyBtn = actions.querySelector(".message-copy-btn");
+  const speakBtn = actions.querySelector(".speak-btn");
+  const regenBtn = actions.querySelector(".regen-btn");
+  const saveMemBtn = actions.querySelector(".save-memory-btn");
+  const saveObsBtn = actions.querySelector(".save-obs-note-btn");
+  const exportMdBtn = actions.querySelector(".export-md-btn");
+  const likeBtn = actions.querySelector(".like-btn");
+  const dislikeBtn = actions.querySelector(".dislike-btn");
+
+  if (copyBtn) {
+    copyBtn.onclick = async () => {
+      await navigator.clipboard.writeText(text);
+      copyBtn.textContent = "✅";
+      setTimeout(() => { copyBtn.textContent = "📋"; }, 1000);
+    };
+  }
+
+  let speaking = false;
+  if (speakBtn) {
+    speakBtn.onclick = () => {
+      if (!speaking) {
+        window.speechSynthesis.cancel();
+        const speech = new SpeechSynthesisUtterance(text);
+        speech.lang = "en-US";
+        speech.rate = 1;
+        speech.onend = () => {
+          speaking = false;
+          speakBtn.textContent = "🔊";
+        };
+        window.speechSynthesis.speak(speech);
+        speaking = true;
+        speakBtn.textContent = "⏹";
+      } else {
+        window.speechSynthesis.cancel();
+        speaking = false;
+        speakBtn.textContent = "🔊";
+      }
+    };
+  }
+
+  if (regenBtn) {
+    regenBtn.onclick = () => {
+      if (typeof lastQuestion !== "undefined" && lastQuestion) {
+        const input = document.getElementById("ai-input");
+        const sendBtn = document.getElementById("ai-send");
+        if (input && sendBtn) {
+          input.value = lastQuestion;
+          sendBtn.click();
+        }
+      }
+    };
+  }
+
+  if (saveMemBtn) {
+    saveMemBtn.onclick = () => {
+      if (typeof astroMemory !== "undefined") {
+        if (!astroMemory.memories) astroMemory.memories = [];
+        const structured = typeof extractStructuredMemory === "function" 
+          ? extractStructuredMemory(text) 
+          : { category: "AI Response", value: text.slice(0, 250) + (text.length > 250 ? "..." : "") };
+        
+        astroMemory.memories.push({
+          id: Date.now(),
+          text: structured.value || text.slice(0, 250),
+          category: structured.category || "AI Response",
+          createdAt: new Date().toISOString()
+        });
+        localStorage.setItem("astroMemory", JSON.stringify(astroMemory));
+        if (typeof updateMemorySettings === "function") updateMemorySettings();
+        if (typeof renderMemoryList === "function") renderMemoryList();
+        if (typeof showToast === "function") showToast("📌 Saved snippet to AI Memory!");
+      }
+    };
+  }
+
+  if (saveObsBtn) {
+    saveObsBtn.onclick = () => {
+      let observations = [];
+      try { observations = JSON.parse(localStorage.getItem("astroObservations") || "[]"); } catch (e) { observations = []; }
+      if (!observations.length) {
+        if (typeof showToast === "function") showToast("No observations found! Create one in Observation tab first.");
+        return;
+      }
+      const latest = observations[0];
+      latest.notes = (latest.notes || "") + "\n\n--- AI Note (" + new Date().toLocaleString() + ") ---\n" + text;
+      localStorage.setItem("astroObservations", JSON.stringify(observations));
+      if (typeof renderObservations === "function") renderObservations();
+      if (typeof showToast === "function") showToast(`⭐ Added note snippet to observation "${latest.title}"!`);
+    };
+  }
+
+  if (exportMdBtn) {
+    exportMdBtn.onclick = () => {
+      const blob = new Blob([text], { type: "text/markdown;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `AstroAI_Response_${Date.now()}.md`;
+      a.click();
+      URL.revokeObjectURL(url);
+      if (typeof showToast === "function") showToast("📤 Exported answer as Markdown!");
+    };
+  }
+
+  if (likeBtn) {
+    likeBtn.onclick = () => {
+      if (likeBtn.classList.contains("active")) {
+        likeBtn.classList.remove("active");
+        likeBtn.style.color = "";
+        if (dislikeBtn) dislikeBtn.style.display = "inline-block";
+      } else {
+        likeBtn.classList.add("active");
+        likeBtn.style.color = "#22d3ee";
+        if (dislikeBtn) dislikeBtn.style.display = "none";
+        if (typeof showToast === "function") showToast("👍 Thanks for your feedback");
+      }
+    };
+  }
+
+  if (dislikeBtn) {
+    dislikeBtn.onclick = () => {
+      if (dislikeBtn.classList.contains("active")) {
+        dislikeBtn.classList.remove("active");
+        dislikeBtn.style.color = "";
+        if (likeBtn) likeBtn.style.display = "inline-block";
+      } else {
+        dislikeBtn.classList.add("active");
+        dislikeBtn.style.color = "#ef4444";
+        if (likeBtn) likeBtn.style.display = "none";
+        if (typeof showToast === "function") showToast("👎 Thanks for your feedback");
+      }
+    };
+  }
+
+  return actions;
+}
+
 function addAIMessage(text, sender) {
 
   const msg =
@@ -7166,184 +7677,8 @@ function addAIMessage(text, sender) {
 
   // 🔥 Rich AI Response Toolbar
   if (sender !== "You") {
-    const actions = document.createElement("div");
-    actions.className = "message-actions ai-response-toolbar";
-    actions.innerHTML = `
-      <button class="message-copy-btn" title="Copy Message">📋 Copy</button>
-      <button class="speak-btn" title="Read Aloud">🔊</button>
-      <button class="regen-btn" title="Regenerate Answer">🔄 Regenerate</button>
-      <button class="save-memory-btn" title="Save to AI Memory">📌 Save to Memory</button>
-      <button class="save-obs-note-btn" title="Save as Observation Note">⭐ Save to Obs</button>
-      <button class="export-md-btn" title="Export as Markdown">📤 Export MD</button>
-      <button class="like-btn" title="Helpful">👍</button>
-      <button class="dislike-btn" title="Not Helpful">👎</button>
-    `;
-
-    const copyBtn = actions.querySelector(".message-copy-btn");
-    const speakBtn = actions.querySelector(".speak-btn");
-    const regenBtn = actions.querySelector(".regen-btn");
-    const saveMemBtn = actions.querySelector(".save-memory-btn");
-    const saveObsBtn = actions.querySelector(".save-obs-note-btn");
-    const exportMdBtn = actions.querySelector(".export-md-btn");
-    const likeBtn = actions.querySelector(".like-btn");
-    const dislikeBtn = actions.querySelector(".dislike-btn");
-
-    saveMemBtn?.addEventListener("click", () => {
-      if (typeof astroMemory !== "undefined") {
-        if (!astroMemory.memories) astroMemory.memories = [];
-        astroMemory.memories.push({
-          key: "AI Note (" + new Date().toLocaleDateString() + ")",
-          value: text.slice(0, 250) + (text.length > 250 ? "..." : "")
-        });
-        localStorage.setItem("astroMemory", JSON.stringify(astroMemory));
-        if (typeof showToast === "function") showToast("📌 Saved answer snippet to AI Memory!");
-      }
-    });
-
-    saveObsBtn?.addEventListener("click", () => {
-      let observations = [];
-      try { observations = JSON.parse(localStorage.getItem("astroObservations") || "[]"); } catch (e) { observations = []; }
-      if (!observations.length) {
-        if (typeof showToast === "function") showToast("No observations found! Create one in Observation tab first.");
-        return;
-      }
-      const latest = observations[0];
-      latest.notes = (latest.notes || "") + "\n\n--- AI Note (" + new Date().toLocaleString() + ") ---\n" + text;
-      localStorage.setItem("astroObservations", JSON.stringify(observations));
-      if (typeof renderObservations === "function") renderObservations();
-      if (typeof showToast === "function") showToast(`⭐ Added note snippet to observation "${latest.title}"!`);
-    });
-
-    exportMdBtn?.addEventListener("click", () => {
-      const blob = new Blob([text], { type: "text/markdown;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `AstroAI_Response_${Date.now()}.md`;
-      a.click();
-      URL.revokeObjectURL(url);
-      if (typeof showToast === "function") showToast("📤 Exported answer as Markdown!");
-    });
-
-    copyBtn.onclick = async () => {
-
-      await navigator.clipboard.writeText(text);
-
-      copyBtn.textContent = "✅";
-
-      setTimeout(() => {
-
-        copyBtn.textContent = "📋";
-
-      }, 1000);
-
-    };
-
-    let speaking = false;
-
-    speakBtn.onclick = () => {
-
-      if (!speaking) {
-
-        window.speechSynthesis.cancel();
-
-        const speech = new SpeechSynthesisUtterance(text);
-
-        speech.lang = "en-US";
-        speech.rate = 1;
-
-        speech.onend = () => {
-
-          speaking = false;
-          speakBtn.textContent = "🔊";
-
-        };
-
-        window.speechSynthesis.speak(speech);
-
-        speaking = true;
-        speakBtn.textContent = "⏹";
-
-      } else {
-
-        window.speechSynthesis.cancel();
-
-        speaking = false;
-
-        speakBtn.textContent = "🔊";
-
-      }
-
-    };
-
-
-
-    likeBtn.onclick = () => {
-
-      // Agar pehle se liked hai
-      if (likeBtn.classList.contains("active")) {
-
-        likeBtn.classList.remove("active");
-
-        likeBtn.style.color = "";
-
-        dislikeBtn.style.display = "inline-block";
-
-        return;
-      }
-
-      // Like ON
-      likeBtn.classList.add("active");
-
-      likeBtn.style.color = "#22d3ee";
-
-      dislikeBtn.style.display = "none";
-
-      showToast("👍 Thanks for your feedback");
-
-    };
-
-    dislikeBtn.onclick = () => {
-
-      // Agar pehle se disliked hai
-      if (dislikeBtn.classList.contains("active")) {
-
-        dislikeBtn.classList.remove("active");
-
-        dislikeBtn.style.color = "";
-
-        likeBtn.style.display = "inline-block";
-
-        return;
-      }
-
-      // Dislike ON
-      dislikeBtn.classList.add("active");
-
-      dislikeBtn.style.color = "#ef4444";
-
-      likeBtn.style.display = "none";
-
-      showToast("👎 Thanks for your feedback");
-
-    };
-
-    regenBtn.onclick = () => {
-
-      if (!lastQuestion) return;
-
-      document.getElementById("ai-input").value = lastQuestion;
-
-      document.getElementById("ai-send").click();
-
-    };
-
-    // 🔥 Message ke niche buttons
+    const actions = createAIActionToolbar(text);
     msg.appendChild(actions);
-
-
-
-
   }
 
   // 🔥 You message actions
@@ -8577,136 +8912,8 @@ async function typeAIMessage(text) {
   );
 
   // 🔥 AI message actions
-  const actions = document.createElement("div");
-
-  actions.className = "message-actions";
-
-  actions.innerHTML = `
-<button class="message-copy-btn">📋</button>
-<button class="speak-btn">🔊</button>
-<button class="like-btn">👍</button>
-<button class="dislike-btn">👎</button>
-<button class="regen-btn">🔄</button>
-`;
-
+  const actions = createAIActionToolbar(text);
   msg.appendChild(actions);
-
-  const copyBtn = actions.querySelector(".message-copy-btn");
-  const speakBtn = actions.querySelector(".speak-btn");
-  const likeBtn = actions.querySelector(".like-btn");
-  const dislikeBtn = actions.querySelector(".dislike-btn");
-  const regenBtn = actions.querySelector(".regen-btn");
-
-  copyBtn.onclick = async () => {
-
-    await navigator.clipboard.writeText(text);
-
-    copyBtn.textContent = "✅";
-
-    setTimeout(() => {
-
-      copyBtn.textContent = "📋";
-
-    }, 1000);
-
-  };
-
-  let speaking = false;
-
-  speakBtn.onclick = () => {
-
-    if (!speaking) {
-
-      window.speechSynthesis.cancel();
-
-      const speech = new SpeechSynthesisUtterance(text);
-
-      speech.lang = "en-US";
-      speech.rate = 1;
-
-      speech.onend = () => {
-
-        speaking = false;
-        speakBtn.textContent = "🔊";
-
-      };
-
-      window.speechSynthesis.speak(speech);
-
-      speaking = true;
-      speakBtn.textContent = "⏹";
-
-    } else {
-
-      window.speechSynthesis.cancel();
-
-      speaking = false;
-
-      speakBtn.textContent = "🔊";
-
-    }
-
-  };
-
-  likeBtn.onclick = () => {
-
-    // Agar pehle se liked hai
-    if (likeBtn.classList.contains("active")) {
-
-      likeBtn.classList.remove("active");
-
-      likeBtn.style.color = "";
-
-      dislikeBtn.style.display = "inline-block";
-
-      return;
-    }
-
-    // Like ON
-    likeBtn.classList.add("active");
-
-    likeBtn.style.color = "#22d3ee";
-
-    dislikeBtn.style.display = "none";
-
-    showToast("👍 Thanks for your feedback");
-
-  };
-
-  dislikeBtn.onclick = () => {
-
-    // Agar pehle se disliked hai
-    if (dislikeBtn.classList.contains("active")) {
-
-      dislikeBtn.classList.remove("active");
-
-      dislikeBtn.style.color = "";
-
-      likeBtn.style.display = "inline-block";
-
-      return;
-    }
-
-    // Dislike ON
-    dislikeBtn.classList.add("active");
-
-    dislikeBtn.style.color = "#ef4444";
-
-    likeBtn.style.display = "none";
-
-    showToast("👎 Thanks for your feedback");
-
-  };
-
-  regenBtn.onclick = () => {
-
-    if (!lastQuestion) return;
-
-    document.getElementById("ai-input").value = lastQuestion;
-
-    document.getElementById("ai-send").click();
-
-  };
 }
 
 
@@ -9358,6 +9565,26 @@ document.getElementById("close-info-panel").addEventListener("click", () => {
 /* ==========================================
    ASTRO EXPLORER SETTINGS
 ========================================== */
+
+const openContextDebugBtn = document.getElementById("open-context-debug");
+const closeContextDebugBtn = document.getElementById("close-context-debug");
+const contextDebugModal = document.getElementById("context-debug-modal");
+
+if (openContextDebugBtn && contextDebugModal) {
+  openContextDebugBtn.onclick = () => {
+    contextDebugModal.style.display = "flex";
+    contextDebugModal.classList.remove("hidden");
+    const currentInput = document.getElementById("ai-input")?.value || "";
+    AstroContextEngine.collectContext(currentInput);
+  };
+}
+
+if (closeContextDebugBtn && contextDebugModal) {
+  closeContextDebugBtn.onclick = () => {
+    contextDebugModal.style.display = "none";
+    contextDebugModal.classList.add("hidden");
+  };
+}
 
 const settingsOverlay = document.getElementById("settings-overlay");
 const openSettingsBtn = document.getElementById("open-settings");
@@ -10649,12 +10876,17 @@ function initModelPickerEvents() {
   updateModelPickerButton();
 }
 
-function formatApiErrorResponse(statusCode, errorObj) {
+function formatApiErrorResponse(statusCode, errorObj, providerId) {
   const message = typeof errorObj === "string"
     ? errorObj
     : (errorObj?.message || errorObj?.error?.message || JSON.stringify(errorObj));
 
   const code = statusCode || errorObj?.code || errorObj?.status;
+
+  const currentProvider = providerId || (typeof getSelectedAIProvider === "function" ? getSelectedAIProvider() : "openrouter");
+  const providerName = (typeof AI_PROVIDERS !== "undefined" && AI_PROVIDERS[currentProvider])
+    ? AI_PROVIDERS[currentProvider].name
+    : (currentProvider === "google_ai_studio" ? "Google AI Studio" : currentProvider === "groq" ? "Groq" : "AI Service");
 
   if (code === 400) {
     return `Invalid request/model: ${message}`;
@@ -10663,7 +10895,7 @@ function formatApiErrorResponse(statusCode, errorObj) {
     return `Invalid API key: ${message}`;
   }
   if (code === 402) {
-    return `Insufficient credits: ${message}`;
+    return `Insufficient credits / quota: ${message}`;
   }
   if (code === 403) {
     return `Forbidden: ${message}`;
@@ -10675,7 +10907,7 @@ function formatApiErrorResponse(statusCode, errorObj) {
     return `Quota exceeded / Rate limit: ${message}`;
   }
   if (typeof code === "number" && code >= 500) {
-    return `OpenRouter server error (${code}): ${message}`;
+    return `${providerName} server error (${code}): ${message}`;
   }
 
   return message ? `API Error (${code || "Unknown"}): ${message}` : "An unknown API error occurred.";
@@ -12312,8 +12544,14 @@ function initSkySettings() {
       }
     });
 
-    // Dismiss on ESC key
+    // Dismiss on ESC key & Toggle Renderer Overlay on Ctrl+Shift+R
     document.addEventListener("keydown", (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "r") {
+        e.preventDefault();
+        if (window.rendererManager) {
+          window.rendererManager.toggleOverlay();
+        }
+      }
       if (e.key === "Escape" && !panel.classList.contains("quick-panel-hidden")) {
         panel.classList.add("quick-panel-hidden");
       }

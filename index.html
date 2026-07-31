@@ -1198,6 +1198,10 @@ Logout
 
 </div>
 
+<button id="open-context-debug" title="Context Engine Debugger" style="background: rgba(34, 211, 238, 0.15); color: #22d3ee; border: 1px solid rgba(34, 211, 238, 0.4); padding: 4px 8px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 12px; margin-right: 4px;">
+⚡ Context
+</button>
+
 <button id="open-settings" title="Settings">
 ⚙
 </button>
@@ -1291,7 +1295,6 @@ Logout
     <div id="model-popup-content" class="model-popup-content"></div>
   </div>
 </div>
-
 </div>
 
 <!-- 🔥 OUTSIDE PANEL -->
@@ -1622,15 +1625,15 @@ Remove API Key
 
 <div class="settings-card">
 
-<h3>📝 Response Length</h3>
+<h3>📝 Maximum Response Size</h3>
 
 <select id="response-length">
 
-<option value="short">Short</option>
+<option value="compact">Compact</option>
 
-<option value="medium" selected>Medium</option>
+<option value="balanced" selected>Balanced</option>
 
-<option value="long">Detailed</option>
+<option value="unlimited">Unlimited</option>
 
 </select>
 
@@ -2778,6 +2781,50 @@ Save
 <!-- ================= CHAT HISTORY END ================= -->
 
 <!-- ================= SETTINGS END ================= -->
+
+<div id="context-debug-modal" class="context-debug-modal hidden" style="display:none;">
+  <div class="context-debug-content">
+    <div class="context-debug-header">
+      <h3>⚡ Astro AI Context Engine Debugger</h3>
+      <button id="close-context-debug" class="context-debug-close">✖</button>
+    </div>
+    <div class="context-debug-body">
+      <div class="debug-grid">
+        <div class="debug-card">
+          <div class="debug-label">Tokens & Payload Size</div>
+          <div id="debug-token-count" class="debug-value">~0 tokens (0 chars)</div>
+        </div>
+        <div class="debug-card">
+          <div class="debug-label">Filtered Memory Items</div>
+          <div id="debug-memory-count" class="debug-value">0 active</div>
+        </div>
+        <div class="debug-card">
+          <div class="debug-label">Active Celestial Object</div>
+          <div id="debug-active-object" class="debug-value">None</div>
+        </div>
+        <div class="debug-card">
+          <div class="debug-label">Research & Vision Mode</div>
+          <div class="debug-value">Research: <span id="debug-research-status">OFF</span> | Vision: <span id="debug-vision-status">OFF</span></div>
+        </div>
+      </div>
+
+      <div class="debug-section">
+        <h4>Included Context Sources</h4>
+        <div id="debug-sources-included" class="pills-container"></div>
+      </div>
+
+      <div class="debug-section">
+        <h4>Skipped / Optimized Sources</h4>
+        <div id="debug-sources-skipped" class="pills-container"></div>
+      </div>
+
+      <div class="debug-section">
+        <h4>Live Injected Prompt Stack Preview</h4>
+        <pre id="debug-prompt-preview" class="debug-prompt-code">No context generated yet. Send a query or open debugger after asking Astro AI.</pre>
+      </div>
+    </div>
+  </div>
+</div>
 
 <script type="module" src="firebase.js"></script>
 <script type="module" src="model-capabilities.js"></script>

@@ -1167,51 +1167,40 @@ code {
 }
 
 .message-actions {
-
   display: flex;
-
+  align-items: center;
   justify-content: flex-end;
-
+  flex-wrap: wrap;
   gap: 6px;
-
   margin-top: 8px;
-
-  opacity: .75;
-
+  opacity: .9;
 }
 
 .message-actions button {
-
   width: 28px;
-
   height: 28px;
-
+  min-width: 28px;
+  min-height: 28px;
   border: none;
-
   border-radius: 50%;
-
-  background: transparent;
-
+  background: rgba(255, 255, 255, 0.05);
   cursor: pointer;
-
-  font-size: 14px;
-
-  transition: .2s;
-
+  font-size: 13px;
+  transition: all 0.2s ease;
   color: #9ca3af;
-
   padding: 0;
-
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  line-height: 1;
+  box-sizing: border-box;
 }
 
 .message-actions button:hover {
-
   background: #1f2937;
-
   color: white;
-
-  transform: scale(1.08);
-
+  transform: scale(1.12);
 }
 
 .select-btn,
@@ -7922,4 +7911,221 @@ body.night-vision-active #toggle-night-btn {
 .code-copy-btn:hover {
   background: rgba(255, 255, 255, 0.3);
   color: #fff;
+}
+
+/* ==========================================================================
+   ASTRO AI CONTEXT ENGINE DEBUGGER STYLES
+   ========================================================================== */
+.context-debug-modal {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  background: rgba(0, 0, 0, 0.75) !important;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 9999999 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 20px !important;
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+}
+
+.context-debug-modal.hidden {
+  display: none !important;
+}
+
+.context-debug-content {
+  background: #0b0f19;
+  border: 1px solid rgba(34, 211, 238, 0.4);
+  border-radius: 12px;
+  width: 92%;
+  max-width: 680px;
+  max-height: 85vh;
+  box-shadow: 0 10px 35px rgba(0, 0, 0, 0.95), 0 0 35px rgba(34, 211, 238, 0.25);
+  display: flex;
+  flex-direction: column;
+  color: #e2e8f0;
+  font-family: 'Inter', system-ui, sans-serif;
+  overflow: hidden;
+  margin: auto !important;
+  position: relative;
+  box-sizing: border-box !important;
+}
+
+.context-debug-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 20px;
+  background: rgba(34, 211, 238, 0.1);
+  border-bottom: 1px solid rgba(34, 211, 238, 0.3);
+  flex-shrink: 0;
+  gap: 12px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.context-debug-header h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  color: #22d3ee;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.context-debug-close {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #f43f5e;
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 5px 10px;
+  border-radius: 6px;
+  flex-shrink: 0;
+  line-height: 1;
+  transition: all 0.2s ease;
+}
+
+.context-debug-close:hover {
+  color: #fff;
+  background: rgba(244, 63, 94, 0.4);
+  border-color: rgba(244, 63, 94, 0.6);
+}
+
+.context-debug-body {
+  padding: 18px 20px;
+  flex: 1 !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  box-sizing: border-box;
+}
+
+.context-debug-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.context-debug-body::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.6);
+  border-radius: 3px;
+}
+
+.context-debug-body::-webkit-scrollbar-thumb {
+  background: rgba(34, 211, 238, 0.4);
+  border-radius: 3px;
+}
+
+.context-debug-body::-webkit-scrollbar-thumb:hover {
+  background: rgba(34, 211, 238, 0.7);
+}
+
+.debug-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.debug-card {
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 10px 14px;
+  word-break: break-word;
+}
+
+.debug-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #94a3b8;
+  margin-bottom: 4px;
+}
+
+.debug-value {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: #38bdf8;
+}
+
+.debug-section h4 {
+  margin: 0 0 8px 0;
+  font-size: 0.85rem;
+  color: #cbd5e1;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.pills-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.context-debug-pill {
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.context-debug-pill.included {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border: 1px solid rgba(52, 211, 153, 0.4);
+}
+
+.context-debug-pill.skipped {
+  background: rgba(148, 163, 184, 0.1);
+  color: #94a3b8;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.debug-prompt-code {
+  background: #020617;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  padding: 14px;
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: #a5f3fc;
+  white-space: pre-wrap !important;
+  word-break: break-word !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  max-height: 280px;
+  margin: 0;
+  box-sizing: border-box;
+}
+
+.debug-prompt-code::-webkit-scrollbar {
+  width: 6px;
+}
+
+.debug-prompt-code::-webkit-scrollbar-track {
+  background: rgba(2, 6, 23, 0.8);
+  border-radius: 3px;
+}
+
+.debug-prompt-code::-webkit-scrollbar-thumb {
+  background: rgba(34, 211, 238, 0.5);
+  border-radius: 3px;
 }
