@@ -1,38 +1,38 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Astronomy Project</title>
-  <link rel="stylesheet" href="style.css">
-  <link rel="stylesheet" href="lib/celestial.css">
-  
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<title>Astronomy Project</title>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="lib/celestial.css">
+ 
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-  <link
-  rel="stylesheet"
-  href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+<link
+ rel="stylesheet"
+ href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
 />
 
 <script
-  defer
-  src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js">
+ defer
+ src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js">
 </script>
 
 <script
-  defer
-  src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js">
+ defer
+ src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js">
 </script>
 
 <!-- Google tag (gtag.js) -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-9747XL0FQQ"></script>
 <script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
+ window.dataLayer = window.dataLayer || [];
+ function gtag(){dataLayer.push(arguments);}
 
-  gtag('js', new Date());
+ gtag('js', new Date());
 
-  gtag('config', 'G-9747XL0FQQ');
+ gtag('config', 'G-9747XL0FQQ');
 </script>
 
 <!-- Google Analytics -->
@@ -47,9 +47,9 @@ gtag('config', 'G-9747XL0FQQ');
 <!-- Microsoft Clarity -->
 <script type="text/javascript">
 (function(c,l,a,r,i,t,y){
-    c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
-    t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
-    y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+ c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+ t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+ y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
 })(window, document, "clarity", "script", "xj9za0ille");
 </script>
 
@@ -60,404 +60,404 @@ gtag('config', 'G-9747XL0FQQ');
 
 <body>
 
-<!-- 🔝 NAVBAR -->
+<!-- NAVBAR -->
 <div id="navbar">
-  <div id="tabs">
-    <button onclick="showTab('sky', this)"> Sky</button>
-    <button onclick="showTab('nasa', this)"> NASA</button>
-    <button onclick="showTab('observation', this)"> Observation</button>
-  </div>
+<div id="tabs">
+<button onclick="showTab('sky', this)">Sky</button>
+<button onclick="showTab('nasa', this)">NASA</button>
+<button onclick="showTab('observation', this)">Observation</button>
+</div>
 </div>
 
-<!-- 🌌 SKY TAB (NEW) -->
+<!-- SKY TAB (NEW) -->
 <div id="sky" class="tab-content">
 
-  <!-- 🔍 SEARCH BAR -->
- <div id="skyContainer">
+<!-- SEARCH BAR -->
+<div id="skyContainer">
 
-    <div id="planetOverlay"></div>
+<div id="planetOverlay"></div>
 
-    <div id="compassHud">
+<div id="compassHud">
 
-    <div id="compassScale"></div>
+<div id="compassScale"></div>
 
-    <div id="compassPointer">▲</div>
+<div id="compassPointer">▲</div>
 
 </div>
 
-   
+ 
 
 </div>
 
 <div id="sky-ui">
 
-    <div id="sky-search">
+<div id="sky-search">
 
-        <input
-            type="text"
-            id="searchBox"
-            placeholder="Search object (JWST, Hubble, Mars, M31...)">
+<input
+ type="text"
+ id="searchBox"
+ placeholder="Search object (JWST, Hubble, Mars, M31...)">
 
-        <button onclick="searchObject()">
-            Search
-        </button>
-
-    </div>
-
-    <div id="time-controls">
-
-        <input
-            type="datetime-local"
-            id="sky-datetime">
-
-        <button onclick="applySkyTime()">
-            Apply Time
-        </button>
-
-    </div>
+<button onclick="searchObject()">
+ Search
+</button>
 
 </div>
 
-<!-- 🎛️ Floating Quick Sky Controls Button & Panel -->
+<div id="time-controls">
+
+<input
+ type="datetime-local"
+ id="sky-datetime">
+
+<button onclick="applySkyTime()">
+ Apply Time
+</button>
+
+</div>
+
+</div>
+
+<!-- ️ Floating Quick Sky Controls Button & Panel -->
 <button id="quick-sky-controls-toggle" title="Quick Sky Controls">
-  <span>🎛️ Sky Controls</span>
+<span>️ Sky Controls</span>
 </button>
 
 <div id="quick-sky-controls-panel" class="quick-panel-hidden">
-  <div class="quick-panel-header">
-    <h3>🎛️ Quick Sky Controls</h3>
-    <div style="display: flex; align-items: center; gap: 8px;">
-      <label class="switch" title="Toggle WebGPU Developer Status Overlay" style="transform: scale(0.85);">
-        <input type="checkbox" data-sky-setting="showRendererOverlay">
-        <span class="slider"></span>
-      </label>
-      <span style="font-size: 10px; color: #8ab4f8; font-weight: 600;">⚡ WebGPU Overlay</span>
-      <button id="quick-panel-close-btn" class="quick-panel-close">✖</button>
-    </div>
-  </div>
-  <div class="quick-panel-body">
+<div class="quick-panel-header">
+<h3>️ Quick Sky Controls</h3>
+<div style="display: flex; align-items: center; gap: 8px;">
+<label class="switch" title="Toggle WebGPU Developer Status Overlay" style="transform: scale(0.85);">
+<input type="checkbox" data-sky-setting="showRendererOverlay">
+<span class="slider"></span>
+</label>
+<span style="font-size: 10px; color: #8ab4f8; font-weight: 600;">WebGPU Overlay</span>
+<button id="quick-panel-close-btn" class="quick-panel-close">✕</button>
+</div>
+</div>
+<div class="quick-panel-body">
 
-    <!-- ⭐ Stars -->
-    <div class="quick-accordion-item">
-      <button class="quick-accordion-header">
-        <span>⭐ Stars</span>
-        <span class="quick-accordion-icon">▼</span>
-      </button>
-      <div class="quick-accordion-content">
-        <div class="quick-setting-row">
-          <label class="switch">
-            <input type="checkbox" data-sky-setting="showStars">
-            <span class="slider"></span>
-          </label>
-          <span>Show Stars</span>
-        </div>
-        <div class="quick-setting-row">
-          <label class="switch">
-            <input type="checkbox" data-sky-setting="showStarLabels">
-            <span class="slider"></span>
-          </label>
-          <span>Star Labels</span>
-        </div>
-        <div class="quick-setting-row range-row">
-          <div class="quick-label-wrap">
-            <span>Star Magnitude</span>
-            <span class="quick-val" data-val-for="starMagnitude">4</span>
-          </div>
-          <input type="range" data-sky-setting="starMagnitude" min="0" max="8" step="0.5">
-        </div>
-        <div class="quick-setting-row range-row">
-          <div class="quick-label-wrap">
-            <span>Star Color Saturation</span>
-            <span class="quick-val" data-val-for="starColorSaturation">1.0</span>
-          </div>
-          <input type="range" data-sky-setting="starColorSaturation" min="0.0" max="2.0" step="0.1">
-        </div>
-        <div class="quick-setting-row">
-          <label class="switch">
-            <input type="checkbox" data-sky-setting="showRendererOverlay">
-            <span class="slider"></span>
-          </label>
-          <span>Developer Rendering Overlay</span>
-        </div>
-        <div class="quick-setting-row">
-          <label class="switch">
-            <input type="checkbox" data-sky-setting="enableTwinkling">
-            <span class="slider"></span>
-          </label>
-          <span>Enable Twinkling</span>
-        </div>
-        <div class="quick-setting-row range-row">
-          <div class="quick-label-wrap">
-            <span>Twinkling Speed</span>
-            <span class="quick-val" data-val-for="twinklingSpeed">0.5</span>
-          </div>
-          <input type="range" data-sky-setting="twinklingSpeed" min="0.1" max="2.0" step="0.05">
-        </div>
-        <div class="quick-setting-row range-row">
-          <div class="quick-label-wrap">
-            <span>Twinkling Intensity</span>
-            <span class="quick-val" data-val-for="twinklingIntensity">0.5</span>
-          </div>
-          <input type="range" data-sky-setting="twinklingIntensity" min="0.0" max="1.0" step="0.05">
-        </div>
-      </div>
-    </div>
-
-    <!-- 🌌 Milky Way -->
-    <div class="quick-accordion-item">
-      <button class="quick-accordion-header">
-        <span>🌌 Milky Way</span>
-        <span class="quick-accordion-icon">▼</span>
-      </button>
-      <div class="quick-accordion-content">
-        <div class="quick-setting-row">
-          <label class="switch">
-            <input type="checkbox" data-sky-setting="showMilkyWay">
-            <span class="slider"></span>
-          </label>
-          <span>Show Milky Way</span>
-        </div>
-        <div class="quick-setting-row range-row">
-          <div class="quick-label-wrap">
-            <span>Milky Way Brightness</span>
-            <span class="quick-val" data-val-for="mwBrightness">1.0</span>
-          </div>
-          <input type="range" data-sky-setting="mwBrightness" min="0.0" max="2.0" step="0.05">
-        </div>
-      </div>
-    </div>
-
-    <!-- 🌫 Atmosphere -->
-    <div class="quick-accordion-item">
-      <button class="quick-accordion-header">
-        <span>🌫 Atmosphere</span>
-        <span class="quick-accordion-icon">▼</span>
-      </button>
-      <div class="quick-accordion-content">
-        <div class="quick-setting-row range-row">
-          <div class="quick-label-wrap">
-            <span>Sky Brightness</span>
-            <span class="quick-val" data-val-for="skyBrightness">0.5</span>
-          </div>
-          <input type="range" data-sky-setting="skyBrightness" min="0.0" max="1.0" step="0.05">
-        </div>
-        <div class="quick-setting-row range-row">
-          <div class="quick-label-wrap">
-            <span>Light Pollution (Bortle)</span>
-            <span class="quick-val" data-val-for="lightPollution">9</span>
-          </div>
-          <input type="range" data-sky-setting="lightPollution" min="1" max="9" step="1" value="9">
-        </div>
-        <div class="quick-setting-row range-row">
-          <div class="quick-label-wrap">
-            <span>Air Transparency</span>
-            <span class="quick-val" data-val-for="airTransparency">0.8</span>
-          </div>
-          <input type="range" data-sky-setting="airTransparency" min="0.0" max="1.0" step="0.05">
-        </div>
-        <div class="quick-setting-row range-row">
-          <div class="quick-label-wrap">
-            <span>Moonlight Intensity</span>
-            <span class="quick-val" data-val-for="moonlightBrightness">0.5</span>
-          </div>
-          <input type="range" data-sky-setting="moonlightBrightness" min="0.0" max="1.0" step="0.05" value="0.5">
-        </div>
-        <div class="quick-setting-row">
-          <label class="switch">
-            <input type="checkbox" data-sky-setting="horizonGlow">
-            <span class="slider"></span>
-          </label>
-          <span>Horizon Glow</span>
-        </div>
-        <div class="quick-setting-row">
-          <label class="switch">
-            <input type="checkbox" id="quick-toggle-renderer-overlay" data-sky-setting="showRendererOverlay">
-            <span class="slider"></span>
-          </label>
-          <span>Developer Rendering Overlay</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- 📐 Grid -->
-    <div class="quick-accordion-item">
-      <button class="quick-accordion-header">
-        <span>📐 Grid</span>
-        <span class="quick-accordion-icon">▼</span>
-      </button>
-      <div class="quick-accordion-content">
-        <div class="quick-setting-row">
-          <label class="switch">
-            <input type="checkbox" data-sky-setting="showEquatorialGrid">
-            <span class="slider"></span>
-          </label>
-          <span>Equatorial Grid</span>
-        </div>
-        <div class="quick-setting-row">
-          <label class="switch">
-            <input type="checkbox" data-sky-setting="showCelestialEquator">
-            <span class="slider"></span>
-          </label>
-          <span>Celestial Equator</span>
-        </div>
-        <div class="quick-setting-row">
-          <label class="switch">
-            <input type="checkbox" data-sky-setting="showEcliptic">
-            <span class="slider"></span>
-          </label>
-          <span>Ecliptic</span>
-        </div>
-        <div class="quick-setting-row">
-          <label class="switch">
-            <input type="checkbox" data-sky-setting="showGalacticPlane">
-            <span class="slider"></span>
-          </label>
-          <span>Galactic Plane</span>
-        </div>
-        <div class="quick-setting-row">
-          <label class="switch">
-            <input type="checkbox" data-sky-setting="showHorizonLine">
-            <span class="slider"></span>
-          </label>
-          <span>Horizon Line</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- 🏛 Constellations -->
-    <div class="quick-accordion-item">
-      <button class="quick-accordion-header">
-        <span>🏛 Constellations</span>
-        <span class="quick-accordion-icon">▼</span>
-      </button>
-      <div class="quick-accordion-content">
-        <div class="quick-setting-row">
-          <label class="switch">
-            <input type="checkbox" data-sky-setting="showConstellationLines">
-            <span class="slider"></span>
-          </label>
-          <span>Constellation Lines</span>
-        </div>
-        <div class="quick-setting-row">
-          <label class="switch">
-            <input type="checkbox" data-sky-setting="showConstellationNames">
-            <span class="slider"></span>
-          </label>
-          <span>Constellation Labels</span>
-        </div>
-        <div class="quick-setting-row">
-          <label class="switch">
-            <input type="checkbox" data-sky-setting="showConstellationArt">
-            <span class="slider"></span>
-          </label>
-          <span>Constellation Artwork</span>
-        </div>
-        <div class="quick-setting-row">
-          <label class="switch">
-            <input type="checkbox" data-sky-setting="showAsterisms">
-            <span class="slider"></span>
-          </label>
-          <span>Asterisms</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- 🪐 Solar System -->
-    <div class="quick-accordion-item">
-      <button class="quick-accordion-header">
-        <span>🪐 Solar System</span>
-        <span class="quick-accordion-icon">▼</span>
-      </button>
-      <div class="quick-accordion-content">
-        <div class="quick-setting-row">
-          <label class="switch">
-            <input type="checkbox" data-sky-setting="showPlanets">
-            <span class="slider"></span>
-          </label>
-          <span>Planets</span>
-        </div>
-        <div class="quick-setting-row">
-          <label class="switch">
-            <input type="checkbox" data-sky-setting="showAsteroids">
-            <span class="slider"></span>
-          </label>
-          <span>Asteroids</span>
-        </div>
-        <div class="quick-setting-row">
-          <label class="switch">
-            <input type="checkbox" data-sky-setting="showComets">
-            <span class="slider"></span>
-          </label>
-          <span>Comets</span>
-        </div>
-        <div class="quick-setting-row">
-          <label class="switch">
-            <input type="checkbox" data-sky-setting="showSatellites">
-            <span class="slider"></span>
-          </label>
-          <span>Satellites</span>
-        </div>
-        <div class="quick-setting-row">
-          <label class="switch">
-            <input type="checkbox" data-sky-setting="showSpacecraft">
-            <span class="slider"></span>
-          </label>
-          <span>Spacecraft</span>
-        </div>
-      </div>
-    </div>
-
-  </div>
+<!-- Stars -->
+<div class="quick-accordion-item">
+<button class="quick-accordion-header">
+<span>Stars</span>
+<span class="quick-accordion-icon">▼</span>
+</button>
+<div class="quick-accordion-content">
+<div class="quick-setting-row">
+<label class="switch">
+<input type="checkbox" data-sky-setting="showStars">
+<span class="slider"></span>
+</label>
+<span>Show Stars</span>
+</div>
+<div class="quick-setting-row">
+<label class="switch">
+<input type="checkbox" data-sky-setting="showStarLabels">
+<span class="slider"></span>
+</label>
+<span>Star Labels</span>
+</div>
+<div class="quick-setting-row range-row">
+<div class="quick-label-wrap">
+<span>Star Magnitude</span>
+<span class="quick-val" data-val-for="starMagnitude">4</span>
+</div>
+<input type="range" data-sky-setting="starMagnitude" min="0" max="8" step="0.5">
+</div>
+<div class="quick-setting-row range-row">
+<div class="quick-label-wrap">
+<span>Star Color Saturation</span>
+<span class="quick-val" data-val-for="starColorSaturation">1.0</span>
+</div>
+<input type="range" data-sky-setting="starColorSaturation" min="0.0" max="2.0" step="0.1">
+</div>
+<div class="quick-setting-row">
+<label class="switch">
+<input type="checkbox" data-sky-setting="showRendererOverlay">
+<span class="slider"></span>
+</label>
+<span>Developer Rendering Overlay</span>
+</div>
+<div class="quick-setting-row">
+<label class="switch">
+<input type="checkbox" data-sky-setting="enableTwinkling">
+<span class="slider"></span>
+</label>
+<span>Enable Twinkling</span>
+</div>
+<div class="quick-setting-row range-row">
+<div class="quick-label-wrap">
+<span>Twinkling Speed</span>
+<span class="quick-val" data-val-for="twinklingSpeed">0.5</span>
+</div>
+<input type="range" data-sky-setting="twinklingSpeed" min="0.1" max="2.0" step="0.05">
+</div>
+<div class="quick-setting-row range-row">
+<div class="quick-label-wrap">
+<span>Twinkling Intensity</span>
+<span class="quick-val" data-val-for="twinklingIntensity">0.5</span>
+</div>
+<input type="range" data-sky-setting="twinklingIntensity" min="0.0" max="1.0" step="0.05">
+</div>
+</div>
 </div>
 
-<!-- 🔭 Telescope Eyepiece Overlay -->
+<!-- Milky Way -->
+<div class="quick-accordion-item">
+<button class="quick-accordion-header">
+<span>Milky Way</span>
+<span class="quick-accordion-icon">▼</span>
+</button>
+<div class="quick-accordion-content">
+<div class="quick-setting-row">
+<label class="switch">
+<input type="checkbox" data-sky-setting="showMilkyWay">
+<span class="slider"></span>
+</label>
+<span>Show Milky Way</span>
+</div>
+<div class="quick-setting-row range-row">
+<div class="quick-label-wrap">
+<span>Milky Way Brightness</span>
+<span class="quick-val" data-val-for="mwBrightness">1.0</span>
+</div>
+<input type="range" data-sky-setting="mwBrightness" min="0.0" max="2.0" step="0.05">
+</div>
+</div>
+</div>
+
+<!-- Atmosphere -->
+<div class="quick-accordion-item">
+<button class="quick-accordion-header">
+<span>Atmosphere</span>
+<span class="quick-accordion-icon">▼</span>
+</button>
+<div class="quick-accordion-content">
+<div class="quick-setting-row range-row">
+<div class="quick-label-wrap">
+<span>Sky Brightness</span>
+<span class="quick-val" data-val-for="skyBrightness">0.5</span>
+</div>
+<input type="range" data-sky-setting="skyBrightness" min="0.0" max="1.0" step="0.05">
+</div>
+<div class="quick-setting-row range-row">
+<div class="quick-label-wrap">
+<span>Light Pollution (Bortle)</span>
+<span class="quick-val" data-val-for="lightPollution">9</span>
+</div>
+<input type="range" data-sky-setting="lightPollution" min="1" max="9" step="1" value="9">
+</div>
+<div class="quick-setting-row range-row">
+<div class="quick-label-wrap">
+<span>Air Transparency</span>
+<span class="quick-val" data-val-for="airTransparency">0.8</span>
+</div>
+<input type="range" data-sky-setting="airTransparency" min="0.0" max="1.0" step="0.05">
+</div>
+<div class="quick-setting-row range-row">
+<div class="quick-label-wrap">
+<span>Moonlight Intensity</span>
+<span class="quick-val" data-val-for="moonlightBrightness">0.5</span>
+</div>
+<input type="range" data-sky-setting="moonlightBrightness" min="0.0" max="1.0" step="0.05" value="0.5">
+</div>
+<div class="quick-setting-row">
+<label class="switch">
+<input type="checkbox" data-sky-setting="horizonGlow">
+<span class="slider"></span>
+</label>
+<span>Horizon Glow</span>
+</div>
+<div class="quick-setting-row">
+<label class="switch">
+<input type="checkbox" id="quick-toggle-renderer-overlay" data-sky-setting="showRendererOverlay">
+<span class="slider"></span>
+</label>
+<span>Developer Rendering Overlay</span>
+</div>
+</div>
+</div>
+
+<!-- Grid -->
+<div class="quick-accordion-item">
+<button class="quick-accordion-header">
+<span>Grid</span>
+<span class="quick-accordion-icon">▼</span>
+</button>
+<div class="quick-accordion-content">
+<div class="quick-setting-row">
+<label class="switch">
+<input type="checkbox" data-sky-setting="showEquatorialGrid">
+<span class="slider"></span>
+</label>
+<span>Equatorial Grid</span>
+</div>
+<div class="quick-setting-row">
+<label class="switch">
+<input type="checkbox" data-sky-setting="showCelestialEquator">
+<span class="slider"></span>
+</label>
+<span>Celestial Equator</span>
+</div>
+<div class="quick-setting-row">
+<label class="switch">
+<input type="checkbox" data-sky-setting="showEcliptic">
+<span class="slider"></span>
+</label>
+<span>Ecliptic</span>
+</div>
+<div class="quick-setting-row">
+<label class="switch">
+<input type="checkbox" data-sky-setting="showGalacticPlane">
+<span class="slider"></span>
+</label>
+<span>Galactic Plane</span>
+</div>
+<div class="quick-setting-row">
+<label class="switch">
+<input type="checkbox" data-sky-setting="showHorizonLine">
+<span class="slider"></span>
+</label>
+<span>Horizon Line</span>
+</div>
+</div>
+</div>
+
+<!-- Constellations -->
+<div class="quick-accordion-item">
+<button class="quick-accordion-header">
+<span>Constellations</span>
+<span class="quick-accordion-icon">▼</span>
+</button>
+<div class="quick-accordion-content">
+<div class="quick-setting-row">
+<label class="switch">
+<input type="checkbox" data-sky-setting="showConstellationLines">
+<span class="slider"></span>
+</label>
+<span>Constellation Lines</span>
+</div>
+<div class="quick-setting-row">
+<label class="switch">
+<input type="checkbox" data-sky-setting="showConstellationNames">
+<span class="slider"></span>
+</label>
+<span>Constellation Labels</span>
+</div>
+<div class="quick-setting-row">
+<label class="switch">
+<input type="checkbox" data-sky-setting="showConstellationArt">
+<span class="slider"></span>
+</label>
+<span>Constellation Artwork</span>
+</div>
+<div class="quick-setting-row">
+<label class="switch">
+<input type="checkbox" data-sky-setting="showAsterisms">
+<span class="slider"></span>
+</label>
+<span>Asterisms</span>
+</div>
+</div>
+</div>
+
+<!-- Solar System -->
+<div class="quick-accordion-item">
+<button class="quick-accordion-header">
+<span>Solar System</span>
+<span class="quick-accordion-icon">▼</span>
+</button>
+<div class="quick-accordion-content">
+<div class="quick-setting-row">
+<label class="switch">
+<input type="checkbox" data-sky-setting="showPlanets">
+<span class="slider"></span>
+</label>
+<span>Planets</span>
+</div>
+<div class="quick-setting-row">
+<label class="switch">
+<input type="checkbox" data-sky-setting="showAsteroids">
+<span class="slider"></span>
+</label>
+<span>Asteroids</span>
+</div>
+<div class="quick-setting-row">
+<label class="switch">
+<input type="checkbox" data-sky-setting="showComets">
+<span class="slider"></span>
+</label>
+<span>Comets</span>
+</div>
+<div class="quick-setting-row">
+<label class="switch">
+<input type="checkbox" data-sky-setting="showSatellites">
+<span class="slider"></span>
+</label>
+<span>Satellites</span>
+</div>
+<div class="quick-setting-row">
+<label class="switch">
+<input type="checkbox" data-sky-setting="showSpacecraft">
+<span class="slider"></span>
+</label>
+<span>Spacecraft</span>
+</div>
+</div>
+</div>
+
+</div>
+</div>
+
+<!-- Telescope Eyepiece Overlay -->
 <div id="telescope-overlay" class="hidden">
-  <div class="eyepiece-mask" id="eyepiece-mask"></div>
-  <div class="eyepiece-crosshair" id="eyepiece-crosshair">
-    <div class="ch-line ch-h"></div>
-    <div class="ch-line ch-v"></div>
-    <div class="ch-circle"></div>
-  </div>
+<div class="eyepiece-mask" id="eyepiece-mask"></div>
+<div class="eyepiece-crosshair" id="eyepiece-crosshair">
+<div class="ch-line ch-h"></div>
+<div class="ch-line ch-v"></div>
+<div class="ch-circle"></div>
+</div>
 </div>
 
-<!-- 🔭 Telescope Floating HUD Panel -->
+<!-- Telescope Floating HUD Panel -->
 <div id="telescope-hud" class="hidden">
-  <div class="hud-header">
-    <span>🔭 Eyepiece View</span>
-    <button id="close-hud-btn" onclick="toggleTelescopeMode()">✖</button>
-  </div>
-  <div class="hud-row">
-    <label>Eyepiece FOV:</label>
-    <select id="hud-eyepiece-select">
-      <option value="1.0">Wide (1.0°)</option>
-      <option value="0.5" selected>Medium (0.5°)</option>
-      <option value="0.25">High Power (0.25°)</option>
-    </select>
-  </div>
-  <div class="hud-row">
-    <label>Crosshair:</label>
-    <select id="hud-crosshair-select">
-      <option value="standard" selected>Standard Reticle</option>
-      <option value="off">Off</option>
-    </select>
-  </div>
-  <div class="hud-row">
-    <label>Finder Ring:</label>
-    <input type="checkbox" id="hud-finder-toggle" checked>
-  </div>
+<div class="hud-header">
+<span>Eyepiece View</span>
+<button id="close-hud-btn" onclick="toggleTelescopeMode()">✕</button>
+</div>
+<div class="hud-row">
+<label>Eyepiece FOV:</label>
+<select id="hud-eyepiece-select">
+<option value="1.0">Wide (1.0°)</option>
+<option value="0.5" selected>Medium (0.5°)</option>
+<option value="0.25">High Power (0.25°)</option>
+</select>
+</div>
+<div class="hud-row">
+<label>Crosshair:</label>
+<select id="hud-crosshair-select">
+<option value="standard" selected>Standard Reticle</option>
+<option value="off">Off</option>
+</select>
+</div>
+<div class="hud-row">
+<label>Finder Ring:</label>
+<input type="checkbox" id="hud-finder-toggle" checked>
+</div>
 </div>
 
-  
+ 
 
-  
+ 
 
-  <div id="object-info-panel">
+<div id="object-info-panel">
 
-    <button id="nav-center-btn" onclick="navCenter()">Center</button>
-    <button id="close-info-panel">✖</button>
+<button id="nav-center-btn" onclick="navCenter()">Center</button>
+<button id="close-info-panel">✕</button>
 
 <h2 id="info-name">
-  No Object Selected
+ No Object Selected
 </h2>
 
 <p id="info-type"></p>
@@ -471,8 +471,8 @@ gtag('config', 'G-9747XL0FQQ');
 <p id="info-az"></p>
 
 <p id="info-facing">
-    <span>Facing: </span>
-    <span id="nav-direction">--</span>
+<span>Facing:</span>
+<span id="nav-direction">--</span>
 </p>
 
 <p id="info-mag"></p>
@@ -498,986 +498,1193 @@ gtag('config', 'G-9747XL0FQQ');
 <p id="info-description" style="font-size: 12px; line-height: 1.4; color: rgba(255,255,255,0.85); margin-top: 8px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 8px;"></p>
 
 <div class="astro-actions-card">
-    <h3>🤖 Astro AI</h3>
+<h3>Astro AI</h3>
 
-    <div class="astro-action-buttons">
-        <button onclick="skyAIConstellation()">🌌 Constellation</button>
+<div class="astro-action-buttons">
+<button onclick="skyAIConstellation()">Constellation</button>
 
-<button onclick="skyAIObserveTips()">💡 Recommendation</button>
+<button onclick="skyAIObserveTips()">Recommendation</button>
 
-<button onclick="skyAIExplain()">🤖 Ask Astro AI</button>
-    </div>
+<button onclick="skyAIExplain()">Ask Astro AI</button>
 </div>
-    <!-- Observation Assistant Card -->
-    <div class="observation-recommendation" style="margin-top: 15px;">
-      <div class="icon">🔭</div>
-      <div class="content">
-        <div class="title">Observation Recommendation</div>
-        <div class="value" id="obs-recommendation">--</div>
-      </div>
-    </div>
-
-    <div class="observation-card">
-    <div class="obs-row">
-        <span>👁️ Visible Tonight</span>
-        <span id="obs-visible-tonight"></span>
-    </div>
-
-    <div class="obs-row">
-        <span>🕒 Best Time</span>
-        <span id="obs-best-time"></span>
-    </div>
+</div>
+<!-- Observation Assistant Card -->
+<div class="observation-recommendation" style="margin-top: 15px;">
+<div class="icon"></div>
+<div class="content">
+<div class="title">Observation Recommendation</div>
+<div class="value" id="obs-recommendation">--</div>
+</div>
 </div>
 
 <div class="observation-card">
-    <div class="obs-row">
-        <span>🌖 Moon Phase</span>
-        <span id="obs-moon-phase"></span>
-    </div>
-
-    <div class="obs-row">
-        <span>☀️ Solar Eclipse</span>
-        <span id="obs-solar-eclipse"></span>
-    </div>
-
-    <div class="obs-row">
-        <span>🌘 Lunar Eclipse</span>
-        <span id="obs-lunar-eclipse"></span>
-    </div>
+<div class="obs-row">
+<span>️ Visible Tonight</span>
+<span id="obs-visible-tonight"></span>
 </div>
 
-  </div>
+<div class="obs-row">
+<span>Best Time</span>
+<span id="obs-best-time"></span>
+</div>
+</div>
 
-</div> <!-- 🔥 SKY TAB CLOSED PROPERLY -->
+<div class="observation-card">
+<div class="obs-row">
+<span>Moon Phase</span>
+<span id="obs-moon-phase"></span>
+</div>
+
+<div class="obs-row">
+<span>️ Solar Eclipse</span>
+<span id="obs-solar-eclipse"></span>
+</div>
+
+<div class="obs-row">
+<span>Lunar Eclipse</span>
+<span id="obs-lunar-eclipse"></span>
+</div>
+</div>
+
+</div>
+
+</div><!-- SKY TAB CLOSED PROPERLY -->
 
 <!-- NASA -->
-<!-- 🚀 NASA EXPLORER HUB -->
+<!-- NASA EXPLORER HUB -->
 <div id="nasa" class="tab-content" style="display:none;">
 
-  <!-- 1. Common NASA Header -->
-  <header class="nasa-hub-header">
-    <div class="nasa-hub-top">
-      <div class="nasa-hub-brand">
-        <h1 class="nasa-hub-title">🚀 NASA Explorer</h1>
-        <div class="nasa-hub-breadcrumb" id="nasa-breadcrumb">NASA Explorer > Home</div>
-      </div>
-      <div class="nasa-hub-search-wrapper">
-        <input type="text" id="nasa-global-search" class="nasa-hub-search-input" placeholder="Search APOD, Mars Rovers, EPIC Earth, Asteroids, Library..." />
-        <button type="button" id="nasa-global-search-btn" class="nasa-hub-search-btn">🔍</button>
-      </div>
-      <div class="nasa-hub-top-actions">
-        <button type="button" id="nasa-refresh-btn" class="nasa-icon-btn" title="Refresh Service Data">🔄</button>
-        <button type="button" id="nasa-fav-tab-btn" class="nasa-icon-btn" title="Saved Favorites">⭐ <span id="nasa-fav-count" class="nasa-badge">0</span></button>
-      </div>
-    </div>
+<!-- 1. Common NASA Header -->
+<header class="nasa-hub-header">
+<div class="nasa-hub-top">
+<div class="nasa-hub-brand">
+<h1 class="nasa-hub-title">NASA Explorer</h1>
+<div class="nasa-hub-breadcrumb" id="nasa-breadcrumb">NASA Explorer >Home</div>
+</div>
+<div class="nasa-hub-search-wrapper">
+<input type="text" id="nasa-global-search" class="nasa-hub-search-input" placeholder="Search APOD, Mars Rovers, Asteroids, Library..." />
+<button type="button" id="nasa-global-search-btn" class="nasa-hub-search-btn">Search</button>
+</div>
+<div class="nasa-hub-top-actions">
+<button type="button" id="nasa-refresh-btn" class="nasa-icon-btn" title="Refresh Service Data">Refresh</button>
+<button type="button" id="nasa-fav-tab-btn" class="nasa-icon-btn" title="Saved Favorites"><span id="nasa-fav-count" class="nasa-badge">0</span></button>
+</div>
+</div>
 
-    <!-- Sub-navigation Tabs -->
-    <nav class="nasa-nav-tabs" aria-label="NASA Services Navigation">
-      <button type="button" class="nasa-nav-btn active" data-nasa-view="home">🏠 Home</button>
-      <button type="button" class="nasa-nav-btn" data-nasa-view="apod">🖼️ APOD</button>
-      <button type="button" class="nasa-nav-btn" data-nasa-view="epic">🌍 EPIC Earth</button>
-      <button type="button" class="nasa-nav-btn" data-nasa-view="mars">🚀 Mars Rovers</button>
-      <button type="button" class="nasa-nav-btn" data-nasa-view="neo">☄️ Near-Earth Asteroids</button>
-      <button type="button" class="nasa-nav-btn" data-nasa-view="library">📚 NASA Library</button>
-    </nav>
-  </header>
+<!-- Sub-navigation Tabs -->
+<nav class="nasa-nav-tabs" aria-label="NASA Services Navigation">
+<button type="button" class="nasa-nav-btn active" data-nasa-view="home">Home</button>
+<button type="button" class="nasa-nav-btn" data-nasa-view="apod">️ APOD</button>
+<button type="button" class="nasa-nav-btn" data-nasa-view="mars">Mars Rovers</button>
+<button type="button" class="nasa-nav-btn" data-nasa-view="neo">️ Near-Earth Asteroids</button>
+<button type="button" class="nasa-nav-btn" data-nasa-view="library">NASA Library</button>
+<button type="button" class="nasa-nav-btn" data-nasa-view="earth">Earth Observatory</button>
+<button type="button" class="nasa-nav-btn" data-nasa-view="spaceweather">️ Space Weather</button>
+<button type="button" class="nasa-nav-btn" data-nasa-view="exoplanets">Exoplanets</button>
+<button type="button" class="nasa-nav-btn" data-nasa-view="missions">️ Missions</button>
+<button type="button" class="nasa-nav-btn" data-nasa-view="launches">Launches</button>
+</nav>
+</header>
 
-  <!-- 2. View: NASA Home -->
-  <div id="nasa-view-home" class="nasa-subview active">
-    <!-- Hero Banner -->
-    <section class="nasa-hero">
-      <div class="nasa-hero-content">
-        <span class="nasa-hero-pill">✨ NASA Core Services Hub</span>
-        <h2 class="nasa-hero-heading">Explore the Universe with NASA Public Data</h2>
-        <p class="nasa-hero-text">Discover daily astronomy pictures, deep space mission archives, live Earth imagery, and real-time asteroid tracking.</p>
-        <div class="nasa-hero-stats">
-          <div class="nasa-stat-item">
-            <span class="nasa-stat-val" id="nasa-stat-asteroids">--</span>
-            <span class="nasa-stat-lbl">Asteroids Today</span>
-          </div>
-          <div class="nasa-stat-item">
-            <span class="nasa-stat-val" id="nasa-stat-rover-sol">--</span>
-            <span class="nasa-stat-lbl">Mars Rover Sol</span>
-          </div>
-          <div class="nasa-stat-item">
-            <span class="nasa-stat-val" id="nasa-stat-epic-date">--</span>
-            <span class="nasa-stat-lbl">Latest Earth Shot</span>
-          </div>
-        </div>
-      </div>
-    </section>
+<!-- 2. View: NASA Home -->
+<div id="nasa-view-home" class="nasa-subview active">
+<!-- Hero Banner -->
+<section class="nasa-hero">
+<div class="nasa-hero-content">
+<span class="nasa-hero-pill">NASA Space Science Explorer</span>
+<h2 class="nasa-hero-heading">Explore the Cosmos with NASA Space Science</h2>
+<p class="nasa-hero-text">Discover Earth climate events, live solar space weather, confirmed exoplanet discoveries, NASA deep space missions, and global rocket launch countdowns.</p>
+<div class="nasa-hero-stats">
+<div class="nasa-stat-item">
+<span class="nasa-stat-val" id="nasa-stat-asteroids">--</span>
+<span class="nasa-stat-lbl">Asteroids Today</span>
+</div>
+<div class="nasa-stat-item">
+<span class="nasa-stat-val" id="nasa-stat-rover-sol">--</span>
+<span class="nasa-stat-lbl">Mars Rover Sol</span>
+</div>
+<div class="nasa-stat-item">
+<span class="nasa-stat-val" id="nasa-stat-exoplanets">5,600+</span>
+<span class="nasa-stat-lbl">Confirmed Exoplanets</span>
+</div>
+</div>
+</div>
+</section>
 
-    <!-- Services Grid -->
-    <section class="nasa-services-section">
-      <h3 class="nasa-section-title">🛰️ NASA Services</h3>
-      <div class="nasa-services-grid">
+<!-- Services Grid -->
+<section class="nasa-services-section">
+<h3 class="nasa-section-title">️ NASA Science Modules</h3>
+<div class="nasa-services-grid">
 
-        <!-- Service 1: APOD -->
-        <div class="nasa-service-card" data-view-target="apod">
-          <div class="nasa-service-img-wrapper">
-            <img src="https://images-assets.nasa.gov/image/PIA12348/PIA12348~thumb.jpg" alt="APOD Preview" class="nasa-service-img" id="home-card-apod-img" />
-            <span class="nasa-service-badge">Daily Feature</span>
-          </div>
-          <div class="nasa-service-body">
-            <h4 class="nasa-service-title">Astronomy Picture of the Day</h4>
-            <p class="nasa-service-desc">Each day a different image or photograph of our fascinating universe is featured, along with a brief explanation.</p>
-            <div class="nasa-service-footer">
-              <span class="nasa-service-time">Updated Daily</span>
-              <button type="button" class="nasa-btn-primary">Explore APOD →</button>
-            </div>
-          </div>
-        </div>
+<!-- Service 1: APOD -->
+<div class="nasa-service-card" data-view-target="apod">
+<div class="nasa-service-img-wrapper">
+<img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 500' width='800' height='500'><rect width='800' height='500' fill='%230b0f19'/><circle cx='400' cy='220' r='50' fill='%234895ef' opacity='0.8'/><text x='400' y='350' fill='%23e2e8f0' font-family='sans-serif' font-size='20' font-weight='600' text-anchor='middle'>Astronomy Picture of the Day</text></svg>" alt="APOD Preview" class="nasa-service-img" id="home-card-apod-img" onerror="this.onerror=null; this.src=NASA_PLACEHOLDERS?NASA_PLACEHOLDERS.apod:'';" />
+<span class="nasa-service-badge">Daily Feature</span>
+</div>
+<div class="nasa-service-body">
+<h4 class="nasa-service-title">Astronomy Picture of the Day</h4>
+<p class="nasa-service-desc">Each day a different image or photograph of our fascinating universe is featured, along with a brief explanation.</p>
+<div class="nasa-service-footer">
+<span class="nasa-service-time">Updated Daily</span>
+<button type="button" class="nasa-btn-primary">Explore APOD →</button>
+</div>
+</div>
+</div>
 
-        <!-- Service 2: EPIC Earth -->
-        <div class="nasa-service-card" data-view-target="epic">
-          <div class="nasa-service-img-wrapper">
-            <img src="https://epic.gsfc.nasa.gov/archive/natural/2024/01/01/png/epic_1b_20240101003634.png" alt="EPIC Preview" class="nasa-service-img" id="home-card-epic-img" />
-            <span class="nasa-service-badge">Live Earth</span>
-          </div>
-          <div class="nasa-service-body">
-            <h4 class="nasa-service-title">EPIC Earth Imaging</h4>
-            <p class="nasa-service-desc">Full-disc imagery of Earth taken by the EPIC camera onboard the DSCOVR spacecraft 1 million miles away.</p>
-            <div class="nasa-service-footer">
-              <span class="nasa-service-time">Daily Earth Views</span>
-              <button type="button" class="nasa-btn-primary">View Earth →</button>
-            </div>
-          </div>
-        </div>
+<!-- Service 2: Mars Rover Photos -->
+<div class="nasa-service-card" data-view-target="mars">
+<div class="nasa-service-img-wrapper">
+<img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 500' width='800' height='500'><rect width='800' height='500' fill='%232b0d0d'/><path d='M0 300 Q400 270 800 280 L800 500 L0 500 Z' fill='%239a3412'/><text x='400' y='440' fill='%23fdba74' font-family='sans-serif' font-size='20' font-weight='600' text-anchor='middle'>Mars Rover Photos</text></svg>" alt="Mars Rover Preview" class="nasa-service-img" id="home-card-mars-img" onerror="this.onerror=null; this.src=NASA_PLACEHOLDERS?NASA_PLACEHOLDERS.mars:'';" />
+<span class="nasa-service-badge">Red Planet</span>
+</div>
+<div class="nasa-service-body">
+<h4 class="nasa-service-title">Mars Rover Photos</h4>
+<p class="nasa-service-desc">Browse raw photos taken by NASA's Mars rovers Curiosity, Perseverance, Opportunity, and Spirit on the surface of Mars.</p>
+<div class="nasa-service-footer">
+<span class="nasa-service-time">Curiosity & Perseverance</span>
+<button type="button" class="nasa-btn-primary">Browse Rovers →</button>
+</div>
+</div>
+</div>
 
-        <!-- Service 3: Mars Rover Photos -->
-        <div class="nasa-service-card" data-view-target="mars">
-          <div class="nasa-service-img-wrapper">
-            <img src="https://mars.nasa.gov/msl-raw-images/proj/msl/redops/ods/surface/sol/03000/opgs/edr/fcam/FLB_663996500EDR_F0850000FHAZ00337M_.JPG" alt="Mars Rover Preview" class="nasa-service-img" id="home-card-mars-img" />
-            <span class="nasa-service-badge">Red Planet</span>
-          </div>
-          <div class="nasa-service-body">
-            <h4 class="nasa-service-title">Mars Rover Photos</h4>
-            <p class="nasa-service-desc">Browse raw photos taken by NASA's Mars rovers Curiosity, Perseverance, Opportunity, and Spirit on the surface of Mars.</p>
-            <div class="nasa-service-footer">
-              <span class="nasa-service-time">Curiosity & Perseverance</span>
-              <button type="button" class="nasa-btn-primary">Browse Rovers →</button>
-            </div>
-          </div>
-        </div>
+<!-- Service 3: Near Earth Objects -->
+<div class="nasa-service-card" data-view-target="neo">
+<div class="nasa-service-img-wrapper">
+<div class="nasa-service-placeholder-icon">️</div>
+<span class="nasa-service-badge">Asteroids</span>
+</div>
+<div class="nasa-service-body">
+<h4 class="nasa-service-title">Near Earth Objects (NeoWs)</h4>
+<p class="nasa-service-desc">Track asteroids and comets making close approaches to Earth today with size, velocity, and hazard status data.</p>
+<div class="nasa-service-footer">
+<span class="nasa-service-time">Real-time Feed</span>
+<button type="button" class="nasa-btn-primary">Track Asteroids →</button>
+</div>
+</div>
+</div>
 
-        <!-- Service 4: Near Earth Objects -->
-        <div class="nasa-service-card" data-view-target="neo">
-          <div class="nasa-service-img-wrapper">
-            <div class="nasa-service-placeholder-icon">☄️</div>
-            <span class="nasa-service-badge">Asteroids</span>
-          </div>
-          <div class="nasa-service-body">
-            <h4 class="nasa-service-title">Near Earth Objects (NeoWs)</h4>
-            <p class="nasa-service-desc">Track asteroids and comets making close approaches to Earth today with size, velocity, and hazard status data.</p>
-            <div class="nasa-service-footer">
-              <span class="nasa-service-time">Real-time Feed</span>
-              <button type="button" class="nasa-btn-primary">Track Asteroids →</button>
-            </div>
-          </div>
-        </div>
+<!-- Service 4: NASA Image Library -->
+<div class="nasa-service-card" data-view-target="library">
+<div class="nasa-service-img-wrapper">
+<div class="nasa-service-placeholder-icon"></div>
+<span class="nasa-service-badge">Media Archive</span>
+</div>
+<div class="nasa-service-body">
+<h4 class="nasa-service-title">NASA Image & Video Library</h4>
+<p class="nasa-service-desc">Search thousands of high-resolution astronomy images, mission videos, and historical space flight audio recordings.</p>
+<div class="nasa-service-footer">
+<span class="nasa-service-time">Millions of Media</span>
+<button type="button" class="nasa-btn-primary">Search Archive →</button>
+</div>
+</div>
+</div>
 
-        <!-- Service 5: NASA Image Library -->
-        <div class="nasa-service-card" data-view-target="library">
-          <div class="nasa-service-img-wrapper">
-            <div class="nasa-service-placeholder-icon">📚</div>
-            <span class="nasa-service-badge">Media Archive</span>
-          </div>
-          <div class="nasa-service-body">
-            <h4 class="nasa-service-title">NASA Image & Video Library</h4>
-            <p class="nasa-service-desc">Search thousands of high-resolution astronomy images, mission videos, and historical space flight audio recordings.</p>
-            <div class="nasa-service-footer">
-              <span class="nasa-service-time">Millions of Media</span>
-              <button type="button" class="nasa-btn-primary">Search Archive →</button>
-            </div>
-          </div>
-        </div>
+<!-- Service 5: Earth Observatory -->
+<div class="nasa-service-card" data-view-target="earth">
+<div class="nasa-service-img-wrapper">
+<div class="nasa-service-placeholder-icon"></div>
+<span class="nasa-service-badge">Earth Science</span>
+</div>
+<div class="nasa-service-body">
+<h4 class="nasa-service-title">Earth Observatory</h4>
+<p class="nasa-service-desc">Explore climate stories, natural hazard monitoring, satellite images of wildfires, volcanic eruptions, and glacial changes.</p>
+<div class="nasa-service-footer">
+<span class="nasa-service-time">EONET & Climate Data</span>
+<button type="button" class="nasa-btn-primary">Open Earth Hub →</button>
+</div>
+</div>
+</div>
 
-      </div>
-    </section>
-  </div>
+<!-- Service 6: Space Weather (DONKI) -->
+<div class="nasa-service-card" data-view-target="spaceweather">
+<div class="nasa-service-img-wrapper">
+<div class="nasa-service-placeholder-icon">️</div>
+<span class="nasa-service-badge">Solar Monitor</span>
+</div>
+<div class="nasa-service-body">
+<h4 class="nasa-service-title">Space Weather (DONKI)</h4>
+<p class="nasa-service-desc">Live solar flares, coronal mass ejections, geomagnetic storms, solar energetic particles, and satellite impact alerts.</p>
+<div class="nasa-service-footer">
+<span class="nasa-service-time">DONKI Live Feed</span>
+<button type="button" class="nasa-btn-primary">Monitor Weather →</button>
+</div>
+</div>
+</div>
 
-  <!-- 3. View: APOD -->
-  <div id="nasa-view-apod" class="nasa-subview">
-    <div class="nasa-view-header">
-      <h2>🖼️ Astronomy Picture of the Day</h2>
-      <p>Discover the cosmos through NASA's daily featured photograph and expert explanation.</p>
-    </div>
+<!-- Service 7: Exoplanet Explorer -->
+<div class="nasa-service-card" data-view-target="exoplanets">
+<div class="nasa-service-img-wrapper">
+<div class="nasa-service-placeholder-icon"></div>
+<span class="nasa-service-badge">Alien Worlds</span>
+</div>
+<div class="nasa-service-body">
+<h4 class="nasa-service-title">Exoplanet Explorer</h4>
+<p class="nasa-service-desc">Discover alien worlds beyond our Solar System with orbital metrics, habitable zone status, host stars, and mass specs.</p>
+<div class="nasa-service-footer">
+<span class="nasa-service-time">NASA Exoplanet Archive</span>
+<button type="button" class="nasa-btn-primary">Explore Worlds →</button>
+</div>
+</div>
+</div>
 
-    <!-- Legacy Controls & Container preserved for compatibility -->
-    <div class="nasa-controls">
-      <button id="prev-btn" type="button">⬅️ Prev</button>
-      <input type="date" id="date-picker">
-      <button id="next-btn" type="button">➡️ Next</button>
-      <button id="load-btn" type="button">Load</button>
-      <button id="apod-random-btn" class="nasa-btn-secondary" type="button">🎲 Random</button>
-      <button id="download-btn" type="button">⬇ Download</button>
-      <button id="apod-fav-btn" class="nasa-btn-secondary" type="button">⭐ Favorite</button>
-      <button id="apod-share-btn" class="nasa-btn-secondary" type="button">🔗 Share</button>
-    </div>
+<!-- Service 8: NASA Missions -->
+<div class="nasa-service-card" data-view-target="missions">
+<div class="nasa-service-img-wrapper">
+<div class="nasa-service-placeholder-icon">️</div>
+<span class="nasa-service-badge">Spaceflight</span>
+</div>
+<div class="nasa-service-body">
+<h4 class="nasa-service-title">NASA Missions Explorer</h4>
+<p class="nasa-service-desc">Interactive explorer of flagship NASA space missions from JWST and Perseverance to Europa Clipper and Voyager 1.</p>
+<div class="nasa-service-footer">
+<span class="nasa-service-time">Active & Upcoming</span>
+<button type="button" class="nasa-btn-primary">Explore Missions →</button>
+</div>
+</div>
+</div>
 
-    <div class="nasa-container">
-      <div class="nasa-left">
-        <img id="apod-img" alt="APOD Image">
-        <div id="video-container"></div>
-        <div class="image-box">
-          <p id="apod-title"></p>
-        </div>
-      </div>
-      <div class="nasa-content">
-        <p id="apod-desc"></p>
-      </div>
-    </div>
-  </div>
+<!-- Service 9: Launch Explorer -->
+<div class="nasa-service-card" data-view-target="launches">
+<div class="nasa-service-img-wrapper">
+<div class="nasa-service-placeholder-icon"></div>
+<span class="nasa-service-badge">Rocket Launches</span>
+</div>
+<div class="nasa-service-body">
+<h4 class="nasa-service-title">Launch Explorer</h4>
+<p class="nasa-service-desc">Real-time space launch countdowns, rocket specifications, launch providers, orbital payloads, and historical manifests.</p>
+<div class="nasa-service-footer">
+<span class="nasa-service-time">Live Countdown Feed</span>
+<button type="button" class="nasa-btn-primary">Track Launches →</button>
+</div>
+</div>
+</div>
 
-  <!-- 4. View: EPIC Earth -->
-  <div id="nasa-view-epic" class="nasa-subview">
-    <div class="nasa-view-header">
-      <h2>🌍 EPIC Earth Polychromatic Imaging</h2>
-      <p>Full-disc Earth observations from DSCOVR spacecraft positioned at Lagrange Point L1.</p>
-    </div>
-    <div class="nasa-filter-bar">
-      <label>Mode:
-        <select id="epic-mode-select">
-          <option value="natural">Natural Color</option>
-          <option value="enhanced">Enhanced Color</option>
-        </select>
-      </label>
-      <label>Date:
-        <input type="date" id="epic-date-picker" />
-      </label>
-      <button type="button" id="epic-load-btn" class="nasa-btn-primary">Load Earth View</button>
-    </div>
-    <div id="epic-container" class="nasa-content-card">
-      <div class="nasa-loading-skeleton" id="epic-skeleton">Loading Earth view...</div>
-      <div id="epic-display" style="display:none;">
-        <div class="epic-image-wrapper">
-          <img id="epic-img" alt="Earth EPIC View" class="epic-main-img" />
-        </div>
-        <div class="epic-details">
-          <h3 id="epic-caption">Earth View</h3>
-          <p id="epic-date-str"></p>
-          <div class="epic-coords-grid">
-            <div><strong>Lat/Lon Centroid:</strong> <span id="epic-centroid">--</span></div>
-            <div><strong>DSCOVR Position:</strong> <span id="epic-pos">--</span></div>
-          </div>
-          <div class="epic-actions">
-            <button type="button" id="epic-hd-btn" class="nasa-btn-secondary">🔍 Fullscreen Lightbox</button>
-            <button type="button" id="epic-download-btn" class="nasa-btn-primary">⬇ Download Earth Shot</button>
-            <button type="button" id="epic-fav-btn" class="nasa-btn-secondary">⭐ Favorite</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
+</div>
+</section>
+</div>
 
-  <!-- 5. View: Mars Rover Photos -->
-  <div id="nasa-view-mars" class="nasa-subview">
-    <div class="nasa-view-header">
-      <h2>🚀 Mars Rover Photos</h2>
-      <p>Explore raw imagery sent directly from the surface of Mars by NASA's robotic explorers.</p>
-    </div>
-    <div class="nasa-filter-bar">
-      <label>Rover:
-        <select id="mars-rover-select">
-          <option value="curiosity" selected>Curiosity</option>
-          <option value="perseverance">Perseverance</option>
-          <option value="opportunity">Opportunity</option>
-          <option value="spirit">Spirit</option>
-        </select>
-      </label>
-      <label>Date Type:
-        <select id="mars-date-type-select">
-          <option value="sol" selected>Sol (Martian Day)</option>
-          <option value="earth_date">Earth Date</option>
-        </select>
-      </label>
-      <label id="mars-sol-label">Sol:
-        <input type="number" id="mars-sol-input" value="1000" min="0" max="5000" style="width:90px;" />
-      </label>
-      <label id="mars-earth-date-label" style="display:none;">Earth Date:
-        <input type="date" id="mars-earth-date-input" value="2015-05-30" style="width:135px;" />
-      </label>
-      <label>Camera:
-        <select id="mars-camera-select">
-          <option value="all">All Cameras</option>
-          <option value="FHAZ">Front Hazard Avoidance (FHAZ)</option>
-          <option value="RHAZ">Rear Hazard Avoidance (RHAZ)</option>
-          <option value="MAST">Mast Camera (MAST)</option>
-          <option value="CHEMCAM">Chemistry & Camera (CHEMCAM)</option>
-          <option value="NAVCAM">Navigation Camera (NAVCAM)</option>
-          <option value="PANCAM">Panoramic Camera (PANCAM)</option>
-        </select>
-      </label>
-      <button type="button" id="mars-load-btn" class="nasa-btn-primary">Fetch Mars Photos</button>
-    </div>
+<!-- 3. View: APOD -->
+<div id="nasa-view-apod" class="nasa-subview">
+<div class="nasa-view-header">
+<h2>️ Astronomy Picture of the Day</h2>
+<p>Discover the cosmos through NASA's daily featured photograph and expert explanation.</p>
+</div>
 
-    <!-- Mars Photo Grid -->
-    <div id="mars-photos-grid" class="nasa-card-grid"></div>
-  </div>
+<!-- Legacy Controls & Container preserved for compatibility -->
+<div class="nasa-controls">
+<button id="prev-btn" type="button">️ Prev</button>
+<input type="date" id="date-picker">
+<button id="next-btn" type="button">️ Next</button>
+<button id="load-btn" type="button">Load</button>
+<button id="apod-random-btn" class="nasa-btn-secondary" type="button">Random</button>
+<button id="apod-sky-btn" class="nasa-btn-secondary" type="button" style="background: linear-gradient(135deg, #3a0ca3, #4361ee); color: #ffffff;">View on Sky Map</button>
+<button id="download-btn" type="button">Download</button>
+<button id="apod-fav-btn" class="nasa-btn-secondary" type="button">Favorite</button>
+<button id="apod-share-btn" class="nasa-btn-secondary" type="button">Share</button>
+</div>
 
-  <!-- 6. View: Near Earth Objects (NeoWs) -->
-  <div id="nasa-view-neo" class="nasa-subview">
-    <div class="nasa-view-header">
-      <h2>☄️ Near Earth Objects (NeoWs)</h2>
-      <p>Real-time tracking of asteroids and comets approaching Earth's orbit.</p>
-    </div>
-    <div class="nasa-filter-bar">
-      <label>Date:
-        <input type="date" id="neo-date-picker" />
-      </label>
-      <label>Hazard Filter:
-        <select id="neo-hazard-select">
-          <option value="all">All Asteroids</option>
-          <option value="hazardous">🔴 Potentially Hazardous Only</option>
-        </select>
-      </label>
-      <label>Sort By:
-        <select id="neo-sort-select">
-          <option value="distance">Close Approach Distance</option>
-          <option value="size">Max Estimated Diameter</option>
-          <option value="velocity">Relative Velocity</option>
-        </select>
-      </label>
-      <button type="button" id="neo-load-btn" class="nasa-btn-primary">Check Asteroids</button>
-    </div>
+<div class="nasa-container">
+<div class="nasa-left">
+<img id="apod-img" alt="APOD Image">
+<div id="video-container"></div>
+<div class="image-box">
+<p id="apod-title"></p>
+</div>
+</div>
+<div class="nasa-content">
+<p id="apod-desc"></p>
+</div>
+</div>
+</div>
 
-    <!-- NeoWs Asteroid Grid -->
-    <div id="neo-asteroids-grid" class="nasa-card-grid"></div>
-  </div>
+<!-- 4. View: Mars Rover Photos -->
+<div id="nasa-view-mars" class="nasa-subview">
+<div class="nasa-view-header">
+<h2>Mars Rover Photos</h2>
+<p>Explore raw imagery sent directly from the surface of Mars by NASA's robotic explorers.</p>
+</div>
+<div class="nasa-filter-bar">
+<label>Rover:
+<select id="mars-rover-select">
+<option value="curiosity" selected>Curiosity</option>
+<option value="perseverance">Perseverance</option>
+<option value="opportunity">Opportunity</option>
+<option value="spirit">Spirit</option>
+</select>
+</label>
+<label>Date Type:
+<select id="mars-date-type-select">
+<option value="sol" selected>Sol (Martian Day)</option>
+<option value="earth_date">Earth Date</option>
+</select>
+</label>
+<label id="mars-sol-label">Sol:
+<input type="number" id="mars-sol-input" value="1000" min="0" max="5000" style="width:90px;" />
+</label>
+<label id="mars-earth-date-label" style="display:none;">Earth Date:
+<input type="date" id="mars-earth-date-input" value="2015-05-30" style="width:135px;" />
+</label>
+<label>Camera:
+<select id="mars-camera-select">
+<option value="all">All Cameras</option>
+<option value="FHAZ">Front Hazard Avoidance (FHAZ)</option>
+<option value="RHAZ">Rear Hazard Avoidance (RHAZ)</option>
+<option value="MAST">Mast Camera (MAST)</option>
+<option value="CHEMCAM">Chemistry & Camera (CHEMCAM)</option>
+<option value="NAVCAM">Navigation Camera (NAVCAM)</option>
+<option value="PANCAM">Panoramic Camera (PANCAM)</option>
+</select>
+</label>
+<button type="button" id="mars-load-btn" class="nasa-btn-primary">Fetch Mars Photos</button>
+</div>
 
-  <!-- 7. View: NASA Image Library -->
-  <div id="nasa-view-library" class="nasa-subview">
-    <div class="nasa-view-header">
-      <h2>📚 NASA Image & Video Library</h2>
-      <p>Search millions of official NASA photographs, space mission videos, and audio recordings.</p>
-    </div>
-    <div class="nasa-filter-bar">
-      <input type="text" id="library-search-input" placeholder="Search e.g. James Webb, Saturn, Apollo 11, Black Hole..." style="flex:1; min-width:200px;" />
-      <label>Media:
-        <select id="library-media-select">
-          <option value="image" selected>Images</option>
-          <option value="video">Videos</option>
-          <option value="audio">Audio</option>
-        </select>
-      </label>
-      <button type="button" id="library-search-btn" class="nasa-btn-primary">Search Library</button>
-    </div>
+<!-- Mars Photo Grid -->
+<div id="mars-photos-grid" class="nasa-card-grid"></div>
+</div>
 
-    <!-- Media Library Grid -->
-    <div id="library-media-grid" class="nasa-card-grid"></div>
-  </div>
+<!-- 6. View: Near Earth Objects (NeoWs) -->
+<div id="nasa-view-neo" class="nasa-subview">
+<div class="nasa-view-header">
+<h2>️ Near Earth Objects (NeoWs)</h2>
+<p>Real-time tracking of asteroids and comets approaching Earth's orbit.</p>
+</div>
+<div class="nasa-filter-bar">
+<label>Date:
+<input type="date" id="neo-date-picker" />
+</label>
+<label>Hazard Filter:
+<select id="neo-hazard-select">
+<option value="all">All Asteroids</option>
+<option value="hazardous">Potentially Hazardous Only</option>
+</select>
+</label>
+<label>Sort By:
+<select id="neo-sort-select">
+<option value="distance">Close Approach Distance</option>
+<option value="size">Max Estimated Diameter</option>
+<option value="velocity">Relative Velocity</option>
+</select>
+</label>
+<button type="button" id="neo-load-btn" class="nasa-btn-primary">Check Asteroids</button>
+</div>
 
-  <!-- 8. View: Favorites -->
-  <div id="nasa-view-favorites" class="nasa-subview">
-    <div class="nasa-view-header">
-      <h2>⭐ Saved NASA Favorites</h2>
-      <p>Your saved space photos, Earth views, Mars rover shots, and asteroid records.</p>
-    </div>
-    <div id="nasa-favorites-grid" class="nasa-card-grid"></div>
-  </div>
+<!-- NeoWs Asteroid Grid -->
+<div id="neo-asteroids-grid" class="nasa-card-grid"></div>
+</div>
+
+<!-- 7. View: NASA Image Library -->
+<div id="nasa-view-library" class="nasa-subview">
+<div class="nasa-view-header">
+<h2>NASA Image & Video Library</h2>
+<p>Search millions of official NASA photographs, space mission videos, and audio recordings.</p>
+</div>
+<div class="nasa-filter-bar">
+<input type="text" id="library-search-input" placeholder="Search e.g. James Webb, Saturn, Apollo 11, Black Hole..." style="flex:1; min-width:200px;" />
+<label>Media:
+<select id="library-media-select">
+<option value="image" selected>Images</option>
+<option value="video">Videos</option>
+<option value="audio">Audio</option>
+</select>
+</label>
+<button type="button" id="library-search-btn" class="nasa-btn-primary">Search Library</button>
+</div>
+
+<!-- Media Library Grid -->
+<div id="library-media-grid" class="nasa-card-grid"></div>
+</div>
+
+<!-- 8. View: Favorites -->
+<div id="nasa-view-favorites" class="nasa-subview">
+<div class="nasa-view-header">
+<h2>Saved NASA Favorites</h2>
+<p>Your saved space science articles, solar events, exoplanets, missions, launch countdowns, photos, and asteroids.</p>
+</div>
+<div id="nasa-favorites-grid" class="nasa-card-grid"></div>
+</div>
+
+<!-- 9. View: Earth Observatory -->
+<div id="nasa-view-earth" class="nasa-subview">
+<div class="nasa-view-header">
+<h2>Earth Observatory</h2>
+<p>Monitor natural hazards, global climate stories, wildfire tracking, volcanic activity, and glacier changes using satellite data.</p>
+</div>
+<div class="nasa-filter-bar">
+<input type="text" id="earth-search-input" placeholder="Search Earth articles & events (e.g. Wildfire, Volcano, Glacier...)" style="flex:1; min-width:200px;" />
+<label>Category:
+<select id="earth-category-select">
+<option value="all" selected>All Events & Articles</option>
+<option value="wildfires">Wildfires</option>
+<option value="volcanoes">Volcanoes</option>
+<option value="storms">Severe Storms</option>
+<option value="glaciers">Glaciers & Ice</option>
+<option value="landslides">️ Land Changes</option>
+<option value="atmosphere">Atmospheric Events</option>
+</select>
+</label>
+<button type="button" id="earth-load-btn" class="nasa-btn-primary">Explore Earth Data</button>
+</div>
+<div id="earth-grid" class="nasa-card-grid"></div>
+</div>
+
+<!-- 10. View: Space Weather (DONKI) -->
+<div id="nasa-view-spaceweather" class="nasa-subview">
+<div class="nasa-view-header">
+<h2>️ Space Weather Dashboard (DONKI)</h2>
+<p>Real-time telemetry of Solar Flares (FLR), Coronal Mass Ejections (CME), Geomagnetic Storms (GST), and Satellite Alerts.</p>
+</div>
+<div class="nasa-filter-bar">
+<label>Event Type:
+<select id="sw-type-select">
+<option value="all" selected>All Solar Events</option>
+<option value="FLR">️ Solar Flares (FLR)</option>
+<option value="CME">Coronal Mass Ejections (CME)</option>
+<option value="GST">️ Geomagnetic Storms (GST)</option>
+<option value="SEP">️ Solar Particles (SEP)</option>
+<option value="IPS">Interplanetary Shocks (IPS)</option>
+<option value="NOTIF">NASA Weather Alerts</option>
+</select>
+</label>
+<label>Severity:
+<select id="sw-severity-select">
+<option value="all">All Severities</option>
+<option value="high">High Impact / Extreme</option>
+<option value="moderate">Moderate</option>
+<option value="low">Minor / Low</option>
+</select>
+</label>
+<button type="button" id="sw-load-btn" class="nasa-btn-primary">Fetch Live Telemetry</button>
+</div>
+<div id="sw-grid" class="nasa-card-grid"></div>
+</div>
+
+<!-- 11. View: Exoplanet Explorer -->
+<div id="nasa-view-exoplanets" class="nasa-subview">
+<div class="nasa-view-header">
+<h2>Exoplanet Explorer</h2>
+<p>Explore confirmed worlds beyond our solar system cataloged by NASA Kepler, TESS, and Hubble missions.</p>
+</div>
+<div class="nasa-filter-bar">
+<input type="text" id="exo-search-input" placeholder="Search planet name, star, or system (e.g. Kepler-186f, TRAPPIST-1e)..." style="flex:1; min-width:200px;" />
+<label>Planet Type:
+<select id="exo-type-select">
+<option value="all" selected>All Planet Types</option>
+<option value="terrestrial">Terrestrial (Rocky)</option>
+<option value="super_earth">Super-Earth</option>
+<option value="neptune">Neptune-like</option>
+<option value="gas_giant">Gas Giant</option>
+</select>
+</label>
+<label>Filter:
+<select id="exo-hab-select">
+<option value="all">All Planets</option>
+<option value="habitable">Habitable Zone Only</option>
+</select>
+</label>
+<label>Sort:
+<select id="exo-sort-select">
+<option value="newest">Newest Discovery</option>
+<option value="nearest">Nearest to Earth</option>
+<option value="largest">Largest Radius</option>
+<option value="earthlike">Most Earth-like</option>
+</select>
+</label>
+<button type="button" id="exo-load-btn" class="nasa-btn-primary">Search Exoplanets</button>
+</div>
+<div id="exo-grid" class="nasa-card-grid"></div>
+</div>
+
+<!-- 12. View: NASA Missions -->
+<div id="nasa-view-missions" class="nasa-subview">
+<div class="nasa-view-header">
+<h2>️ NASA Missions Explorer</h2>
+<p>Discover flagship space exploration programs across Planetary Science, Astrophysics, Earth Science, and Human Spaceflight.</p>
+</div>
+<div class="nasa-filter-bar">
+<input type="text" id="mission-search-input" placeholder="Search mission (e.g. Webb, Artemis, Perseverance, Voyager)..." style="flex:1; min-width:200px;" />
+<label>Status:
+<select id="mission-status-select">
+<option value="all" selected>All Statuses</option>
+<option value="active">Active Mission</option>
+<option value="upcoming">Upcoming</option>
+<option value="completed">Completed / Historic</option>
+</select>
+</label>
+<label>Category:
+<select id="mission-category-select">
+<option value="all">All Disciplines</option>
+<option value="planetary">Planetary Science</option>
+<option value="astrophysics">Astrophysics</option>
+<option value="earth">Earth Science</option>
+<option value="human">‍ Human Spaceflight</option>
+</select>
+</label>
+<button type="button" id="mission-load-btn" class="nasa-btn-primary">Filter Missions</button>
+</div>
+<div id="mission-grid" class="nasa-card-grid"></div>
+</div>
+
+<!-- 13. View: Launch Explorer -->
+<div id="nasa-view-launches" class="nasa-subview">
+<div class="nasa-view-header">
+<h2>Space Launch Explorer</h2>
+<p>Track real-time countdowns, payloads, launch sites, and launch vehicles for NASA and global orbital missions.</p>
+</div>
+<div class="nasa-filter-bar">
+<input type="text" id="launch-search-input" placeholder="Search launch, payload, or rocket (e.g. Artemis, Falcon Heavy, Starship)..." style="flex:1; min-width:200px;" />
+<label>Schedule:
+<select id="launch-status-select">
+<option value="all" selected>All Launches</option>
+<option value="upcoming">Upcoming Launches</option>
+<option value="past">Past Launches</option>
+</select>
+</label>
+<label>Agency:
+<select id="launch-agency-select">
+<option value="all">All Agencies</option>
+<option value="NASA">NASA</option>
+<option value="SpaceX">SpaceX</option>
+<option value="ESA">ESA</option>
+<option value="ULA">ULA</option>
+</select>
+</label>
+<button type="button" id="launch-load-btn" class="nasa-btn-primary">Refresh Launches</button>
+</div>
+<div id="launch-grid" class="nasa-card-grid"></div>
+</div>
 
 </div>
 
 <!-- 9. Shared Reusable NASA Image Lightbox Viewer Modal -->
 <div id="nasa-image-viewer-modal" class="nasa-modal-overlay" style="display:none;">
-  <div class="nasa-modal-content">
-    <button type="button" id="nasa-modal-close-btn" class="nasa-modal-close">✕</button>
-    <div class="nasa-modal-body">
-      <div class="nasa-modal-media-wrapper">
-        <img id="nasa-modal-img" alt="NASA Image Viewer" />
-      </div>
-      <div class="nasa-modal-info">
-        <h3 id="nasa-modal-title">NASA Media Title</h3>
-        <p id="nasa-modal-date" class="nasa-modal-subtitle"></p>
-        <p id="nasa-modal-desc" class="nasa-modal-text"></p>
-        <div class="nasa-modal-actions">
-          <button type="button" id="nasa-modal-download-btn" class="nasa-btn-primary">⬇ Download HD</button>
-          <button type="button" id="nasa-modal-share-btn" class="nasa-btn-secondary">🔗 Copy Link</button>
-          <button type="button" id="nasa-modal-fav-btn" class="nasa-btn-secondary">⭐ Save Favorite</button>
-        </div>
-      </div>
-    </div>
-  </div>
+<div class="nasa-modal-content">
+<button type="button" id="nasa-modal-close-btn" class="nasa-modal-close">✕</button>
+<div class="nasa-modal-body">
+<div class="nasa-modal-media-wrapper">
+<img id="nasa-modal-img" alt="NASA Image Viewer" />
+</div>
+<div class="nasa-modal-info">
+<h3 id="nasa-modal-title">NASA Media Title</h3>
+<p id="nasa-modal-date" class="nasa-modal-subtitle"></p>
+<p id="nasa-modal-desc" class="nasa-modal-text"></p>
+<div class="nasa-modal-actions">
+<button type="button" id="nasa-modal-download-btn" class="nasa-btn-primary">Download HD</button>
+<button type="button" id="nasa-modal-share-btn" class="nasa-btn-secondary">Copy Link</button>
+<button type="button" id="nasa-modal-fav-btn" class="nasa-btn-secondary">Save Favorite</button>
+<button type="button" id="nasa-modal-sky-btn" class="nasa-btn-secondary" style="background: linear-gradient(135deg, #3a0ca3, #4361ee); color: #ffffff;">View on Sky Map</button>
+</div>
+<div id="nasa-image-viewer-ai-bar" class="nasa-modal-ai-bar-slot"></div>
+</div>
+</div>
+</div>
 </div>
 
-<!-- 🔭 OBSERVATION TAB -->
+<!-- 10. Universal NASA Space Science Detail Modal -->
+<div id="nasa-detail-modal" class="nasa-modal-overlay" style="display:none;">
+<div class="nasa-detail-modal-card">
+<button type="button" id="nasa-detail-close-btn" class="nasa-modal-close" onclick="closeNASADetailModal()">✕</button>
+<div class="nasa-detail-header" id="nasa-detail-hero">
+<span class="nasa-detail-badge" id="nasa-detail-badge">NASA Science</span>
+<h2 id="nasa-detail-title">Detail Title</h2>
+<p id="nasa-detail-subtitle" class="nasa-detail-subtitle"></p>
+</div>
+<div class="nasa-detail-body">
+<div id="nasa-detail-media-container" class="nasa-detail-media"></div>
+<div id="nasa-detail-grid" class="nasa-detail-grid"></div>
+<div id="nasa-detail-desc" class="nasa-detail-text"></div>
+<div id="nasa-detail-timeline" class="nasa-detail-timeline-box" style="display:none;"></div>
+<div id="nasa-detail-ai-bar" class="nasa-modal-ai-bar-slot"></div>
+<div id="nasa-detail-recommendations" class="nasa-modal-recs-slot"></div>
+</div>
+<div class="nasa-detail-footer">
+<button type="button" id="nasa-detail-sky-btn" class="nasa-btn-secondary" style="background: linear-gradient(135deg, #3a0ca3, #4361ee); color: #ffffff;">View on Sky Map</button>
+<button type="button" id="nasa-detail-fav-btn" class="nasa-btn-primary">Save Favorite</button>
+<button type="button" id="nasa-detail-download-btn" class="nasa-btn-secondary">Download Data</button>
+<button type="button" id="nasa-detail-share-btn" class="nasa-btn-secondary">Share</button>
+</div>
+</div>
+</div>
+
+<!-- OBSERVATION TAB -->
 <div id="observation" class="tab-content" style="display:none;">
 
-  <!-- 1. Observation Header -->
-  <header class="observation-header">
-    <div class="observation-title-group">
-      <h1 class="observation-title">Observation</h1>
-      <p class="observation-subtitle">Record and manage your astronomy observing sessions.</p>
-    </div>
+<!-- 1. Observation Header -->
+<header class="observation-header">
+<div class="observation-title-group">
+<h1 class="observation-title">Observation</h1>
+<p class="observation-subtitle">Record and manage your astronomy observing sessions.</p>
+</div>
 
-    <!-- 3. Main Action Button -->
-    <div class="observation-actions">
-      <button class="observation-primary-btn" id="open-new-observation-btn" type="button">
-        <span class="btn-icon">+</span> New Observation
-      </button>
-    </div>
-  </header>
+<!-- 3. Main Action Button -->
+<div class="observation-actions">
+<button class="observation-primary-btn" id="open-new-observation-btn" type="button">
+<span class="btn-icon">+</span>New Observation
+</button>
+</div>
+</header>
 
-  <!-- 2. Quick Stats Cards (UI only) -->
-  <section class="observation-stats-grid" aria-label="Observation Quick Statistics">
-    <div class="observation-stat-card">
-      <div class="stat-icon-wrapper">
-        <span class="stat-icon">📑</span>
-      </div>
-      <div class="stat-details">
-        <span class="stat-label">Total Sessions</span>
-        <span class="stat-value">0</span>
-      </div>
-    </div>
+<!-- 2. Quick Stats Cards (UI only) -->
+<section class="observation-stats-grid" aria-label="Observation Quick Statistics">
+<div class="observation-stat-card">
+<div class="stat-icon-wrapper">
+<span class="stat-icon"></span>
+</div>
+<div class="stat-details">
+<span class="stat-label">Total Sessions</span>
+<span class="stat-value">0</span>
+</div>
+</div>
 
-    <div class="observation-stat-card">
-      <div class="stat-icon-wrapper">
-        <span class="stat-icon">🌌</span>
-      </div>
-      <div class="stat-details">
-        <span class="stat-label">Total Objects</span>
-        <span class="stat-value">0</span>
-      </div>
-    </div>
+<div class="observation-stat-card">
+<div class="stat-icon-wrapper">
+<span class="stat-icon"></span>
+</div>
+<div class="stat-details">
+<span class="stat-label">Total Objects</span>
+<span class="stat-value">0</span>
+</div>
+</div>
 
-    <div class="observation-stat-card">
-      <div class="stat-icon-wrapper">
-        <span class="stat-icon">⏱️</span>
-      </div>
-      <div class="stat-details">
-        <span class="stat-label">Total Observation Hours</span>
-        <span class="stat-value">0h</span>
-      </div>
-    </div>
+<div class="observation-stat-card">
+<div class="stat-icon-wrapper">
+<span class="stat-icon">️</span>
+</div>
+<div class="stat-details">
+<span class="stat-label">Total Observation Hours</span>
+<span class="stat-value">0h</span>
+</div>
+</div>
 
-    <div class="observation-stat-card">
-      <div class="stat-icon-wrapper">
-        <span class="stat-icon">⭐</span>
-      </div>
-      <div class="stat-details">
-        <span class="stat-label">Favorite Object</span>
-        <span class="stat-value">—</span>
-      </div>
-    </div>
-  </section>
+<div class="observation-stat-card">
+<div class="stat-icon-wrapper">
+<span class="stat-icon"></span>
+</div>
+<div class="stat-details">
+<span class="stat-label">Favorite Object</span>
+<span class="stat-value">—</span>
+</div>
+</div>
+</section>
 
-  <!-- 4. Empty State Card -->
-  <div class="observation-empty-card">
-    <div class="empty-illustration-wrapper">
-      <div class="telescope-icon-glow"></div>
-      <span class="telescope-illustration">🔭</span>
-    </div>
-    <h3 class="empty-title">No observations yet.</h3>
-    <p class="empty-description">Create your first observing session.</p>
-  </div>
+<!-- 4. Empty State Card -->
+<div class="observation-empty-card">
+<div class="empty-illustration-wrapper">
+<div class="telescope-icon-glow"></div>
+<span class="telescope-illustration"></span>
+</div>
+<h3 class="empty-title">No observations yet.</h3>
+<p class="empty-description">Create your first observing session.</p>
+</div>
 
-  <!-- Search & Filter Controls -->
-  <div class="observation-controls-bar">
-    <div class="observation-search-wrapper">
-      <span class="search-icon">🔍</span>
-      <input type="text" id="obs-search-input" placeholder="Search by title, object, telescope, location..." class="obs-search-input">
-    </div>
-    <div class="observation-filter-wrapper">
-      <select id="obs-filter-select" class="obs-filter-select">
-        <option value="all">All Observations</option>
-        <option value="today">Today</option>
-        <option value="week">This Week</option>
-        <option value="month">This Month</option>
-      </select>
-    </div>
-  </div>
+<!-- Search & Filter Controls -->
+<div class="observation-controls-bar">
+<div class="observation-search-wrapper">
+<span class="search-icon"></span>
+<input type="text" id="obs-search-input" placeholder="Search by title, object, telescope, location..." class="obs-search-input">
+</div>
+<div class="observation-filter-wrapper">
+<select id="obs-filter-select" class="obs-filter-select">
+<option value="all">All Observations</option>
+<option value="today">Today</option>
+<option value="week">This Week</option>
+<option value="month">This Month</option>
+</select>
+</div>
+</div>
 
-  <!-- Observation History Section -->
-  <section class="observation-history-section" aria-label="Observation History Sessions">
-    <div class="history-controls-header">
-      <h3 class="history-section-title">📜 Observation History</h3>
-      <div class="history-filters-bar">
-        <div class="history-search-box">
-          <span class="search-icon">🔍</span>
-          <input type="text" id="obs-history-search" class="history-input" placeholder="Search history notes, objects, titles...">
-        </div>
+<!-- Observation History Section -->
+<section class="observation-history-section" aria-label="Observation History Sessions">
+<div class="history-controls-header">
+<h3 class="history-section-title">Observation History</h3>
+<div class="history-filters-bar">
+<div class="history-search-box">
+<span class="search-icon"></span>
+<input type="text" id="obs-history-search" class="history-input" placeholder="Search history notes, objects, titles...">
+</div>
 
-        <select id="obs-history-filter-date" class="history-select">
-          <option value="all">📅 All Dates</option>
-          <option value="today">Today</option>
-          <option value="week">This Week</option>
-          <option value="month">This Month</option>
-        </select>
+<select id="obs-history-filter-date" class="history-select">
+<option value="all">All Dates</option>
+<option value="today">Today</option>
+<option value="week">This Week</option>
+<option value="month">This Month</option>
+</select>
 
-        <select id="obs-history-filter-telescope" class="history-select">
-          <option value="all">🔭 All Telescopes</option>
-        </select>
+<select id="obs-history-filter-telescope" class="history-select">
+<option value="all">All Telescopes</option>
+</select>
 
-        <select id="obs-history-filter-type" class="history-select">
-          <option value="all">🌌 All Object Types</option>
-          <option value="messier">Messier (M)</option>
-          <option value="ngc">NGC Catalog</option>
-          <option value="planet">Planets</option>
-          <option value="moon">Moon</option>
-        </select>
+<select id="obs-history-filter-type" class="history-select">
+<option value="all">All Object Types</option>
+<option value="messier">Messier (M)</option>
+<option value="ngc">NGC Catalog</option>
+<option value="planet">Planets</option>
+<option value="moon">Moon</option>
+</select>
 
-        <select id="obs-history-filter-rating" class="history-select">
-          <option value="all">⭐ All Ratings</option>
-          <option value="5">⭐⭐⭐⭐⭐ 5 Stars</option>
-          <option value="4">⭐⭐⭐⭐ 4+ Stars</option>
-          <option value="3">⭐⭐⭐ 3+ Stars</option>
-        </select>
+<select id="obs-history-filter-rating" class="history-select">
+<option value="all">All Ratings</option>
+<option value="5">5 Stars</option>
+<option value="4">4+ Stars</option>
+<option value="3">3+ Stars</option>
+</select>
 
-        <select id="obs-history-filter-tag" class="history-select">
-          <option value="all">🏷️ All Tags</option>
-        </select>
+<select id="obs-history-filter-tag" class="history-select">
+<option value="all">️ All Tags</option>
+</select>
 
-        <button type="button" id="obs-history-fav-toggle" class="history-fav-btn" data-active="false">
-          ⭐ Favorites Only
-        </button>
+<button type="button" id="obs-history-fav-toggle" class="history-fav-btn" data-active="false">
+ Favorites Only
+</button>
 
-        <select id="obs-history-sort" class="history-select">
-          <option value="newest">⌛ Sort: Newest First</option>
-          <option value="oldest">⏳ Sort: Oldest First</option>
-          <option value="rating">⭐ Sort: Highest Rated</option>
-          <option value="duration">⏱️ Sort: Longest Duration</option>
-          <option value="most-objects">🌌 Sort: Most Objects</option>
-          <option value="favorites">⭐ Sort: Favorites First</option>
-        </select>
-      </div>
-    </div>
+<select id="obs-history-sort" class="history-select">
+<option value="newest">Sort: Newest First</option>
+<option value="oldest">Sort: Oldest First</option>
+<option value="rating">Sort: Highest Rated</option>
+<option value="duration">️ Sort: Longest Duration</option>
+<option value="most-objects">Sort: Most Objects</option>
+<option value="favorites">Sort: Favorites First</option>
+</select>
+</div>
+</div>
 
-    <!-- Observation Cards Grid -->
-    <div id="observation-history-list" class="observation-history-grid"></div>
-  </section>
+<!-- Observation Cards Grid -->
+<div id="observation-history-list" class="observation-history-grid"></div>
+</section>
 
-  <!-- 5. Observation Timeline Calendar Container -->
-  <div id="observation-calendar-container" class="observation-calendar-container">
-    <div class="calendar-header">
-      <button class="calendar-nav-btn" id="cal-prev-month">◀</button>
-      <h3 id="cal-current-month">January 2024</h3>
-      <button class="calendar-nav-btn" id="cal-next-month">▶</button>
-      <button class="calendar-nav-btn" id="cal-today-btn">Today</button>
-    </div>
+<!-- 5. Observation Timeline Calendar Container -->
+<div id="observation-calendar-container" class="observation-calendar-container">
+<div class="calendar-header">
+<button class="calendar-nav-btn" id="cal-prev-month">◀</button>
+<h3 id="cal-current-month">January 2024</h3>
+<button class="calendar-nav-btn" id="cal-next-month">▶</button>
+<button class="calendar-nav-btn" id="cal-today-btn">Today</button>
+</div>
 
-    <div class="calendar-grid-header">
-      <div>Sun</div>
-      <div>Mon</div>
-      <div>Tue</div>
-      <div>Wed</div>
-      <div>Thu</div>
-      <div>Fri</div>
-      <div>Sat</div>
-    </div>
+<div class="calendar-grid-header">
+<div>Sun</div>
+<div>Mon</div>
+<div>Tue</div>
+<div>Wed</div>
+<div>Thu</div>
+<div>Fri</div>
+<div>Sat</div>
+</div>
 
-    <div id="calendar-days-grid" class="calendar-days-grid"></div>
+<div id="calendar-days-grid" class="calendar-days-grid"></div>
 
-    <div id="calendar-selected-events" class="calendar-selected-events hidden">
-      <div class="selected-events-header">
-        <h4 id="selected-date-label">Events</h4>
-        <button id="close-selected-events">✕</button>
-      </div>
-      <div id="selected-events-list"></div>
-    </div>
-  </div>
+<div id="calendar-selected-events" class="calendar-selected-events hidden">
+<div class="selected-events-header">
+<h4 id="selected-date-label">Events</h4>
+<button id="close-selected-events">✕</button>
+</div>
+<div id="selected-events-list"></div>
+</div>
+</div>
 
-  <!-- 6. Advanced Statistics Section -->
-  <section class="observation-advanced-stats" aria-label="Advanced Observation Analytics">
-    <h3 class="advanced-stats-title">Observation Analytics</h3>
-    <div class="advanced-stats-grid">
-      <div class="adv-stat-card">
-        <div class="adv-stat-info">
-          <span class="adv-stat-label">Most Used Telescope</span>
-          <span class="adv-stat-value" id="stat-most-used-telescope">--</span>
-        </div>
-      </div>
+<!-- 6. Advanced Statistics Section -->
+<section class="observation-advanced-stats" aria-label="Advanced Observation Analytics">
+<h3 class="advanced-stats-title">Observation Analytics</h3>
+<div class="advanced-stats-grid">
+<div class="adv-stat-card">
+<div class="adv-stat-info">
+<span class="adv-stat-label">Most Used Telescope</span>
+<span class="adv-stat-value" id="stat-most-used-telescope">--</span>
+</div>
+</div>
 
-      <div class="adv-stat-card">
-        <div class="adv-stat-info">
-          <span class="adv-stat-label">Average Session Duration</span>
-          <span class="adv-stat-value" id="stat-avg-duration">--</span>
-        </div>
-      </div>
+<div class="adv-stat-card">
+<div class="adv-stat-info">
+<span class="adv-stat-label">Average Session Duration</span>
+<span class="adv-stat-value" id="stat-avg-duration">--</span>
+</div>
+</div>
 
-      <div class="adv-stat-card">
-        <div class="adv-stat-info">
-          <span class="adv-stat-label">Darkest Bortle Scale</span>
-          <span class="adv-stat-value" id="stat-darkest-bortle">--</span>
-        </div>
-      </div>
+<div class="adv-stat-card">
+<div class="adv-stat-info">
+<span class="adv-stat-label">Darkest Bortle Scale</span>
+<span class="adv-stat-value" id="stat-darkest-bortle">--</span>
+</div>
+</div>
 
-      <div class="adv-stat-card">
-        <div class="adv-stat-info">
-          <span class="adv-stat-label">Best Seeing Recorded</span>
-          <span class="adv-stat-value" id="stat-best-seeing">--</span>
-        </div>
-      </div>
+<div class="adv-stat-card">
+<div class="adv-stat-info">
+<span class="adv-stat-label">Best Seeing Recorded</span>
+<span class="adv-stat-value" id="stat-best-seeing">--</span>
+</div>
+</div>
 
-      <div class="adv-stat-card">
-        <div class="adv-stat-info">
-          <span class="adv-stat-label">Most Active Month</span>
-          <span class="adv-stat-value" id="stat-most-active-month">--</span>
-        </div>
-      </div>
+<div class="adv-stat-card">
+<div class="adv-stat-info">
+<span class="adv-stat-label">Most Active Month</span>
+<span class="adv-stat-value" id="stat-most-active-month">--</span>
+</div>
+</div>
 
-      <div class="adv-stat-card">
-        <div class="adv-stat-info">
-          <span class="adv-stat-label">Observation Locations</span>
-          <span class="adv-stat-value" id="stat-total-locations">--</span>
-        </div>
-      </div>
-    </div>
-  </section>
+<div class="adv-stat-card">
+<div class="adv-stat-info">
+<span class="adv-stat-label">Observation Locations</span>
+<span class="adv-stat-value" id="stat-total-locations">--</span>
+</div>
+</div>
+</div>
+</section>
 
-  <!-- 7. Backup, Export & Import Management Section -->
-  <section class="observation-backup-section" aria-label="Observation Backup & Data Management">
-    <div class="backup-section-header">
-      <div class="backup-header-title">
-        <h3 class="backup-title">💾 Backup, Export & Data Management</h3>
-        <p class="backup-subtitle">Export observations to JSON, CSV or PDF, import backups, and manage local data snapshots.</p>
-      </div>
-      <div class="backup-header-actions">
-        <button type="button" id="obs-export-json-all-btn" class="obs-backup-btn btn-export">
-          📥 Export JSON
-        </button>
-        <button type="button" id="obs-export-csv-all-btn" class="obs-backup-btn btn-export">
-          📊 Export CSV
-        </button>
-        <button type="button" id="obs-export-pdf-all-btn" class="obs-backup-btn btn-export">
-          📄 Export PDF Report
-        </button>
-        <button type="button" id="obs-create-snapshot-btn" class="obs-backup-btn btn-snapshot">
-          ⚡ Create Instant Snapshot
-        </button>
-      </div>
-    </div>
+<!-- 7. Backup, Export & Import Management Section -->
+<section class="observation-backup-section" aria-label="Observation Backup & Data Management">
+<div class="backup-section-header">
+<div class="backup-header-title">
+<h3 class="backup-title">Backup, Export & Data Management</h3>
+<p class="backup-subtitle">Export observations to JSON, CSV or PDF, import backups, and manage local data snapshots.</p>
+</div>
+<div class="backup-header-actions">
+<button type="button" id="obs-export-json-all-btn" class="obs-backup-btn btn-export">
+ Export JSON
+</button>
+<button type="button" id="obs-export-csv-all-btn" class="obs-backup-btn btn-export">
+ Export CSV
+</button>
+<button type="button" id="obs-export-pdf-all-btn" class="obs-backup-btn btn-export">
+ Export PDF Report
+</button>
+<button type="button" id="obs-create-snapshot-btn" class="obs-backup-btn btn-snapshot">
+ Create Instant Snapshot
+</button>
+</div>
+</div>
 
-    <!-- Drag & Drop Import Box -->
-    <div class="backup-grid-row">
-      <div class="backup-dropzone-card">
-        <h4>📥 Import Observation Backup (JSON)</h4>
-        <div id="obs-import-dropzone" class="backup-dropzone">
-          <span class="dropzone-icon">📁</span>
-          <span class="dropzone-text">Drag & drop your <code>.json</code> observation backup file here</span>
-          <span class="dropzone-or">or</span>
-          <button type="button" id="browse-import-backup-btn" class="obs-browse-btn">Browse File</button>
-          <input type="file" id="obs-import-file-input" accept=".json,application/json" style="display:none;">
-        </div>
-      </div>
+<!-- Drag & Drop Import Box -->
+<div class="backup-grid-row">
+<div class="backup-dropzone-card">
+<h4>Import Observation Backup (JSON)</h4>
+<div id="obs-import-dropzone" class="backup-dropzone">
+<span class="dropzone-icon"></span>
+<span class="dropzone-text">Drag & drop your<code>.json</code>observation backup file here</span>
+<span class="dropzone-or">or</span>
+<button type="button" id="browse-import-backup-btn" class="obs-browse-btn">Browse File</button>
+<input type="file" id="obs-import-file-input" accept=".json,application/json" style="display:none;">
+</div>
+</div>
 
-      <div class="backup-snapshots-card">
-        <h4>💾 Local Snapshot Backups</h4>
-        <div id="obs-snapshots-list-container" class="snapshots-list-box">
-          <p class="snapshots-empty">No local snapshots created yet. Click 'Create Instant Snapshot' above to save a local backup point.</p>
-        </div>
-      </div>
-    </div>
-  </section>
+<div class="backup-snapshots-card">
+<h4>Local Snapshot Backups</h4>
+<div id="obs-snapshots-list-container" class="snapshots-list-box">
+<p class="snapshots-empty">No local snapshots created yet. Click 'Create Instant Snapshot' above to save a local backup point.</p>
+</div>
+</div>
+</div>
+</section>
 
 </div>
 
-<!-- 📥 IMPORT PREVIEW MODAL -->
+<!-- IMPORT PREVIEW MODAL -->
 <div id="obs-import-preview-modal" class="modal-backdrop hidden">
-  <div class="observation-modal-content import-preview-modal-content">
-    <div class="modal-header">
-      <h3 class="modal-title">📥 Import Observation Backup</h3>
-      <button type="button" id="close-obs-import-modal" class="modal-close-btn">✕</button>
-    </div>
-
-    <div class="import-preview-body">
-      <div id="import-file-meta-box" class="import-file-meta">
-        <div class="meta-item"><span class="lbl">File Name:</span> <span id="import-meta-filename" class="val">--</span></div>
-        <div class="meta-item"><span class="lbl">App Version:</span> <span id="import-meta-version" class="val">--</span></div>
-        <div class="meta-item"><span class="lbl">Export Date:</span> <span id="import-meta-date" class="val">--</span></div>
-        <div class="meta-item"><span class="lbl">Observations Found:</span> <span id="import-meta-count" class="val badge">0</span></div>
-      </div>
-
-      <div id="import-error-banner" class="import-error-banner hidden"></div>
-
-      <div class="import-options-box">
-        <h4>Choose Import Mode:</h4>
-        <label class="import-radio-label">
-          <input type="radio" name="import-mode" value="merge" checked>
-          <div>
-            <strong>🟢 Merge with Existing Observations (Recommended)</strong>
-            <p>Adds new observations without overwriting. Automatically skips duplicate session IDs or identical titles & dates.</p>
-          </div>
-        </label>
-
-        <label class="import-radio-label danger">
-          <input type="radio" name="import-mode" value="replace">
-          <div>
-            <strong>🔴 Replace All Observations</strong>
-            <p>Deletes all current observations and replaces them entirely with the backup file data.</p>
-          </div>
-        </label>
-      </div>
-
-      <div id="import-preview-list-box" class="import-preview-list-box">
-        <h5>Preview Observations to Import:</h5>
-        <div id="import-preview-items" class="import-preview-items"></div>
-      </div>
-    </div>
-
-    <div class="modal-footer">
-      <button type="button" id="cancel-obs-import-btn" class="modal-btn btn-secondary">Cancel</button>
-      <button type="button" id="confirm-obs-import-btn" class="modal-btn btn-primary">📥 Confirm Import</button>
-    </div>
-  </div>
+<div class="observation-modal-content import-preview-modal-content">
+<div class="modal-header">
+<h3 class="modal-title">Import Observation Backup</h3>
+<button type="button" id="close-obs-import-modal" class="modal-close-btn">✕</button>
 </div>
 
-<!-- 🔭 ASTRO AI OBSERVATION PICKER MODAL -->
+<div class="import-preview-body">
+<div id="import-file-meta-box" class="import-file-meta">
+<div class="meta-item"><span class="lbl">File Name:</span><span id="import-meta-filename" class="val">--</span></div>
+<div class="meta-item"><span class="lbl">App Version:</span><span id="import-meta-version" class="val">--</span></div>
+<div class="meta-item"><span class="lbl">Export Date:</span><span id="import-meta-date" class="val">--</span></div>
+<div class="meta-item"><span class="lbl">Observations Found:</span><span id="import-meta-count" class="val badge">0</span></div>
+</div>
+
+<div id="import-error-banner" class="import-error-banner hidden"></div>
+
+<div class="import-options-box">
+<h4>Choose Import Mode:</h4>
+<label class="import-radio-label">
+<input type="radio" name="import-mode" value="merge" checked>
+<div>
+<strong>Merge with Existing Observations (Recommended)</strong>
+<p>Adds new observations without overwriting. Automatically skips duplicate session IDs or identical titles & dates.</p>
+</div>
+</label>
+
+<label class="import-radio-label danger">
+<input type="radio" name="import-mode" value="replace">
+<div>
+<strong>Replace All Observations</strong>
+<p>Deletes all current observations and replaces them entirely with the backup file data.</p>
+</div>
+</label>
+</div>
+
+<div id="import-preview-list-box" class="import-preview-list-box">
+<h5>Preview Observations to Import:</h5>
+<div id="import-preview-items" class="import-preview-items"></div>
+</div>
+</div>
+
+<div class="modal-footer">
+<button type="button" id="cancel-obs-import-btn" class="modal-btn btn-secondary">Cancel</button>
+<button type="button" id="confirm-obs-import-btn" class="modal-btn btn-primary">Confirm Import</button>
+</div>
+</div>
+</div>
+
+<!-- ASTRO AI OBSERVATION PICKER MODAL -->
 <div id="ai-obs-picker-modal" class="modal-backdrop hidden">
-  <div class="observation-modal-content ai-obs-picker-modal-content">
-    <div class="modal-header">
-      <h3 class="modal-title">🔭 Select Observation Log to Attach</h3>
-      <button type="button" id="close-ai-obs-picker" class="modal-close-btn">✕</button>
-    </div>
-
-    <div class="ai-obs-picker-body">
-      <div class="ai-obs-picker-controls">
-        <input type="text" id="ai-obs-picker-search" placeholder="Search title, objects, telescope, location..." class="obs-search-input">
-        <select id="ai-obs-picker-sort" class="obs-filter-select">
-          <option value="newest">⌛ Newest First</option>
-          <option value="oldest">⏳ Oldest First</option>
-          <option value="favorites">⭐ Favorites First</option>
-          <option value="rating">★ Highest Rated</option>
-        </select>
-      </div>
-
-      <div id="ai-obs-picker-list" class="ai-obs-picker-list"></div>
-    </div>
-
-    <div class="modal-footer">
-      <div class="ai-obs-attach-mode-group">
-        <label class="attach-radio-lbl"><input type="radio" name="ai-obs-mode" value="summary" checked> 📝 Attach Summary (Compact)</label>
-        <label class="attach-radio-lbl"><input type="radio" name="ai-obs-mode" value="full"> 📑 Attach Full Observation Log</label>
-      </div>
-      <button type="button" id="confirm-ai-obs-attach-btn" class="modal-btn btn-primary" disabled>Attach Selected Session</button>
-    </div>
-  </div>
+<div class="observation-modal-content ai-obs-picker-modal-content">
+<div class="modal-header">
+<h3 class="modal-title">Select Observation Log to Attach</h3>
+<button type="button" id="close-ai-obs-picker" class="modal-close-btn">✕</button>
 </div>
 
-<!-- 🔭 NEW OBSERVATION MODAL -->
+<div class="ai-obs-picker-body">
+<div class="ai-obs-picker-controls">
+<input type="text" id="ai-obs-picker-search" placeholder="Search title, objects, telescope, location..." class="obs-search-input">
+<select id="ai-obs-picker-sort" class="obs-filter-select">
+<option value="newest">Newest First</option>
+<option value="oldest">Oldest First</option>
+<option value="favorites">Favorites First</option>
+<option value="rating">Highest Rated</option>
+</select>
+</div>
+
+<div id="ai-obs-picker-list" class="ai-obs-picker-list"></div>
+</div>
+
+<div class="modal-footer">
+<div class="ai-obs-attach-mode-group">
+<label class="attach-radio-lbl"><input type="radio" name="ai-obs-mode" value="summary" checked>Attach Summary (Compact)</label>
+<label class="attach-radio-lbl"><input type="radio" name="ai-obs-mode" value="full">Attach Full Observation Log</label>
+</div>
+<button type="button" id="confirm-ai-obs-attach-btn" class="modal-btn btn-primary" disabled>Attach Selected Session</button>
+</div>
+</div>
+</div>
+
+<!-- NEW OBSERVATION MODAL -->
 <div id="observation-modal" class="modal-backdrop hidden">
-  <div class="observation-modal-content">
-    <div class="modal-header">
-      <h3 class="modal-title">New Observation Session</h3>
-      <button type="button" id="close-observation-modal" class="modal-close-btn">✕</button>
-    </div>
-
-    <form class="observation-form" onsubmit="return false;">
-      <div class="form-row grid-2">
-        <div>
-          <label for="obs-title">Observation Title</label>
-          <input type="text" id="obs-title" placeholder="e.g. Saturn & Deep Sky Targets" class="form-input">
-        </div>
-        <div>
-          <label>Session Rating & Favorite</label>
-          <div class="rating-fav-form-row">
-            <div class="star-rating-picker" id="obs-rating-picker" data-rating="5">
-              <span class="star-item active" data-value="1">★</span>
-              <span class="star-item active" data-value="2">★</span>
-              <span class="star-item active" data-value="3">★</span>
-              <span class="star-item active" data-value="4">★</span>
-              <span class="star-item active" data-value="5">★</span>
-            </div>
-            <label class="fav-checkbox-label">
-              <input type="checkbox" id="obs-favorite-checkbox">
-              <span class="fav-star-icon">⭐ Favorite</span>
-            </label>
-          </div>
-        </div>
-      </div>
-
-      <div class="form-row grid-3">
-        <div>
-          <label for="obs-date">Date</label>
-          <input type="date" id="obs-date" class="form-input">
-        </div>
-        <div>
-          <label for="obs-start-time">Start Time</label>
-          <input type="time" id="obs-start-time" class="form-input">
-        </div>
-        <div>
-          <label for="obs-end-time">End Time <span id="obs-duration-live-badge" class="obs-live-duration-tag">⏱️ 0h 0m</span></label>
-          <input type="time" id="obs-end-time" class="form-input">
-        </div>
-      </div>
-
-      <div class="form-row grid-2">
-        <div>
-          <label for="obs-location">Location</label>
-          <input type="text" id="obs-location" placeholder="e.g. Backyard Observatory / Dark Site" class="form-input">
-        </div>
-        <div>
-          <label for="obs-weather">Weather Overview</label>
-          <input type="text" id="obs-weather" placeholder="e.g. Clear, Calm, Mild" class="form-input">
-        </div>
-      </div>
-
-      <div class="form-row grid-3">
-        <div>
-          <label for="obs-telescope">Telescope</label>
-          <input type="text" id="obs-telescope" placeholder="e.g. 8'' Dobsonian" class="form-input">
-        </div>
-        <div>
-          <label for="obs-eyepiece">Eyepiece</label>
-          <input type="text" id="obs-eyepiece" placeholder="e.g. 25mm Plössl / 10mm" class="form-input">
-        </div>
-        <div>
-          <label for="obs-camera">Camera (optional)</label>
-          <input type="text" id="obs-camera" placeholder="e.g. ZWO ASI224MC" class="form-input">
-        </div>
-      </div>
-
-      <!-- 🌤️ SKY & ATMOSPHERIC CONDITIONS -->
-      <div class="form-section-header">🌤️ Sky & Atmospheric Conditions</div>
-      <div class="form-row grid-4">
-        <div>
-          <label for="obs-seeing">Seeing (1–5)</label>
-          <select id="obs-seeing" class="form-select">
-            <option value="1">1 - Poor (Bad Turbulence)</option>
-            <option value="2">2 - Fair</option>
-            <option value="3" selected>3 - Moderate</option>
-            <option value="4">4 - Good</option>
-            <option value="5">5 - Excellent (Steady)</option>
-          </select>
-        </div>
-        <div>
-          <label for="obs-transparency">Transparency (1–5)</label>
-          <select id="obs-transparency" class="form-select">
-            <option value="1">1 - Poor (Hazy)</option>
-            <option value="2">2 - Fair</option>
-            <option value="3" selected>3 - Moderate</option>
-            <option value="4">4 - Good</option>
-            <option value="5">5 - Excellent (Crystal Clear)</option>
-          </select>
-        </div>
-        <div>
-          <label for="obs-bortle">Bortle Scale (1–9)</label>
-          <select id="obs-bortle" class="form-select">
-            <option value="1">Class 1 - Excellent Dark Sky</option>
-            <option value="2">Class 2 - Truly Dark Site</option>
-            <option value="3">Class 3 - Rural Sky</option>
-            <option value="4" selected>Class 4 - Rural/Suburban</option>
-            <option value="5">Class 5 - Suburban Sky</option>
-            <option value="6">Class 6 - Bright Suburban</option>
-            <option value="7">Class 7 - Suburban/Urban</option>
-            <option value="8">Class 8 - City Sky</option>
-            <option value="9">Class 9 - Inner-City Sky</option>
-          </select>
-        </div>
-        <div>
-          <label for="obs-cloud-cover">Cloud Cover (%)</label>
-          <input type="number" id="obs-cloud-cover" min="0" max="100" placeholder="0" class="form-input">
-        </div>
-      </div>
-
-      <div class="form-row grid-3">
-        <div>
-          <label for="obs-temp">Temperature</label>
-          <input type="text" id="obs-temp" placeholder="e.g. 15°C" class="form-input">
-        </div>
-        <div>
-          <label for="obs-humidity">Humidity (%)</label>
-          <input type="text" id="obs-humidity" placeholder="e.g. 55%" class="form-input">
-        </div>
-        <div>
-          <label for="obs-wind">Wind Speed</label>
-          <input type="text" id="obs-wind" placeholder="e.g. 8 km/h" class="form-input">
-        </div>
-      </div>
-
-      <!-- 🏷️ TAGS (Built-in + Custom) -->
-      <div class="form-section-header">🏷️ Observation Tags</div>
-      <div class="form-row full-width">
-        <label>Built-in Categories & Custom Tags</label>
-        <div class="builtin-tags-picker" id="obs-builtin-tags">
-          <button type="button" class="tag-selector-chip" data-tag="Galaxy">🌌 Galaxy</button>
-          <button type="button" class="tag-selector-chip" data-tag="Nebula">☁️ Nebula</button>
-          <button type="button" class="tag-selector-chip" data-tag="Planet">🪐 Planet</button>
-          <button type="button" class="tag-selector-chip" data-tag="Moon">🌙 Moon</button>
-          <button type="button" class="tag-selector-chip" data-tag="Comet">☄️ Comet</button>
-          <button type="button" class="tag-selector-chip" data-tag="Asteroid">☄️ Asteroid</button>
-          <button type="button" class="tag-selector-chip" data-tag="Satellite">🛰️ Satellite</button>
-          <button type="button" class="tag-selector-chip" data-tag="Star Cluster">✨ Star Cluster</button>
-          <button type="button" class="tag-selector-chip" data-tag="Double Star">⭐ Double Star</button>
-          <button type="button" class="tag-selector-chip" data-tag="Variable Star">✨ Variable Star</button>
-        </div>
-        <div class="custom-tag-input-row" style="margin-top: 8px; display:flex; gap: 8px;">
-          <input type="text" id="obs-custom-tag-input" placeholder="Type custom tag and press Enter..." class="form-input" style="flex:1;">
-          <button type="button" id="add-custom-tag-btn" class="modal-btn btn-secondary" style="padding: 6px 14px; white-space:nowrap;">+ Add Tag</button>
-        </div>
-        <div class="active-tags-container" id="obs-active-tags" style="margin-top: 8px;"></div>
-      </div>
-
-      <div class="form-row full-width">
-        <label for="obs-objects">Observed Objects (multiple entries)</label>
-        <input type="text" id="obs-objects" placeholder="e.g. Saturn, Jupiter, M31 Andromeda, M42 Orion Nebula" class="form-input">
-      </div>
-
-      <div class="form-row full-width">
-        <label for="obs-notes">Observation Notes</label>
-        <textarea id="obs-notes" rows="3" placeholder="Describe visual details, filters used, atmospheric conditions, sketch notes..." class="form-textarea"></textarea>
-      </div>
-
-      <div class="form-row full-width">
-        <label>Attachments & Astro-Photos (JPG, PNG, WEBP, PDF)</label>
-        <div class="obs-file-dropzone" id="obs-dropzone">
-          <span class="dropzone-icon">📁</span>
-          <p class="dropzone-text">Drag & drop images or files here, or <button type="button" class="dropzone-browse-btn" id="browse-obs-files">browse files</button></p>
-          <span class="dropzone-hint">Max file size: 3MB per file (JPG, PNG, WEBP, PDF)</span>
-          <input type="file" id="obs-file-input" multiple accept="image/jpeg,image/jpg,image/png,image/webp,application/pdf" style="display:none;">
-        </div>
-        <div class="obs-file-previews" id="obs-file-previews"></div>
-      </div>
-
-      <div class="modal-footer">
-        <button type="button" id="cancel-observation-btn" class="modal-btn btn-secondary">Cancel</button>
-        <button type="button" id="save-observation-btn" class="modal-btn btn-primary">Save Observation</button>
-      </div>
-    </form>
-  </div>
+<div class="observation-modal-content">
+<div class="modal-header">
+<h3 class="modal-title">New Observation Session</h3>
+<button type="button" id="close-observation-modal" class="modal-close-btn">✕</button>
 </div>
 
-<!-- 👁️ FULL OBSERVATION VIEW MODAL -->
+<form class="observation-form" onsubmit="return false;">
+<div class="form-row grid-2">
+<div>
+<label for="obs-title">Observation Title</label>
+<input type="text" id="obs-title" placeholder="e.g. Saturn & Deep Sky Targets" class="form-input">
+</div>
+<div>
+<label>Session Rating & Favorite</label>
+<div class="rating-fav-form-row">
+<div class="star-rating-picker" id="obs-rating-picker" data-rating="5">
+<span class="star-item active" data-value="1"></span>
+<span class="star-item active" data-value="2"></span>
+<span class="star-item active" data-value="3"></span>
+<span class="star-item active" data-value="4"></span>
+<span class="star-item active" data-value="5"></span>
+</div>
+<label class="fav-checkbox-label">
+<input type="checkbox" id="obs-favorite-checkbox">
+<span class="fav-star-icon">Favorite</span>
+</label>
+</div>
+</div>
+</div>
+
+<div class="form-row grid-3">
+<div>
+<label for="obs-date">Date</label>
+<input type="date" id="obs-date" class="form-input">
+</div>
+<div>
+<label for="obs-start-time">Start Time</label>
+<input type="time" id="obs-start-time" class="form-input">
+</div>
+<div>
+<label for="obs-end-time">End Time<span id="obs-duration-live-badge" class="obs-live-duration-tag">️ 0h 0m</span></label>
+<input type="time" id="obs-end-time" class="form-input">
+</div>
+</div>
+
+<div class="form-row grid-2">
+<div>
+<label for="obs-location">Location</label>
+<input type="text" id="obs-location" placeholder="e.g. Backyard Observatory / Dark Site" class="form-input">
+</div>
+<div>
+<label for="obs-weather">Weather Overview</label>
+<input type="text" id="obs-weather" placeholder="e.g. Clear, Calm, Mild" class="form-input">
+</div>
+</div>
+
+<div class="form-row grid-3">
+<div>
+<label for="obs-telescope">Telescope</label>
+<input type="text" id="obs-telescope" placeholder="e.g. 8'' Dobsonian" class="form-input">
+</div>
+<div>
+<label for="obs-eyepiece">Eyepiece</label>
+<input type="text" id="obs-eyepiece" placeholder="e.g. 25mm Plössl / 10mm" class="form-input">
+</div>
+<div>
+<label for="obs-camera">Camera (optional)</label>
+<input type="text" id="obs-camera" placeholder="e.g. ZWO ASI224MC" class="form-input">
+</div>
+</div>
+
+<!-- ️ SKY & ATMOSPHERIC CONDITIONS -->
+<div class="form-section-header">️ Sky & Atmospheric Conditions</div>
+<div class="form-row grid-4">
+<div>
+<label for="obs-seeing">Seeing (1–5)</label>
+<select id="obs-seeing" class="form-select">
+<option value="1">1 - Poor (Bad Turbulence)</option>
+<option value="2">2 - Fair</option>
+<option value="3" selected>3 - Moderate</option>
+<option value="4">4 - Good</option>
+<option value="5">5 - Excellent (Steady)</option>
+</select>
+</div>
+<div>
+<label for="obs-transparency">Transparency (1–5)</label>
+<select id="obs-transparency" class="form-select">
+<option value="1">1 - Poor (Hazy)</option>
+<option value="2">2 - Fair</option>
+<option value="3" selected>3 - Moderate</option>
+<option value="4">4 - Good</option>
+<option value="5">5 - Excellent (Crystal Clear)</option>
+</select>
+</div>
+<div>
+<label for="obs-bortle">Bortle Scale (1–9)</label>
+<select id="obs-bortle" class="form-select">
+<option value="1">Class 1 - Excellent Dark Sky</option>
+<option value="2">Class 2 - Truly Dark Site</option>
+<option value="3">Class 3 - Rural Sky</option>
+<option value="4" selected>Class 4 - Rural/Suburban</option>
+<option value="5">Class 5 - Suburban Sky</option>
+<option value="6">Class 6 - Bright Suburban</option>
+<option value="7">Class 7 - Suburban/Urban</option>
+<option value="8">Class 8 - City Sky</option>
+<option value="9">Class 9 - Inner-City Sky</option>
+</select>
+</div>
+<div>
+<label for="obs-cloud-cover">Cloud Cover (%)</label>
+<input type="number" id="obs-cloud-cover" min="0" max="100" placeholder="0" class="form-input">
+</div>
+</div>
+
+<div class="form-row grid-3">
+<div>
+<label for="obs-temp">Temperature</label>
+<input type="text" id="obs-temp" placeholder="e.g. 15°C" class="form-input">
+</div>
+<div>
+<label for="obs-humidity">Humidity (%)</label>
+<input type="text" id="obs-humidity" placeholder="e.g. 55%" class="form-input">
+</div>
+<div>
+<label for="obs-wind">Wind Speed</label>
+<input type="text" id="obs-wind" placeholder="e.g. 8 km/h" class="form-input">
+</div>
+</div>
+
+<!-- ️ TAGS (Built-in + Custom) -->
+<div class="form-section-header">️ Observation Tags</div>
+<div class="form-row full-width">
+<label>Built-in Categories & Custom Tags</label>
+<div class="builtin-tags-picker" id="obs-builtin-tags">
+<button type="button" class="tag-selector-chip" data-tag="Galaxy">Galaxy</button>
+<button type="button" class="tag-selector-chip" data-tag="Nebula">️ Nebula</button>
+<button type="button" class="tag-selector-chip" data-tag="Planet">Planet</button>
+<button type="button" class="tag-selector-chip" data-tag="Moon">Moon</button>
+<button type="button" class="tag-selector-chip" data-tag="Comet">️ Comet</button>
+<button type="button" class="tag-selector-chip" data-tag="Asteroid">️ Asteroid</button>
+<button type="button" class="tag-selector-chip" data-tag="Satellite">️ Satellite</button>
+<button type="button" class="tag-selector-chip" data-tag="Star Cluster">Star Cluster</button>
+<button type="button" class="tag-selector-chip" data-tag="Double Star">Double Star</button>
+<button type="button" class="tag-selector-chip" data-tag="Variable Star">Variable Star</button>
+</div>
+<div class="custom-tag-input-row" style="margin-top: 8px; display:flex; gap: 8px;">
+<input type="text" id="obs-custom-tag-input" placeholder="Type custom tag and press Enter..." class="form-input" style="flex:1;">
+<button type="button" id="add-custom-tag-btn" class="modal-btn btn-secondary" style="padding: 6px 14px; white-space:nowrap;">+ Add Tag</button>
+</div>
+<div class="active-tags-container" id="obs-active-tags" style="margin-top: 8px;"></div>
+</div>
+
+<div class="form-row full-width">
+<label for="obs-objects">Observed Objects (multiple entries)</label>
+<input type="text" id="obs-objects" placeholder="e.g. Saturn, Jupiter, M31 Andromeda, M42 Orion Nebula" class="form-input">
+</div>
+
+<div class="form-row full-width">
+<label for="obs-notes">Observation Notes</label>
+<textarea id="obs-notes" rows="3" placeholder="Describe visual details, filters used, atmospheric conditions, sketch notes..." class="form-textarea"></textarea>
+</div>
+
+<div class="form-row full-width">
+<label>Attachments & Astro-Photos (JPG, PNG, WEBP, PDF)</label>
+<div class="obs-file-dropzone" id="obs-dropzone">
+<span class="dropzone-icon"></span>
+<p class="dropzone-text">Drag & drop images or files here, or<button type="button" class="dropzone-browse-btn" id="browse-obs-files">browse files</button></p>
+<span class="dropzone-hint">Max file size: 3MB per file (JPG, PNG, WEBP, PDF)</span>
+<input type="file" id="obs-file-input" multiple accept="image/jpeg,image/jpg,image/png,image/webp,application/pdf" style="display:none;">
+</div>
+<div class="obs-file-previews" id="obs-file-previews"></div>
+</div>
+
+<div class="modal-footer">
+<button type="button" id="cancel-observation-btn" class="modal-btn btn-secondary">Cancel</button>
+<button type="button" id="save-observation-btn" class="modal-btn btn-primary">Save Observation</button>
+</div>
+</form>
+</div>
+</div>
+
+<!-- ️ FULL OBSERVATION VIEW MODAL -->
 <div id="observation-view-modal" class="modal-backdrop hidden" tabindex="-1" role="dialog" aria-modal="true">
-  <div class="modal-card full-view-modal">
-    <div class="modal-header">
-      <h3 id="view-obs-title" class="modal-title">Observation Details</h3>
-      <button type="button" class="modal-close-btn" id="close-obs-view-btn" aria-label="Close modal">✕</button>
-    </div>
-    <div class="modal-body" id="view-obs-body"></div>
-    <div class="modal-footer">
-      <button type="button" class="modal-btn btn-secondary" id="view-obs-close-btn">Close</button>
-      <button type="button" class="modal-btn btn-primary" id="view-obs-edit-btn">✏️ Edit Session</button>
-    </div>
-  </div>
+<div class="modal-card full-view-modal">
+<div class="modal-header">
+<h3 id="view-obs-title" class="modal-title">Observation Details</h3>
+<button type="button" class="modal-close-btn" id="close-obs-view-btn" aria-label="Close modal">✕</button>
+</div>
+<div class="modal-body" id="view-obs-body"></div>
+<div class="modal-footer">
+<button type="button" class="modal-btn btn-secondary" id="view-obs-close-btn">Close</button>
+<button type="button" class="modal-btn btn-secondary" id="view-obs-sky-btn" style="background: linear-gradient(135deg, #3a0ca3, #4361ee); color: #ffffff;">View on Sky Map</button>
+<button type="button" class="modal-btn btn-primary" id="view-obs-edit-btn">️ Edit Session</button>
+</div>
+</div>
 </div>
 
-<!-- 🖼️ FULLSCREEN IMAGE LIGHTBOX MODAL -->
+<!-- ️ FULLSCREEN IMAGE LIGHTBOX MODAL -->
 <div id="obs-lightbox-modal" class="modal-backdrop hidden" tabindex="-1" role="dialog" aria-modal="true">
-  <div class="lightbox-content">
-    <button type="button" class="lightbox-close-btn" id="close-obs-lightbox-btn" aria-label="Close image">✕</button>
-    <img id="obs-lightbox-img" src="" alt="Observation Attachment">
-    <div id="obs-lightbox-caption" class="lightbox-caption"></div>
-  </div>
+<div class="lightbox-content">
+<button type="button" class="lightbox-close-btn" id="close-obs-lightbox-btn" aria-label="Close image"></button>
+<img id="obs-lightbox-img" src="" alt="Observation Attachment">
+<div id="obs-lightbox-caption" class="lightbox-caption"></div>
+</div>
 </div>
 
-<!-- 🔥 ASTEROID MODAL -->
+<!-- ASTEROID MODAL -->
 <div id="asteroid-modal">
 
-    <div id="modal-content">
+<div id="modal-content">
 
-        <span id="close-modal">✖</span>
+<span id="close-modal"></span>
 
-        <div id="modal-body"></div>
+<div id="modal-body"></div>
 
-    </div>
+</div>
 
 </div>
 
 <div id="ai-panel">
 
-  <div id="ai-header">
+<div id="ai-header">
 
-<h2> Astro AI <span id="ai-research-badge" class="ai-research-badge hidden">🧠 Research Mode Active</span></h2>
+<h2>Astro AI<span id="ai-research-badge" class="ai-research-badge hidden">Research Mode Active</span></h2>
 
 <div id="header-actions">
 
@@ -1507,16 +1714,12 @@ Logout
 </div>
 
 <button id="open-context-debug" title="Context Engine Debugger" style="background: rgba(34, 211, 238, 0.15); color: #22d3ee; border: 1px solid rgba(34, 211, 238, 0.4); padding: 4px 8px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 12px; margin-right: 4px;">
-⚡ Context
+ Context
 </button>
 
-<button id="open-settings" title="Settings">
-⚙
-</button>
+<button id="open-settings" title="Settings">⚙</button>
 
-<button id="close-ai">
-✖
-</button>
+<button id="close-ai" title="Close Assistant">✕</button>
 
 </div>
 
@@ -1526,88 +1729,84 @@ Logout
 
 <div id="memory-suggestion-container"></div>
 
-  <div id="attachment-preview"></div>
+<div id="attachment-preview"></div>
 
-  <div id="ai-input-area">
-  
+<div id="ai-input-area">
+ 
 
-  <button id="attach-btn">
-  +
-</button>
-
-
-<div id="attach-menu" class="attach-menu">
-
-    <button id="image-option">
-        🖼 Image
-    </button>
-
-    <button id="file-option">
-        📄 File
-    </button>
-
-    <button id="observation-option">
-        🔭 Observation Log
-    </button>
-
-    <button id="research-option">
-🧠 Research Mode 
-</button>
-
-</div>
-
-<input
+<button id="attach-btn" title="Attach File"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
+ 
+ 
+ <div id="attach-menu" class="attach-menu">
+ 
+ <button id="image-option">
+  Image
+ </button>
+ 
+ <button id="file-option">
+  File
+ </button>
+ 
+ <button id="observation-option">
+  Observation Log
+ </button>
+ 
+ <button id="research-option">
+  Research Mode 
+ </button>
+ 
+ </div>
+ 
+ <input
   type="file"
   id="file-input"
   hidden
->
-
-
-
-<textarea
+ >
+ 
+ 
+ 
+ <textarea
   id="ai-input"
   placeholder="Ask about space..."
   rows="1"
-></textarea>
-
-<button id="voice-btn">
-  🎤
-</button>
+ ></textarea>
+ 
+ <button id="voice-btn" title="Voice Input"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="22"></line></svg></button>
 
 <button id="ai-send">
-  Send
+ Send
 </button>
 
-  <input
-  type="file"
-  id="astro-image"
-  accept=".txt,.js,.html,.css,.json,.md,.py,.java,.cpp,.c,.pdf,image/*"
-  multiple
-  hidden
+<input
+ type="file"
+ id="astro-image"
+ accept=".txt,.js,.html,.css,.json,.md,.py,.java,.cpp,.c,.pdf,image/*"
+ multiple
+ hidden
 >
 
 </div>
 
 <div id="ai-model-picker-wrapper" class="ai-model-picker-wrapper">
-  <button id="ai-model-picker-btn" class="ai-model-picker-btn" type="button" aria-haspopup="true" aria-expanded="false">
-    <span class="model-picker-icon">🤖</span>
-    <span id="current-model-name" class="model-picker-label">Gemini 3.6 Flash</span>
-    <span class="model-picker-chevron">▼</span>
-  </button>
+<button id="ai-model-picker-btn" class="ai-model-picker-btn" type="button" aria-haspopup="true" aria-expanded="false">
+<span class="model-picker-icon"></span>
+<span id="current-model-name" class="model-picker-label">Gemini 3.6 Flash</span>
+<span class="model-picker-chevron">▼</span>
+</button>
 
-  <div id="ai-model-popup" class="ai-model-popup hidden">
-    <div class="model-popup-header">
-      <span class="model-popup-title">AI Models & Providers</span>
-      <button id="close-model-popup" class="model-popup-close" type="button">✕</button>
-    </div>
-    <div id="model-popup-content" class="model-popup-content"></div>
-  </div>
+<div id="ai-model-popup" class="ai-model-popup hidden">
+<div class="model-popup-header">
+<span class="model-popup-title">AI Models & Providers</span>
+<button id="close-model-popup" class="model-popup-close" type="button"></button>
+</div>
+<div id="model-popup-content" class="model-popup-content"></div>
 </div>
 </div>
+</div>
 
-<!-- 🔥 OUTSIDE PANEL -->
+<!-- OUTSIDE PANEL -->
 <button id="open-ai">
-  🌌 Open AI
+ Open AI
 </button>
 
 <script src="https://cdn.jsdelivr.net/npm/astronomy-engine/astronomy.browser.min.js"></script>
@@ -1615,7 +1814,7 @@ Logout
 
 <script src="lib/d3.v3.min.js"></script>
 
-<!-- <script src="js/celestial.min.js"></script> -->
+<!--<script src="js/celestial.min.js"></script>-->
 
 <script src="lib/webgpu-renderer-manager.js"></script>
 <script src="lib/webgpu-star-renderer.js"></script>
@@ -1628,129 +1827,127 @@ Logout
 <div id="toast"></div>
 
 <div id="api-key-modal" style="display:none;">
-  <div class="api-box">
-    <h2>🔑 OpenRouter API Key</h2>
+<div class="api-box">
+<h2>OpenRouter API Key</h2>
 
-    <p>
-      Local development detected.<br>
-      Enter your own OpenRouter API Key.
-    </p>
+<p>
+ Local development detected.<br>
+ Enter your own OpenRouter API Key.
+</p>
 
-    <input
-      type="password"
-      id="user-api-key"
-      placeholder="sk-or-v1-..."
-      autocomplete="new-password"
+<input
+ type="password"
+ id="user-api-key"
+ placeholder="sk-or-v1-..."
+ autocomplete="new-password"
 spellcheck="false"
 autocorrect="off"
 autocapitalize="off"
-    >
+ >
 
-    <button id="save-api-key">
-      Save Key
-    </button>
-
-    <button id="remove-api-key">
-  Remove Key
+<button id="save-api-key">
+ Save Key
 </button>
 
-  </div>
+<button id="remove-api-key">
+ Remove Key
+</button>
+
+</div>
 </div>
 
 <!-- ================= SETTINGS ================= -->
 
 <div id="settings-overlay">
 
-  <div id="settings-window">
+<div id="settings-window">
 
-    <!-- HEADER -->
+<!-- HEADER -->
 
-    <div id="settings-header">
+<div id="settings-header">
 
-      <div id="settings-title">
-        ⚙ Astro Explorer Settings
-      </div>
+<div id="settings-title">
+ Astro Explorer Settings
+</div>
 
-      <button id="close-settings">
-        ✖
-      </button>
+<button id="close-settings" title="Close Settings">✕</button>
 
-    </div>
+</div>
 
-    <!-- BODY -->
+<!-- BODY -->
 
-    <div id="settings-body">
+<div id="settings-body">
 
-      <!-- LEFT SIDEBAR -->
+<!-- LEFT SIDEBAR -->
 
-      <div id="settings-sidebar">
+<div id="settings-sidebar">
 
-        <button class="settings-tab active" data-page="general">
-          ⚙ General
-        </button>
+<button class="settings-tab active" data-page="general">
+ General
+</button>
 
-        <button class="settings-tab" data-page="appearance">
-          🎨 Appearance
-        </button>
+<button class="settings-tab" data-page="appearance">
+ Appearance
+</button>
 
-        <button class="settings-tab" data-page="ai">
-          🤖 AI
-        </button>
+<button class="settings-tab" data-page="ai">
+ AI
+</button>
 
-        <button class="settings-tab" data-page="memory">
-          🧠 Memory
-        </button>
+<button class="settings-tab" data-page="memory">
+ Memory
+</button>
 
-        <button class="settings-tab" data-page="sky">
-          🌌 Sky
-        </button>
+<button class="settings-tab" data-page="sky">
+ Sky
+</button>
 
-        <button class="settings-tab" data-page="grid">
-          🔲 Grids
-        </button>
+<button class="settings-tab" data-page="grid">
+ Grids
+</button>
 
-        <button class="settings-tab" data-page="atmosphere">
-          🌅 Atmosphere
-        </button>
+<button class="settings-tab" data-page="atmosphere">
+ Atmosphere
+</button>
 
-        <button class="settings-tab" data-page="time">
-          ⏱ Time Travel
-        </button>
+<button class="settings-tab" data-page="time">
+ Time Travel
+</button>
 
-        <button class="settings-tab" data-page="observation">
-          🔭 Observation
-        </button>
+<button class="settings-tab" data-page="observation">
+ Observation
+</button>
 
-        <button class="settings-tab" data-page="account">
-          👤 Account
-        </button>
+<button class="settings-tab" data-page="account">
+ Account
+</button>
 
-        <button class="settings-tab" data-page="about">
-          ℹ About
-        </button>
+<button class="settings-tab" data-page="about">
+ ℹ About
+</button>
 
-      </div>
+</div>
 
-      <!-- RIGHT CONTENT -->
+<!-- RIGHT CONTENT -->
 
-      <div id="settings-content">
+<div id="settings-content">
 
-        <!-- GENERAL -->
+<!-- GENERAL -->
 
-        <div class="settings-page active"
-        id="general-page">
+<div class="settings-page active"
+ id="general-page">
 
-          <h2>⚙ General</h2>
+<h2>General</h2>
 
 <div class="setting-card">
 
 <h3>Application</h3>
 
-<p><b>Version:</b> <span id="app-version">2.6.0 Beta</span></p>
+<p><b>Version:</b><span id="app-version">2.6.0 Beta</span></p>
 
-<p><b>Build:</b> <span id="build-type">Development</span></p>
+<p><b>Build:</b><span id="build-type">Development</span></p>
 
-<p><b>Environment:</b> <span id="environment-status"></span></p>
+<p><b>Environment:</b><span id="environment-status"></span></p>
 
 </div>
 
@@ -1758,11 +1955,11 @@ autocapitalize="off"
 
 <h3>Services</h3>
 
-<p><b>Firebase:</b> <span id="firebase-status"></span></p>
+<p><b>Firebase:</b><span id="firebase-status"></span></p>
 
-<p><b>AI:</b> <span id="ai-status-general"></span></p>
+<p><b>AI:</b><span id="ai-status-general"></span></p>
 
-<p><b>Database:</b> <span id="database-status"></span></p>
+<p><b>Database:</b><span id="database-status"></span></p>
 
 </div>
 
@@ -1770,11 +1967,11 @@ autocapitalize="off"
 
 <h3>Statistics</h3>
 
-<p><b>Files:</b> <span id="file-count">0</span></p>
+<p><b>Files:</b><span id="file-count">0</span></p>
 
-<p><b>Conversations:</b> <span id="conversation-count">0</span></p>
+<p><b>Conversations:</b><span id="conversation-count">0</span></p>
 
-<p><b>Memories:</b> <span id="memory-count">0</span></p>
+<p><b>Memories:</b><span id="memory-count">0</span></p>
 
 </div>
 
@@ -1783,26 +1980,26 @@ autocapitalize="off"
 <h3>Quick Actions</h3>
 
 <button id="clear-cache-btn">
-🧹 Clear Cache
+ Clear Cache
 </button>
 
 <button id="reset-settings-btn">
-🔄 Reset Settings
+ Reset Settings
 </button>
 
 </div>
 
-         
-        </div>
+ 
+</div>
 
-        <!-- APPEARANCE -->
+<!-- APPEARANCE -->
 
-        <div class="settings-page"
-        id="appearance-page">
+<div class="settings-page"
+ id="appearance-page">
 
-      
+ 
 
-          <h2>🎨 Appearance</h2>
+<h2>Appearance</h2>
 
 <div class="setting-card">
 
@@ -1845,7 +2042,7 @@ autocapitalize="off"
 
 <div class="setting-card">
 
-<label>💬 Chat Bubble Style</label>
+<label>Chat Bubble Style</label>
 
 <select id="bubble-style">
 
@@ -1858,7 +2055,7 @@ autocapitalize="off"
 </div>
 
 <div class="setting-card">
-<label>📏 Message Width</label>
+<label>Message Width</label>
 
 <select id="message-width">
 
@@ -1874,7 +2071,7 @@ autocapitalize="off"
 
 <div class="setting-card">
 
-<h3>✨ Typing Animation</h3>
+<h3>Typing Animation</h3>
 
 <label>
 
@@ -1891,23 +2088,23 @@ Enable Typing Animation
 </div>
 
 
-        
-        
+ 
+ 
 
-        <!-- AI -->
+<!-- AI -->
 
-        <div class="settings-page" id="ai-page">
+<div class="settings-page" id="ai-page">
 
-<h2>🤖 Astro AI Settings</h2>
+<h2>Astro AI Settings</h2>
 
 <div class="settings-card">
 
-<h3>🔑 API</h3>
+<h3>API</h3>
 
 <p>
 Status:
 <span id="api-status">
-🟢 Connected
+ Connected
 </span>
 </p>
 
@@ -1933,7 +2130,7 @@ Remove API Key
 
 <div class="settings-card">
 
-<h3>📝 Maximum Response Size</h3>
+<h3>Maximum Response Size</h3>
 
 <select id="response-length">
 
@@ -1949,25 +2146,25 @@ Remove API Key
 
 <div class="settings-card">
 
-  <h3>Creativity</h3>
+<h3>Creativity</h3>
 
-  <p>Controls how creative Astro AI responses should be.</p>
+<p>Controls how creative Astro AI responses should be.</p>
 
-  <select id="creativity-select">
+<select id="creativity-select">
 
-    <option value="Precise">Precise</option>
+<option value="Precise">Precise</option>
 
-    <option value="Balanced" selected>Balanced</option>
+<option value="Balanced" selected>Balanced</option>
 
-    <option value="Creative">Creative</option>
+<option value="Creative">Creative</option>
 
-  </select>
+</select>
 
 </div>
 
 <div class="settings-card">
 
-<h3>💬 Chat</h3>
+<h3>Chat</h3>
 
 <label>
 
@@ -2016,19 +2213,19 @@ Clear All Chats
 </div>
 
 <div class="settings-page" id="memory-page">
-<h2>🧠 Astro Memory</h2>
+<h2>Astro Memory</h2>
 <div class="settings-card">
 <h3>Memory Status</h3>
 <p>
 Status:
 <span id="memory-status">
-🟢 Enabled
+ Enabled
 </span>
 </p>
 <p>
 Cloud:
 <span id="memory-cloud-status">
-☁ Synced
+ Synced
 </span>
 </p>
 </div>
@@ -2044,10 +2241,10 @@ Cloud:
 <span id="memory-observation-count">0</span></p>
 <p><b>Telescope Sessions:</b>
 <span id="memory-telescope-count">0</span></p>
-<p><strong>Telescopes:</strong> <span id="memory-telescope-equipment-count">0</span></p>
-<p><b>Cameras:</b> <span id="memory-camera-count">0</span></p>
-<p><b>Binoculars:</b> <span id="memory-binocular-count">0</span></p>
-<p><b>Eyepieces:</b> <span id="memory-eyepiece-count">0</span></p>
+<p><strong>Telescopes:</strong><span id="memory-telescope-equipment-count">0</span></p>
+<p><b>Cameras:</b><span id="memory-camera-count">0</span></p>
+<p><b>Binoculars:</b><span id="memory-binocular-count">0</span></p>
+<p><b>Eyepieces:</b><span id="memory-eyepiece-count">0</span></p>
 <p><b>Files:</b>
 <span id="memory-file-count">0</span></p>
 
@@ -2075,17 +2272,17 @@ Observation
 
 <option value="telescope">Telescope</option>
 
-<option value="file">📄 Files</option>
+<option value="file">Files</option>
 
-<option value="favorite">⭐ Favorites</option>
+<option value="favorite">Favorites</option>
 
 <option value="pinned">
 Pinned
 </option>
-<option value="telescope_session">🛰 Telescope Session</option>
-<option value="camera">📷 Camera</option>
-<option value="binoculars">🔭 Binoculars</option>
-<option value="eyepiece">👁️ Eyepiece</option>
+<option value="telescope_session">Telescope Session</option>
+<option value="camera">Camera</option>
+<option value="binoculars">Binoculars</option>
+<option value="eyepiece">️ Eyepiece</option>
 </select>
 </div>
 <div class="settings-card">
@@ -2097,26 +2294,26 @@ Pinned
 <div class="settings-card">
 <h3>Actions</h3>
 <button id="export-memory">
-📤 Export Memory
+ Export Memory
 </button>
 <button id="import-memory">
-📥 Import Memory
+ Import Memory
 </button>
 <button id="clear-memory">
-🗑 Clear Memory
+ Clear Memory
 </button>
 </div>
 </div>
 
-       <!-- SKY -->
+<!-- SKY -->
 <!-- SKY -->
 <div class="settings-page" id="sky-page">
 
-<h2>🌌 Sky</h2>
+<h2>Sky</h2>
 
 <div class="settings-card">
 
-<h3>🌌 Sky Display</h3>
+<h3>Sky Display</h3>
 
 <!-- Constellation Lines -->
 
@@ -2134,7 +2331,7 @@ checked>
 </div>
 
 <!-- Constellation Names -->
- <div class="setting-row">
+<div class="setting-row">
 <label class="switch">
 <input
 type="checkbox"
@@ -2148,7 +2345,7 @@ checked>
 </div>
 
 <!-- Asterisms -->
- <div class="setting-row">
+<div class="setting-row">
 <label class="switch">
 <input
 type="checkbox"
@@ -2162,7 +2359,7 @@ checked>
 </div>
 
 <!-- Asterism Names -->
- <div class="setting-row">
+<div class="setting-row">
 <label class="switch">
 <input
 type="checkbox"
@@ -2176,7 +2373,7 @@ checked>
 </div>
 
 <!-- Stars -->
- <div class="setting-row">
+<div class="setting-row">
 <label class="switch">
 <input
 type="checkbox"
@@ -2190,7 +2387,7 @@ checked>
 </div>
 
 <!-- Deep Sky Objects -->
- <div class="setting-row">
+<div class="setting-row">
 <label class="switch">
 <input
 type="checkbox"
@@ -2204,7 +2401,7 @@ checked>
 </div>
 
 <!-- Milky Way -->
- <div class="setting-row">
+<div class="setting-row">
 <label class="switch">
 <input
 type="checkbox"
@@ -2219,7 +2416,7 @@ checked>
 
 
 <!-- Planets -->
- <div class="setting-row">
+<div class="setting-row">
 <label class="switch">
 <input
 type="checkbox"
@@ -2233,16 +2430,16 @@ checked>
 </div>
 
 <div class="settings-card" style="margin-top: 20px; text-align: center;">
-  <button id="reset-sky-settings-btn" class="reset-settings-btn" style="background: rgba(255, 60, 60, 0.15); border: 1px solid rgba(255, 60, 60, 0.4); color: #ff6b6b; padding: 10px 18px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s ease;">
-    🔄 Reset Sky Settings
-  </button>
+<button id="reset-sky-settings-btn" class="reset-settings-btn" style="background: rgba(255, 60, 60, 0.15); border: 1px solid rgba(255, 60, 60, 0.4); color: #ff6b6b; padding: 10px 18px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s ease;">
+ Reset Sky Settings
+</button>
 </div>
 
 </div>
 
 <div class="settings-card">
 
-<h3>⭐ Star Magnitude</h3>
+<h3>Star Magnitude</h3>
 
 <input
 type="range"
@@ -2257,7 +2454,7 @@ step="0.5">
 
 <div class="settings-card">
 
-<h3>🌌 DSO Magnitude</h3>
+<h3>DSO Magnitude</h3>
 
 <input
 type="range"
@@ -2272,7 +2469,7 @@ step="0.5">
 
 <div class="settings-card">
 
-<h3>🔍 Zoom</h3>
+<h3>Zoom</h3>
 
 <input
 type="range"
@@ -2286,715 +2483,715 @@ step="0.1">
 </div>
 
 <div class="settings-card">
-  <h3>🛰️ Advanced Layers</h3>
-  <div class="setting-row">
-    <label class="switch">
-      <input type="checkbox" id="toggle-orbits" checked>
-      <span class="slider"></span>
-    </label>
-    <span>Show Orbit Paths</span>
-  </div>
-  <div class="setting-row">
-    <label class="switch">
-      <input type="checkbox" id="toggle-satellites" checked>
-      <span class="slider"></span>
-    </label>
-    <span>Show Satellites (ISS)</span>
-  </div>
-  <div class="setting-row">
-    <label class="switch">
-      <input type="checkbox" id="toggle-spacecraft" checked>
-      <span class="slider"></span>
-    </label>
-    <span>Show Spacecraft Probes (215 Missions)</span>
-  </div>
-  <div class="setting-row">
-    <label class="switch">
-      <input type="checkbox" id="toggle-meteors" checked>
-      <span class="slider"></span>
-    </label>
-    <span>Show Meteor Showers</span>
-  </div>
-  <div class="setting-row">
-    <label class="switch">
-      <input type="checkbox" id="toggle-comets" checked>
-      <span class="slider"></span>
-    </label>
-    <span>Show Comets</span>
-  </div>
-  <div class="setting-row">
-    <label class="switch">
-      <input type="checkbox" id="toggle-asteroids" checked>
-      <span class="slider"></span>
-    </label>
-    <span>Show Asteroids</span>
-  </div>
+<h3>️ Advanced Layers</h3>
+<div class="setting-row">
+<label class="switch">
+<input type="checkbox" id="toggle-orbits" checked>
+<span class="slider"></span>
+</label>
+<span>Show Orbit Paths</span>
+</div>
+<div class="setting-row">
+<label class="switch">
+<input type="checkbox" id="toggle-satellites" checked>
+<span class="slider"></span>
+</label>
+<span>Show Satellites (ISS)</span>
+</div>
+<div class="setting-row">
+<label class="switch">
+<input type="checkbox" id="toggle-spacecraft" checked>
+<span class="slider"></span>
+</label>
+<span>Show Spacecraft Probes (215 Missions)</span>
+</div>
+<div class="setting-row">
+<label class="switch">
+<input type="checkbox" id="toggle-meteors" checked>
+<span class="slider"></span>
+</label>
+<span>Show Meteor Showers</span>
+</div>
+<div class="setting-row">
+<label class="switch">
+<input type="checkbox" id="toggle-comets" checked>
+<span class="slider"></span>
+</label>
+<span>Show Comets</span>
+</div>
+<div class="setting-row">
+<label class="switch">
+<input type="checkbox" id="toggle-asteroids" checked>
+<span class="slider"></span>
+</label>
+<span>Show Asteroids</span>
+</div>
 </div>
 
 </div>
-        <!-- GRID / REFERENCE LINES -->
-        <div class="settings-page" id="grid-page">
-
-          <h2>🔲 Grid &amp; Reference Lines</h2>
-
-          <div class="settings-card">
-            <h3>📐 Coordinate Grid</h3>
-
-            <div class="setting-row">
-              <label class="switch">
-                <input type="checkbox" id="toggle-equatorial-grid">
-                <span class="slider"></span>
-              </label>
-              <span>Equatorial Grid</span>
-            </div>
-
-          </div>
-
-          <div class="settings-card">
-            <h3>🌐 Reference Lines</h3>
-
-            <div class="setting-row">
-              <label class="switch">
-                <input type="checkbox" id="toggle-ecliptic">
-                <span class="slider"></span>
-              </label>
-              <span style="color:#44cc88">Ecliptic</span>
-            </div>
-
-            <div class="setting-row">
-              <label class="switch">
-                <input type="checkbox" id="toggle-celestial-equator">
-                <span class="slider"></span>
-              </label>
-              <span style="color:#4488ff">Celestial Equator</span>
-            </div>
-
-            <div class="setting-row">
-              <label class="switch">
-                <input type="checkbox" id="toggle-galactic-plane">
-                <span class="slider"></span>
-              </label>
-              <span style="color:#cc6644">Galactic Plane</span>
-            </div>
-
-          </div>
-
-          <div class="settings-card">
-            <h3>🌅 Horizon &amp; Zenith</h3>
-
-            <div class="setting-row">
-              <label class="switch">
-                <input type="checkbox" id="toggle-horizon-line">
-                <span class="slider"></span>
-              </label>
-              <span>Horizon Line</span>
-            </div>
-
-          </div>
-
-        </div>
-
-        <!-- ATMOSPHERE -->
-        <div class="settings-page" id="atmosphere-page">
-
-          <h2>🌅 Atmosphere &amp; Light Pollution</h2>
-
-          <div class="settings-card">
-            <h3>📐 Atmospheric Effects</h3>
-
-            <div class="setting-row">
-              <label class="switch">
-                <input type="checkbox" id="toggle-horizon-glow" checked>
-                <span class="slider"></span>
-              </label>
-              <span>Twilight &amp; Horizon Glow</span>
-            </div>
-
-          </div>
-
-          <div class="settings-card">
-            <h3>💡 Sky &amp; Light Settings</h3>
-
-            <div class="setting-row" style="flex-direction: column; align-items: stretch; gap: 8px;">
-              <div style="display: flex; justify-content: space-between;">
-                <span>Sky Brightness</span>
-                <span id="sky-brightness-value">0.5</span>
-              </div>
-              <input type="range" id="sky-brightness" min="0.0" max="1.0" step="0.05" value="0.5">
-            </div>
-
-          </div>
-
-          <div class="settings-card">
-            <h3>🌃 Environment &amp; Transparency</h3>
-
-            <div class="setting-row" style="flex-direction: column; align-items: stretch; gap: 8px;">
-              <div style="display: flex; justify-content: space-between;">
-                <span>Light Pollution (Bortle Scale)</span>
-                <span id="light-pollution-value">9</span>
-              </div>
-              <input type="range" id="light-pollution" min="1" max="9" step="1" value="9">
-            </div>
-
-            <div class="setting-row" style="flex-direction: column; align-items: stretch; gap: 8px;">
-              <div style="display: flex; justify-content: space-between;">
-                <span>Air Transparency</span>
-                <span id="air-transparency-value">0.8</span>
-              </div>
-              <input type="range" id="air-transparency" min="0.0" max="1.0" step="0.05" value="0.8">
-            </div>
-
-            <div class="setting-row" style="flex-direction: column; align-items: stretch; gap: 8px;">
-              <div style="display: flex; justify-content: space-between;">
-                <span>Moonlight Intensity</span>
-                <span id="moonlight-brightness-value">0.5</span>
-              </div>
-              <input type="range" id="moonlight-brightness" min="0.0" max="1.0" step="0.05" value="0.5">
-            </div>
-
-          </div>
-
-          <div class="settings-card">
-            <h3>✨ Visual Effects</h3>
-
-            <div class="setting-row">
-              <label class="switch">
-                <input type="checkbox" id="toggle-twinkling" checked>
-                <span class="slider"></span>
-              </label>
-              <span>Enable Star Twinkling</span>
-            </div>
-
-            <div class="setting-row">
-              <label class="switch">
-                <input type="checkbox" id="toggle-renderer-overlay">
-                <span class="slider"></span>
-              </label>
-              <span>Developer Rendering Status Overlay</span>
-            </div>
-
-            <div class="setting-row" style="flex-direction: column; align-items: stretch; gap: 8px;">
-              <div style="display: flex; justify-content: space-between;">
-                <span>Twinkling Speed</span>
-                <span id="twinkling-speed-value">0.5</span>
-              </div>
-              <input type="range" id="twinkling-speed" min="0.1" max="2.0" step="0.05" value="0.5">
-            </div>
-
-            <div class="setting-row" style="flex-direction: column; align-items: stretch; gap: 8px;">
-              <div style="display: flex; justify-content: space-between;">
-                <span>Twinkling Intensity</span>
-                <span id="twinkling-intensity-value">0.5</span>
-              </div>
-              <input type="range" id="twinkling-intensity" min="0.0" max="1.0" step="0.05" value="0.5">
-            </div>
-
-            <div class="setting-row" style="flex-direction: column; align-items: stretch; gap: 8px;">
-              <div style="display: flex; justify-content: space-between;">
-                <span>Star Color Saturation</span>
-                <span id="star-color-saturation-value">1.0</span>
-              </div>
-              <input type="range" id="star-color-saturation" min="0.0" max="2.0" step="0.1" value="1.0">
-            </div>
-
-            <div class="setting-row">
-              <label class="switch">
-                <input type="checkbox" id="toggle-dso-glow" checked>
-                <span class="slider"></span>
-              </label>
-              <span>Deep Sky Object Glow</span>
-            </div>
-
-            <div class="setting-row" style="flex-direction: column; align-items: stretch; gap: 8px;">
-              <div style="display: flex; justify-content: space-between;">
-                <span>DSO Glow Intensity</span>
-                <span id="dso-glow-intensity-value">0.5</span>
-              </div>
-              <input type="range" id="dso-glow-intensity" min="0.0" max="1.0" step="0.05" value="0.5">
-            </div>
-
-            <div class="setting-row" style="flex-direction: column; align-items: stretch; gap: 8px;">
-              <div style="display: flex; justify-content: space-between;">
-                <span>Milky Way Brightness</span>
-                <span id="mw-brightness-slider-value">1.0</span>
-              </div>
-              <input type="range" id="mw-brightness-slider" min="0.0" max="2.0" step="0.05" value="1.0">
-            </div>
-
-          </div>
-
-        </div>
-
-        <!-- TIME TRAVEL -->
-        <div class="settings-page" id="time-page">
-
-          <h2>⏱️ Time Travel & Warp Controls</h2>
-
-          <!-- Live time readout -->
-          <div class="settings-card" style="text-align: center;">
-            <h3>🕐 Simulation Time Display</h3>
-            <div id="sim-time-display" style="font-family: monospace; font-size: 18px; color: cyan; font-weight: bold; letter-spacing: 0.5px; margin: 10px 0;"></div>
-          </div>
-
-          <!-- Date picker input + Apply -->
-          <div class="settings-card">
-            <h3>📅 Set Specific Date & Time</h3>
-            <div style="display: flex; gap: 8px;">
-              <input type="datetime-local" id="sky-datetime" style="flex: 1; padding: 8px; background: rgba(0,0,0,0.5); border: 1px solid rgba(0,255,255,0.25); border-radius: 8px; color: #fff; font-size: 14px; outline: none;">
-              <button onclick="applySkyTime()" style="padding: 8px 16px; background: linear-gradient(135deg, #00f5ff, #00bfff); border: none; border-radius: 8px; color: #000; font-weight: bold; cursor: pointer; transition: all 0.25s;">Apply</button>
-            </div>
-          </div>
-
-          <!-- Spinners -->
-          <div class="settings-card">
-            <h3>⏱️ Stellarium Spinners</h3>
-            <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.4); border: 1px solid rgba(0,255,255,0.15); border-radius: 12px; padding: 12px;">
-              <!-- Date Spinner -->
-              <div style="display: flex; align-items: center; gap: 4px;">
-                <div style="display: flex; flex-direction: column; align-items: center;">
-                  <button class="time-spinner-btn" onclick="adjustSimTime('year', 1)">▲</button>
-                  <span id="spin-year" style="font-family: monospace; font-size: 13px; font-weight: 700; color: #fff;">2026</span>
-                  <button class="time-spinner-btn" onclick="adjustSimTime('year', -1)">▼</button>
-                </div>
-                <span style="color: rgba(255,255,255,0.4); font-size: 11px;">-</span>
-                <div style="display: flex; flex-direction: column; align-items: center;">
-                  <button class="time-spinner-btn" onclick="adjustSimTime('month', 1)">▲</button>
-                  <span id="spin-month" style="font-family: monospace; font-size: 13px; font-weight: 700; color: #fff;">07</span>
-                  <button class="time-spinner-btn" onclick="adjustSimTime('month', -1)">▼</button>
-                </div>
-                <span style="color: rgba(255,255,255,0.4); font-size: 11px;">-</span>
-                <div style="display: flex; flex-direction: column; align-items: center;">
-                  <button class="time-spinner-btn" onclick="adjustSimTime('day', 1)">▲</button>
-                  <span id="spin-day" style="font-family: monospace; font-size: 13px; font-weight: 700; color: #fff;">17</span>
-                  <button class="time-spinner-btn" onclick="adjustSimTime('day', -1)">▼</button>
-                </div>
-              </div>
-
-              <!-- Center Reset -->
-              <div style="color: rgba(0,255,255,0.6); font-size: 16px; margin: 0 4px; cursor: pointer;" onclick="simResetNow()" title="Reset to Realtime">
-                ↺
-              </div>
-
-              <!-- Time Spinner -->
-              <div style="display: flex; align-items: center; gap: 4px;">
-                <div style="display: flex; flex-direction: column; align-items: center;">
-                  <button class="time-spinner-btn" onclick="adjustSimTime('hour', 1)">▲</button>
-                  <span id="spin-hour" style="font-family: monospace; font-size: 13px; font-weight: 700; color: #fff;">16</span>
-                  <button class="time-spinner-btn" onclick="adjustSimTime('hour', -1)">▼</button>
-                </div>
-                <span style="color: rgba(255,255,255,0.4); font-size: 11px;">:</span>
-                <div style="display: flex; flex-direction: column; align-items: center;">
-                  <button class="time-spinner-btn" onclick="adjustSimTime('minute', 1)">▲</button>
-                  <span id="spin-minute" style="font-family: monospace; font-size: 13px; font-weight: 700; color: #fff;">21</span>
-                  <button class="time-spinner-btn" onclick="adjustSimTime('minute', -1)">▼</button>
-                </div>
-                <span style="color: rgba(255,255,255,0.4); font-size: 11px;">:</span>
-                <div style="display: flex; flex-direction: column; align-items: center;">
-                  <button class="time-spinner-btn" onclick="adjustSimTime('second', 1)">▲</button>
-                  <span id="spin-second" style="font-family: monospace; font-size: 13px; font-weight: 700; color: #fff;">28</span>
-                  <button class="time-spinner-btn" onclick="adjustSimTime('second', -1)">▼</button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Simulation playback / controls -->
-          <div class="settings-card">
-            <h3>⚡ Simulation Controls</h3>
-            <div style="display: flex; gap: 8px;">
-              <button id="stellarium-play-btn" onclick="toggleSimPlay()" style="flex: 1; padding: 10px; font-weight: bold; background: rgba(0,255,100,0.15); border: 1px solid rgba(0,255,100,0.35); color: #00ff64; border-radius: 8px; cursor: pointer;">⏸ Pause</button>
-              <button onclick="simResetNow()" style="flex: 1; padding: 10px; font-weight: bold; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15); color: #ccc; border-radius: 8px; cursor: pointer;">↺ Reset to Now</button>
-            </div>
-          </div>
-
-          <!-- Speed multipliers -->
-          <div class="settings-card">
-            <h3>⚡ Warp Speed presets</h3>
-            <div style="display: flex; gap: 6px;">
-              <button class="speed-btn active" onclick="setSimSpeed(1,this)" data-speed="1" style="flex: 1; padding: 6px; font-size: 12px; background: rgba(0,255,255,0.15); border: 1px solid rgba(0,255,255,0.35); color: cyan; border-radius: 6px; font-weight: bold; cursor: pointer;">1×</button>
-              <button class="speed-btn" onclick="setSimSpeed(60,this)" data-speed="60" style="flex: 1; padding: 6px; font-size: 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #bbb; border-radius: 6px; cursor: pointer;">60×</button>
-              <button class="speed-btn" onclick="setSimSpeed(3600,this)" data-speed="3600" style="flex: 1; padding: 6px; font-size: 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #bbb; border-radius: 6px; cursor: pointer;">1h×</button>
-              <button class="speed-btn" onclick="setSimSpeed(86400,this)" data-speed="86400" style="flex: 1; padding: 6px; font-size: 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #bbb; border-radius: 6px; cursor: pointer;">1d×</button>
-            </div>
-          </div>
-
-        </div>
-
-        <!-- OBSERVATION -->
-        <div class="settings-page" id="observation-page">
-
-          <h2>🔭 Observation & Telescope Mode</h2>
-
-          <div class="settings-card">
-            <h3>🔭 Telescope Simulation</h3>
-            <div class="setting-row" style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
-              <label class="switch">
-                <input type="checkbox" id="settings-telescope-toggle">
-                <span class="slider"></span>
-              </label>
-              <span>Enable Telescope Eyepiece Mode</span>
-            </div>
-            <div class="setting-row" style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
-              <label style="color: rgba(255,255,255,0.7); min-width: 120px;">Eyepiece Selection</label>
-              <select id="settings-eyepiece-select"
-                style="background: rgba(0, 0, 0, 0.6); border: 1px solid rgba(0, 255, 255, 0.2); color: #fff; border-radius: 4px; padding: 4px 8px; font-size: 14px; outline: none; margin-left: auto;">
-                <option value="1.0">25mm (1.0° FOV)</option>
-                <option value="0.5" selected>10mm (0.5° FOV)</option>
-                <option value="0.25">4mm (0.25° FOV)</option>
-              </select>
-            </div>
-            <div class="setting-row" style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
-              <label style="color: rgba(255,255,255,0.7); min-width: 120px;">Crosshair Style</label>
-              <select id="settings-crosshair-select"
-                style="background: rgba(0, 0, 0, 0.6); border: 1px solid rgba(0, 255, 255, 0.2); color: #fff; border-radius: 4px; padding: 4px 8px; font-size: 14px; outline: none; margin-left: auto;">
-                <option value="standard">Standard Crosshair</option>
-                <option value="reticle">Target Reticle</option>
-                <option value="off">Off</option>
-              </select>
-            </div>
-            <div class="setting-row" style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
-              <label class="switch">
-                <input type="checkbox" id="settings-finder-toggle" checked>
-                <span class="slider"></span>
-              </label>
-              <span>Show Outer Finder Scope Ring (4.0°)</span>
-            </div>
-          </div>
-
-          <div class="settings-card">
-            <h3>🔴 Visual Adaptation</h3>
-            <div class="setting-row" style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
-              <label class="switch">
-                <input type="checkbox" id="settings-night-toggle">
-                <span class="slider"></span>
-              </label>
-              <span>Enable Night Vision Mode (Crimson Filter)</span>
-            </div>
-          </div>
-
-          <div class="settings-card">
-            <h3>📐 Path &amp; Trajectory Visualizers</h3>
-            <div class="setting-row" style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
-              <label class="switch">
-                <input type="checkbox" id="settings-trails-toggle" checked>
-                <span class="slider"></span>
-              </label>
-              <span>Enable Object Trails</span>
-            </div>
-            <div class="setting-row" style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
-              <label class="switch">
-                <input type="checkbox" id="settings-futurepath-toggle" checked>
-                <span class="slider"></span>
-              </label>
-              <span>Future Path Prediction (24h)</span>
-            </div>
-            <div class="setting-row" style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
-              <label class="switch">
-                <input type="checkbox" id="settings-risepath-toggle" checked>
-                <span class="slider"></span>
-              </label>
-              <span>Show Rise Path</span>
-            </div>
-            <div class="setting-row" style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
-              <label class="switch">
-                <input type="checkbox" id="settings-setpath-toggle" checked>
-                <span class="slider"></span>
-              </label>
-              <span>Show Set Path</span>
-            </div>
-            <div class="setting-row" style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
-              <label class="switch">
-                <input type="checkbox" id="settings-transitpath-toggle" checked>
-                <span class="slider"></span>
-              </label>
-              <span>Show Transit Path</span>
-            </div>
-          </div>
-
-          <!-- 📍 OBSERVER LOCATION -->
-          <div class="settings-card">
-            <h3>📍 Observer Location</h3>
-
-            <div id="obs-location-display"
-              style="text-align: center; padding: 10px; margin-bottom: 12px; background: rgba(0,255,255,0.05); border: 1px solid rgba(0,255,255,0.2); border-radius: 8px; font-size: 13px; color: cyan; min-height: 38px; display: flex; align-items: center; justify-content: center; gap: 6px;">
-              📍 Loading location...
-            </div>
-
-            <button onclick="detectGPSLocation()" id="gps-detect-btn"
-              style="width: 100%; padding: 10px; margin-bottom: 12px; background: linear-gradient(135deg, rgba(0,255,255,0.15), rgba(100,0,255,0.15)); border: 1px solid rgba(0,255,255,0.35); border-radius: 8px; color: cyan; font-weight: 700; font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.3s;">
-              🛰️ Auto-Detect My Location (GPS)
-            </button>
-
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
-              <div>
-                <label
-                  style="font-size: 11px; color: rgba(255,255,255,0.5); display: block; margin-bottom: 4px;">Latitude
-                  (°N)</label>
-                <input type="number" id="obs-lat-input" step="0.0001" min="-90" max="90"
-                  style="width: 100%; padding: 7px; background: rgba(0,0,0,0.5); border: 1px solid rgba(0,255,255,0.2); border-radius: 6px; color: #fff; font-size: 13px; box-sizing: border-box;">
-              </div>
-              <div>
-                <label
-                  style="font-size: 11px; color: rgba(255,255,255,0.5); display: block; margin-bottom: 4px;">Longitude
-                  (°E)</label>
-                <input type="number" id="obs-lon-input" step="0.0001" min="-180" max="180"
-                  style="width: 100%; padding: 7px; background: rgba(0,0,0,0.5); border: 1px solid rgba(0,255,255,0.2); border-radius: 6px; color: #fff; font-size: 13px; box-sizing: border-box;">
-              </div>
-            </div>
-
-            <div style="margin-bottom: 10px;">
-              <label
-                style="font-size: 11px; color: rgba(255,255,255,0.5); display: block; margin-bottom: 4px;">Elevation
-                (metres)</label>
-              <input type="number" id="obs-elev-input" value="0" min="0" max="8848"
-                style="width: 100%; padding: 7px; background: rgba(0,0,0,0.5); border: 1px solid rgba(0,255,255,0.2); border-radius: 6px; color: #fff; font-size: 13px; box-sizing: border-box;">
-            </div>
-
-            <button onclick="applyObserverLocation()"
-              style="width: 100%; padding: 9px; background: rgba(0,255,100,0.15); border: 1px solid rgba(0,255,100,0.35); border-radius: 8px; color: #00ff64; font-weight: 700; font-size: 13px; cursor: pointer; transition: all 0.3s;">
-              ✅ Apply Location
-            </button>
-          </div>
-
-        </div>
-
-        <!-- ACCOUNT -->
-        <div class="settings-page" id="account-page">
-
-          <h2>👤 Account</h2>
-
-          <!-- Account -->
-
-          <div class="setting-card">
-
-            <h3>👤 Account</h3>
-
-            <div class="account-profile">
-
-              <img id="account-photo" src="https://ui-avatars.com/api/?name=User" class="account-avatar">
-
-              <div class="account-details">
-
-                <p>
-
-                  <strong id="account-name">
-
-                    Guest User
-
-                  </strong>
-
-                </p>
-
-                <p id="account-email">
-
-                  Not Signed In
-
-                </p>
-
-                <p>
-
-                  Status:
-                  <span id="account-status">
-
-                    🔴 Signed Out
-
-                  </span>
-
-                </p>
-
-                <p>
-
-
-                  <span id="account-type">
-
-                    Cloud Account
-
-                  </span>
-
-                </p>
-
-              </div>
-
-            </div>
-
-            <button id="manage-account-btn">
-
-              ⚙ Manage Profile
-
-            </button>
-
-          </div>
-
-          <!-- Cloud -->
-
-          <div class="setting-card">
-
-            <h3>☁ Cloud Sync</h3>
-
-            <p>
-
-              Status:
-              <span id="cloud-status">
-
-                🟢 Synced
-
-              </span>
-
-            </p>
-
-            <p>
-
-              Last Sync:
-              <span id="last-sync">
-
-                Never
-
-              </span>
-
-            </p>
-
-            <button id="sync-now-btn">
-
-              Sync Now
+<!-- GRID / REFERENCE LINES -->
+<div class="settings-page" id="grid-page">
+
+<h2>Grid &amp; Reference Lines</h2>
+
+<div class="settings-card">
+<h3>Coordinate Grid</h3>
+
+<div class="setting-row">
+<label class="switch">
+<input type="checkbox" id="toggle-equatorial-grid">
+<span class="slider"></span>
+</label>
+<span>Equatorial Grid</span>
+</div>
+
+</div>
+
+<div class="settings-card">
+<h3>Reference Lines</h3>
+
+<div class="setting-row">
+<label class="switch">
+<input type="checkbox" id="toggle-ecliptic">
+<span class="slider"></span>
+</label>
+<span style="color:#44cc88">Ecliptic</span>
+</div>
+
+<div class="setting-row">
+<label class="switch">
+<input type="checkbox" id="toggle-celestial-equator">
+<span class="slider"></span>
+</label>
+<span style="color:#4488ff">Celestial Equator</span>
+</div>
+
+<div class="setting-row">
+<label class="switch">
+<input type="checkbox" id="toggle-galactic-plane">
+<span class="slider"></span>
+</label>
+<span style="color:#cc6644">Galactic Plane</span>
+</div>
+
+</div>
+
+<div class="settings-card">
+<h3>Horizon &amp; Zenith</h3>
+
+<div class="setting-row">
+<label class="switch">
+<input type="checkbox" id="toggle-horizon-line">
+<span class="slider"></span>
+</label>
+<span>Horizon Line</span>
+</div>
+
+</div>
+
+</div>
+
+<!-- ATMOSPHERE -->
+<div class="settings-page" id="atmosphere-page">
+
+<h2>Atmosphere &amp; Light Pollution</h2>
+
+<div class="settings-card">
+<h3>Atmospheric Effects</h3>
+
+<div class="setting-row">
+<label class="switch">
+<input type="checkbox" id="toggle-horizon-glow" checked>
+<span class="slider"></span>
+</label>
+<span>Twilight &amp; Horizon Glow</span>
+</div>
+
+</div>
+
+<div class="settings-card">
+<h3>Sky &amp; Light Settings</h3>
+
+<div class="setting-row" style="flex-direction: column; align-items: stretch; gap: 8px;">
+<div style="display: flex; justify-content: space-between;">
+<span>Sky Brightness</span>
+<span id="sky-brightness-value">0.5</span>
+</div>
+<input type="range" id="sky-brightness" min="0.0" max="1.0" step="0.05" value="0.5">
+</div>
+
+</div>
+
+<div class="settings-card">
+<h3>Environment &amp; Transparency</h3>
+
+<div class="setting-row" style="flex-direction: column; align-items: stretch; gap: 8px;">
+<div style="display: flex; justify-content: space-between;">
+<span>Light Pollution (Bortle Scale)</span>
+<span id="light-pollution-value">9</span>
+</div>
+<input type="range" id="light-pollution" min="1" max="9" step="1" value="9">
+</div>
+
+<div class="setting-row" style="flex-direction: column; align-items: stretch; gap: 8px;">
+<div style="display: flex; justify-content: space-between;">
+<span>Air Transparency</span>
+<span id="air-transparency-value">0.8</span>
+</div>
+<input type="range" id="air-transparency" min="0.0" max="1.0" step="0.05" value="0.8">
+</div>
+
+<div class="setting-row" style="flex-direction: column; align-items: stretch; gap: 8px;">
+<div style="display: flex; justify-content: space-between;">
+<span>Moonlight Intensity</span>
+<span id="moonlight-brightness-value">0.5</span>
+</div>
+<input type="range" id="moonlight-brightness" min="0.0" max="1.0" step="0.05" value="0.5">
+</div>
+
+</div>
+
+<div class="settings-card">
+<h3>Visual Effects</h3>
+
+<div class="setting-row">
+<label class="switch">
+<input type="checkbox" id="toggle-twinkling" checked>
+<span class="slider"></span>
+</label>
+<span>Enable Star Twinkling</span>
+</div>
+
+<div class="setting-row">
+<label class="switch">
+<input type="checkbox" id="toggle-renderer-overlay">
+<span class="slider"></span>
+</label>
+<span>Developer Rendering Status Overlay</span>
+</div>
+
+<div class="setting-row" style="flex-direction: column; align-items: stretch; gap: 8px;">
+<div style="display: flex; justify-content: space-between;">
+<span>Twinkling Speed</span>
+<span id="twinkling-speed-value">0.5</span>
+</div>
+<input type="range" id="twinkling-speed" min="0.1" max="2.0" step="0.05" value="0.5">
+</div>
+
+<div class="setting-row" style="flex-direction: column; align-items: stretch; gap: 8px;">
+<div style="display: flex; justify-content: space-between;">
+<span>Twinkling Intensity</span>
+<span id="twinkling-intensity-value">0.5</span>
+</div>
+<input type="range" id="twinkling-intensity" min="0.0" max="1.0" step="0.05" value="0.5">
+</div>
+
+<div class="setting-row" style="flex-direction: column; align-items: stretch; gap: 8px;">
+<div style="display: flex; justify-content: space-between;">
+<span>Star Color Saturation</span>
+<span id="star-color-saturation-value">1.0</span>
+</div>
+<input type="range" id="star-color-saturation" min="0.0" max="2.0" step="0.1" value="1.0">
+</div>
+
+<div class="setting-row">
+<label class="switch">
+<input type="checkbox" id="toggle-dso-glow" checked>
+<span class="slider"></span>
+</label>
+<span>Deep Sky Object Glow</span>
+</div>
+
+<div class="setting-row" style="flex-direction: column; align-items: stretch; gap: 8px;">
+<div style="display: flex; justify-content: space-between;">
+<span>DSO Glow Intensity</span>
+<span id="dso-glow-intensity-value">0.5</span>
+</div>
+<input type="range" id="dso-glow-intensity" min="0.0" max="1.0" step="0.05" value="0.5">
+</div>
+
+<div class="setting-row" style="flex-direction: column; align-items: stretch; gap: 8px;">
+<div style="display: flex; justify-content: space-between;">
+<span>Milky Way Brightness</span>
+<span id="mw-brightness-slider-value">1.0</span>
+</div>
+<input type="range" id="mw-brightness-slider" min="0.0" max="2.0" step="0.05" value="1.0">
+</div>
+
+</div>
+
+</div>
+
+<!-- TIME TRAVEL -->
+<div class="settings-page" id="time-page">
+
+<h2>️ Time Travel & Warp Controls</h2>
+
+<!-- Live time readout -->
+<div class="settings-card" style="text-align: center;">
+<h3>Simulation Time Display</h3>
+<div id="sim-time-display" style="font-family: monospace; font-size: 18px; color: cyan; font-weight: bold; letter-spacing: 0.5px; margin: 10px 0;"></div>
+</div>
+
+<!-- Date picker input + Apply -->
+<div class="settings-card">
+<h3>Set Specific Date & Time</h3>
+<div style="display: flex; gap: 8px;">
+<input type="datetime-local" id="sky-datetime" style="flex: 1; padding: 8px; background: rgba(0,0,0,0.5); border: 1px solid rgba(0,255,255,0.25); border-radius: 8px; color: #fff; font-size: 14px; outline: none;">
+<button onclick="applySkyTime()" style="padding: 8px 16px; background: linear-gradient(135deg, #00f5ff, #00bfff); border: none; border-radius: 8px; color: #000; font-weight: bold; cursor: pointer; transition: all 0.25s;">Apply</button>
+</div>
+</div>
+
+<!-- Spinners -->
+<div class="settings-card">
+<h3>️ Stellarium Spinners</h3>
+<div style="display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.4); border: 1px solid rgba(0,255,255,0.15); border-radius: 12px; padding: 12px;">
+<!-- Date Spinner -->
+<div style="display: flex; align-items: center; gap: 4px;">
+<div style="display: flex; flex-direction: column; align-items: center;">
+<button class="time-spinner-btn" onclick="adjustSimTime('year', 1)">▲</button>
+<span id="spin-year" style="font-family: monospace; font-size: 13px; font-weight: 700; color: #fff;">2026</span>
+<button class="time-spinner-btn" onclick="adjustSimTime('year', -1)">▼</button>
+</div>
+<span style="color: rgba(255,255,255,0.4); font-size: 11px;">-</span>
+<div style="display: flex; flex-direction: column; align-items: center;">
+<button class="time-spinner-btn" onclick="adjustSimTime('month', 1)">▲</button>
+<span id="spin-month" style="font-family: monospace; font-size: 13px; font-weight: 700; color: #fff;">07</span>
+<button class="time-spinner-btn" onclick="adjustSimTime('month', -1)">▼</button>
+</div>
+<span style="color: rgba(255,255,255,0.4); font-size: 11px;">-</span>
+<div style="display: flex; flex-direction: column; align-items: center;">
+<button class="time-spinner-btn" onclick="adjustSimTime('day', 1)">▲</button>
+<span id="spin-day" style="font-family: monospace; font-size: 13px; font-weight: 700; color: #fff;">17</span>
+<button class="time-spinner-btn" onclick="adjustSimTime('day', -1)">▼</button>
+</div>
+</div>
+
+<!-- Center Reset -->
+<div style="color: rgba(0,255,255,0.6); font-size: 16px; margin: 0 4px; cursor: pointer;" onclick="simResetNow()" title="Reset to Realtime">
+ ↺
+</div>
+
+<!-- Time Spinner -->
+<div style="display: flex; align-items: center; gap: 4px;">
+<div style="display: flex; flex-direction: column; align-items: center;">
+<button class="time-spinner-btn" onclick="adjustSimTime('hour', 1)">▲</button>
+<span id="spin-hour" style="font-family: monospace; font-size: 13px; font-weight: 700; color: #fff;">16</span>
+<button class="time-spinner-btn" onclick="adjustSimTime('hour', -1)">▼</button>
+</div>
+<span style="color: rgba(255,255,255,0.4); font-size: 11px;">:</span>
+<div style="display: flex; flex-direction: column; align-items: center;">
+<button class="time-spinner-btn" onclick="adjustSimTime('minute', 1)">▲</button>
+<span id="spin-minute" style="font-family: monospace; font-size: 13px; font-weight: 700; color: #fff;">21</span>
+<button class="time-spinner-btn" onclick="adjustSimTime('minute', -1)">▼</button>
+</div>
+<span style="color: rgba(255,255,255,0.4); font-size: 11px;">:</span>
+<div style="display: flex; flex-direction: column; align-items: center;">
+<button class="time-spinner-btn" onclick="adjustSimTime('second', 1)">▲</button>
+<span id="spin-second" style="font-family: monospace; font-size: 13px; font-weight: 700; color: #fff;">28</span>
+<button class="time-spinner-btn" onclick="adjustSimTime('second', -1)">▼</button>
+</div>
+</div>
+</div>
+</div>
+
+<!-- Simulation playback / controls -->
+<div class="settings-card">
+<h3>Simulation Controls</h3>
+<div style="display: flex; gap: 8px;">
+<button id="stellarium-play-btn" onclick="toggleSimPlay()" style="flex: 1; padding: 10px; font-weight: bold; background: rgba(0,255,100,0.15); border: 1px solid rgba(0,255,100,0.35); color: #00ff64; border-radius: 8px; cursor: pointer;">Pause</button>
+<button onclick="simResetNow()" style="flex: 1; padding: 10px; font-weight: bold; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15); color: #ccc; border-radius: 8px; cursor: pointer;">↺ Reset to Now</button>
+</div>
+</div>
+
+<!-- Speed multipliers -->
+<div class="settings-card">
+<h3>Warp Speed presets</h3>
+<div style="display: flex; gap: 6px;">
+<button class="speed-btn active" onclick="setSimSpeed(1,this)" data-speed="1" style="flex: 1; padding: 6px; font-size: 12px; background: rgba(0,255,255,0.15); border: 1px solid rgba(0,255,255,0.35); color: cyan; border-radius: 6px; font-weight: bold; cursor: pointer;">1×</button>
+<button class="speed-btn" onclick="setSimSpeed(60,this)" data-speed="60" style="flex: 1; padding: 6px; font-size: 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #bbb; border-radius: 6px; cursor: pointer;">60×</button>
+<button class="speed-btn" onclick="setSimSpeed(3600,this)" data-speed="3600" style="flex: 1; padding: 6px; font-size: 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #bbb; border-radius: 6px; cursor: pointer;">1h×</button>
+<button class="speed-btn" onclick="setSimSpeed(86400,this)" data-speed="86400" style="flex: 1; padding: 6px; font-size: 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #bbb; border-radius: 6px; cursor: pointer;">1d×</button>
+</div>
+</div>
+
+</div>
+
+<!-- OBSERVATION -->
+<div class="settings-page" id="observation-page">
+
+<h2>Observation & Telescope Mode</h2>
+
+<div class="settings-card">
+<h3>Telescope Simulation</h3>
+<div class="setting-row" style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+<label class="switch">
+<input type="checkbox" id="settings-telescope-toggle">
+<span class="slider"></span>
+</label>
+<span>Enable Telescope Eyepiece Mode</span>
+</div>
+<div class="setting-row" style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+<label style="color: rgba(255,255,255,0.7); min-width: 120px;">Eyepiece Selection</label>
+<select id="settings-eyepiece-select"
+ style="background: rgba(0, 0, 0, 0.6); border: 1px solid rgba(0, 255, 255, 0.2); color: #fff; border-radius: 4px; padding: 4px 8px; font-size: 14px; outline: none; margin-left: auto;">
+<option value="1.0">25mm (1.0° FOV)</option>
+<option value="0.5" selected>10mm (0.5° FOV)</option>
+<option value="0.25">4mm (0.25° FOV)</option>
+</select>
+</div>
+<div class="setting-row" style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+<label style="color: rgba(255,255,255,0.7); min-width: 120px;">Crosshair Style</label>
+<select id="settings-crosshair-select"
+ style="background: rgba(0, 0, 0, 0.6); border: 1px solid rgba(0, 255, 255, 0.2); color: #fff; border-radius: 4px; padding: 4px 8px; font-size: 14px; outline: none; margin-left: auto;">
+<option value="standard">Standard Crosshair</option>
+<option value="reticle">Target Reticle</option>
+<option value="off">Off</option>
+</select>
+</div>
+<div class="setting-row" style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+<label class="switch">
+<input type="checkbox" id="settings-finder-toggle" checked>
+<span class="slider"></span>
+</label>
+<span>Show Outer Finder Scope Ring (4.0°)</span>
+</div>
+</div>
+
+<div class="settings-card">
+<h3>Visual Adaptation</h3>
+<div class="setting-row" style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+<label class="switch">
+<input type="checkbox" id="settings-night-toggle">
+<span class="slider"></span>
+</label>
+<span>Enable Night Vision Mode (Crimson Filter)</span>
+</div>
+</div>
+
+<div class="settings-card">
+<h3>Path &amp; Trajectory Visualizers</h3>
+<div class="setting-row" style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+<label class="switch">
+<input type="checkbox" id="settings-trails-toggle" checked>
+<span class="slider"></span>
+</label>
+<span>Enable Object Trails</span>
+</div>
+<div class="setting-row" style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+<label class="switch">
+<input type="checkbox" id="settings-futurepath-toggle" checked>
+<span class="slider"></span>
+</label>
+<span>Future Path Prediction (24h)</span>
+</div>
+<div class="setting-row" style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+<label class="switch">
+<input type="checkbox" id="settings-risepath-toggle" checked>
+<span class="slider"></span>
+</label>
+<span>Show Rise Path</span>
+</div>
+<div class="setting-row" style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+<label class="switch">
+<input type="checkbox" id="settings-setpath-toggle" checked>
+<span class="slider"></span>
+</label>
+<span>Show Set Path</span>
+</div>
+<div class="setting-row" style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+<label class="switch">
+<input type="checkbox" id="settings-transitpath-toggle" checked>
+<span class="slider"></span>
+</label>
+<span>Show Transit Path</span>
+</div>
+</div>
+
+<!-- OBSERVER LOCATION -->
+<div class="settings-card">
+<h3>Observer Location</h3>
+
+<div id="obs-location-display"
+ style="text-align: center; padding: 10px; margin-bottom: 12px; background: rgba(0,255,255,0.05); border: 1px solid rgba(0,255,255,0.2); border-radius: 8px; font-size: 13px; color: cyan; min-height: 38px; display: flex; align-items: center; justify-content: center; gap: 6px;">
+ Loading location...
+</div>
+
+<button onclick="detectGPSLocation()" id="gps-detect-btn"
+ style="width: 100%; padding: 10px; margin-bottom: 12px; background: linear-gradient(135deg, rgba(0,255,255,0.15), rgba(100,0,255,0.15)); border: 1px solid rgba(0,255,255,0.35); border-radius: 8px; color: cyan; font-weight: 700; font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.3s;">
+ ️ Auto-Detect My Location (GPS)
+</button>
+
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
+<div>
+<label
+ style="font-size: 11px; color: rgba(255,255,255,0.5); display: block; margin-bottom: 4px;">Latitude
+ (°N)</label>
+<input type="number" id="obs-lat-input" step="0.0001" min="-90" max="90"
+ style="width: 100%; padding: 7px; background: rgba(0,0,0,0.5); border: 1px solid rgba(0,255,255,0.2); border-radius: 6px; color: #fff; font-size: 13px; box-sizing: border-box;">
+</div>
+<div>
+<label
+ style="font-size: 11px; color: rgba(255,255,255,0.5); display: block; margin-bottom: 4px;">Longitude
+ (°E)</label>
+<input type="number" id="obs-lon-input" step="0.0001" min="-180" max="180"
+ style="width: 100%; padding: 7px; background: rgba(0,0,0,0.5); border: 1px solid rgba(0,255,255,0.2); border-radius: 6px; color: #fff; font-size: 13px; box-sizing: border-box;">
+</div>
+</div>
+
+<div style="margin-bottom: 10px;">
+<label
+ style="font-size: 11px; color: rgba(255,255,255,0.5); display: block; margin-bottom: 4px;">Elevation
+ (metres)</label>
+<input type="number" id="obs-elev-input" value="0" min="0" max="8848"
+ style="width: 100%; padding: 7px; background: rgba(0,0,0,0.5); border: 1px solid rgba(0,255,255,0.2); border-radius: 6px; color: #fff; font-size: 13px; box-sizing: border-box;">
+</div>
+
+<button onclick="applyObserverLocation()"
+ style="width: 100%; padding: 9px; background: rgba(0,255,100,0.15); border: 1px solid rgba(0,255,100,0.35); border-radius: 8px; color: #00ff64; font-weight: 700; font-size: 13px; cursor: pointer; transition: all 0.3s;">
+ Apply Location
+</button>
+</div>
+
+</div>
+
+<!-- ACCOUNT -->
+<div class="settings-page" id="account-page">
+
+<h2>Account</h2>
+
+<!-- Account -->
+
+<div class="setting-card">
+
+<h3>Account</h3>
+
+<div class="account-profile">
+
+<img id="account-photo" src="https://ui-avatars.com/api/?name=User" class="account-avatar">
+
+<div class="account-details">
+
+<p>
+
+<strong id="account-name">
+
+ Guest User
+
+</strong>
+
+</p>
+
+<p id="account-email">
+
+ Not Signed In
+
+</p>
+
+<p>
+
+ Status:
+<span id="account-status">
+
+ Signed Out
+
+</span>
+
+</p>
+
+<p>
+
+
+<span id="account-type">
+
+ Cloud Account
+
+</span>
+
+</p>
+
+</div>
+
+</div>
+
+<button id="manage-account-btn">
+
+ Manage Profile
+
+</button>
+
+</div>
+
+<!-- Cloud -->
+
+<div class="setting-card">
+
+<h3>Cloud Sync</h3>
+
+<p>
+
+ Status:
+<span id="cloud-status">
+
+ Synced
+
+</span>
+
+</p>
+
+<p>
+
+ Last Sync:
+<span id="last-sync">
+
+ Never
+
+</span>
+
+</p>
+
+<button id="sync-now-btn">
+
+ Sync Now
 
-            </button>
+</button>
 
-          </div>
+</div>
 
-          <!-- Data -->
+<!-- Data -->
 
-          <div class="setting-card">
+<div class="setting-card">
 
-            <h3>📦 Data</h3>
+<h3>Data</h3>
 
-            <p>
+<p>
 
-              Backup your Astro AI data.
+ Backup your Astro AI data.
 
-            </p>
+</p>
 
-            <button id="export-account-data">
+<button id="export-account-data">
 
-              ⬇ Export Astro Data
+ Export Astro Data
 
-            </button>
+</button>
 
-            <button id="import-account-data">
+<button id="import-account-data">
 
-              ⬆ Import Astro Data
+ Import Astro Data
 
-            </button>
+</button>
 
-            <input type="file" id="import-account-file" accept=".json" style="display:none;">
+<input type="file" id="import-account-file" accept=".json" style="display:none;">
 
-          </div>
+</div>
 
-        </div>
+</div>
 
-        <!-- ABOUT -->
-        <div class="settings-page" id="about-page">
+<!-- ABOUT -->
+<div class="settings-page" id="about-page">
 
-          <h2>
-            About Astro Explorer
-          </h2>
+<h2>
+ About Astro Explorer
+</h2>
 
-          <div class="setting-card">
+<div class="setting-card">
 
-            <h3>🚀 About Astro Explorer</h3>
+<h3>About Astro Explorer</h3>
 
-            <p>
+<p>
 
-              Astro Explorer is an astronomy web application
-              designed for sky exploration, celestial object
-              search, NASA content and an intelligent
-              Astro AI assistant.
+ Astro Explorer is an astronomy web application
+ designed for sky exploration, celestial object
+ search, NASA content and an intelligent
+ Astro AI assistant.
 
-            </p>
+</p>
 
-          </div>
+</div>
 
-          <div class="setting-card">
+<div class="setting-card">
 
-            <h3> Features</h3>
+<h3>Features</h3>
 
-            <ul>
+<ul>
 
-              <li> Interactive Sky Map</li>
+<li>Interactive Sky Map</li>
 
-              <li> Astro AI Assistant</li>
+<li>Astro AI Assistant</li>
 
-              <li> Smart Memory</li>
+<li>Smart Memory</li>
 
-              <li> NASA APOD</li>
+<li>NASA APOD</li>
 
-              <li> Asteroid Explorer</li>
+<li>Asteroid Explorer</li>
 
-              <li> Cloud Sync</li>
+<li>Cloud Sync</li>
 
-              <li> Observation Tools</li>
+<li>Observation Tools</li>
 
-            </ul>
+</ul>
 
-          </div>
+</div>
 
-          <div class="setting-card">
+<div class="setting-card">
 
-            <h3> Developer</h3>
+<h3>Developer</h3>
 
-            <p>
+<p>
 
-              Developed by
+ Developed by
 
-              <b>Bhavya Puranik</b>
+<b>Bhavya Puranik</b>
 
-            </p>
+</p>
 
-            <p>
+<p>
 
-              Project
+ Project
 
-              <b>Astro Explorer</b>
+<b>Astro Explorer</b>
 
-            </p>
+</p>
 
-            <p>
+<p>
 
-              Made with
+ Made with
 
-              HTML, CSS, JavaScript & Firebase
+ HTML, CSS, JavaScript & Firebase
 
-            </p>
+</p>
 
-          </div>
-          <div class="setting-card">
+</div>
+<div class="setting-card">
 
-            <h3>📜 Information</h3>
+<h3>Information</h3>
 
-            <p>
+<p>
 
-              Version
+ Version
 
-              <b>2.6 Beta</b>
+<b>2.6 Beta</b>
 
-            </p>
+</p>
 
-            <p>
+<p>
 
-              Built for learning astronomy,
-              sky observation and AI-powered
-              space exploration.
+ Built for learning astronomy,
+ sky observation and AI-powered
+ space exploration.
 
-            </p>
+</p>
 
-          </div>
+</div>
 
-        </div>
+</div>
 
-      </div>
+</div>
 
-    </div>
+</div>
 
-  </div>
+</div>
 
 </div>
 
@@ -3008,11 +3205,9 @@ step="0.1">
 
 <div id="history-header">
 
-<h2>📜 Chat History</h2>
+<h2>Chat History</h2>
 
-<button id="close-history">
-✖
-</button>
+<button id="close-history" title="Close History">✕</button>
 
 </div>
 
@@ -3031,7 +3226,7 @@ spellcheck="false">
 
 <button id="import-chat">
 
-📥 Import Chat
+ Import Chat
 
 </button>
 
@@ -3060,7 +3255,7 @@ style="display:none;">
 
 <div id="edit-memory-window">
 
-<h2>✏ Edit Memory</h2>
+<h2>Edit Memory</h2>
 
 <textarea
 id="edit-memory-text"
@@ -3091,54 +3286,54 @@ Save
 <!-- ================= SETTINGS END ================= -->
 
 <div id="context-debug-modal" class="context-debug-modal hidden" style="display:none;">
-  <div class="context-debug-content">
-    <div class="context-debug-header">
-      <h3>⚡ Astro AI Context Engine Debugger</h3>
-      <button id="close-context-debug" class="context-debug-close">✖</button>
-    </div>
-    <div class="context-debug-body">
-      <div class="debug-grid">
-        <div class="debug-card">
-          <div class="debug-label">Tokens & Payload Size</div>
-          <div id="debug-token-count" class="debug-value">~0 tokens (0 chars)</div>
-        </div>
-        <div class="debug-card">
-          <div class="debug-label">Filtered Memory Items</div>
-          <div id="debug-memory-count" class="debug-value">0 active</div>
-        </div>
-        <div class="debug-card">
-          <div class="debug-label">Active Celestial Object</div>
-          <div id="debug-active-object" class="debug-value">None</div>
-        </div>
-        <div class="debug-card">
-          <div class="debug-label">Research & Vision Mode</div>
-          <div class="debug-value">Research: <span id="debug-research-status">OFF</span> | Vision: <span id="debug-vision-status">OFF</span></div>
-        </div>
-      </div>
+<div class="context-debug-content">
+<div class="context-debug-header">
+<h3>Astro AI Context Engine Debugger</h3>
+<button id="close-context-debug" class="context-debug-close">✕</button>
+</div>
+<div class="context-debug-body">
+<div class="debug-grid">
+<div class="debug-card">
+<div class="debug-label">Tokens & Payload Size</div>
+<div id="debug-token-count" class="debug-value">~0 tokens (0 chars)</div>
+</div>
+<div class="debug-card">
+<div class="debug-label">Filtered Memory Items</div>
+<div id="debug-memory-count" class="debug-value">0 active</div>
+</div>
+<div class="debug-card">
+<div class="debug-label">Active Celestial Object</div>
+<div id="debug-active-object" class="debug-value">None</div>
+</div>
+<div class="debug-card">
+<div class="debug-label">Research & Vision Mode</div>
+<div class="debug-value">Research:<span id="debug-research-status">OFF</span>| Vision:<span id="debug-vision-status">OFF</span></div>
+</div>
+</div>
 
-      <div class="debug-section">
-        <h4>Included Context Sources</h4>
-        <div id="debug-sources-included" class="pills-container"></div>
-      </div>
+<div class="debug-section">
+<h4>Included Context Sources</h4>
+<div id="debug-sources-included" class="pills-container"></div>
+</div>
 
-      <div class="debug-section">
-        <h4>Skipped / Optimized Sources</h4>
-        <div id="debug-sources-skipped" class="pills-container"></div>
-      </div>
+<div class="debug-section">
+<h4>Skipped / Optimized Sources</h4>
+<div id="debug-sources-skipped" class="pills-container"></div>
+</div>
 
-      <div class="debug-section">
-        <h4>Live Injected Prompt Stack Preview</h4>
-        <pre id="debug-prompt-preview" class="debug-prompt-code">No context generated yet. Send a query or open debugger after asking Astro AI.</pre>
-      </div>
-    </div>
-  </div>
+<div class="debug-section">
+<h4>Live Injected Prompt Stack Preview</h4>
+<pre id="debug-prompt-preview" class="debug-prompt-code">No context generated yet. Send a query or open debugger after asking Astro AI.</pre>
+</div>
+</div>
+</div>
 </div>
 
 <script type="module" src="firebase.js"></script>
 <script type="module" src="model-capabilities.js"></script>
 <script defer src="script.js"></script>
 
- <script defer src="/_vercel/insights/script.js"></script>
+<script defer src="/_vercel/insights/script.js"></script>
 <script defer src="/_vercel/speed-insights/script.js"></script>
 </body>
 </html>
