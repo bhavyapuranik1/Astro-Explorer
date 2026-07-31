@@ -8853,11 +8853,21 @@ if (oldLogoutBtn) {
 document
   .getElementById("profile-pic")
   .addEventListener("click", () => {
-
-    document
-      .getElementById("profile-menu")
-      .classList.toggle("show");
-
+    const menu = document.getElementById("profile-menu");
+    menu.classList.toggle("show");
+    if (menu.classList.contains("show")) {
+      try {
+        const obs = JSON.parse(localStorage.getItem("astroObservations") || "[]");
+        const nasaFavs = JSON.parse(localStorage.getItem("nasaFavorites") || "[]");
+        const favObs = obs.filter(o => o.isFavorite).length;
+        const totalHrs = obs.reduce((s,o) => s + (parseFloat(o.duration) || 0), 0);
+        const el = id => document.getElementById(id);
+        if (el("ph-stat-obs")) el("ph-stat-obs").textContent = obs.length;
+        if (el("ph-stat-favs")) el("ph-stat-favs").textContent = favObs;
+        if (el("ph-stat-nasa")) el("ph-stat-nasa").textContent = nasaFavs.length;
+        if (el("ph-stat-hrs")) el("ph-stat-hrs").textContent = totalHrs > 0 ? totalHrs.toFixed(1) + "h" : "0h";
+      } catch(e) {}
+    }
   });
 
 document
@@ -8890,6 +8900,20 @@ window.onAuthStateChanged(window.auth, async user => {
 
     document.getElementById("profile-email").innerText =
       user.email;
+
+    // Sync Profile Hub avatar
+    (function() {
+      const phLetter = document.getElementById("ph-avatar-letter");
+      const phImg = document.getElementById("ph-avatar-img");
+      if (user.photoURL && phImg) {
+        phImg.src = user.photoURL;
+        phImg.className = "ph-avatar-img visible";
+        if (phLetter) phLetter.style.display = "none";
+      } else if (phLetter) {
+        phLetter.textContent = (user.displayName || "A").charAt(0).toUpperCase();
+        if (phImg) phImg.className = "ph-avatar-img";
+      }
+    })();
 
     // New profile menu buttons
     document.getElementById("google-login").style.display =

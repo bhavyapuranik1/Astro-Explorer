@@ -118,14 +118,14 @@ gtag('config', 'G-9747XL0FQQ');
 
 </div>
 
-<!-- ️ Floating Quick Sky Controls Button & Panel -->
+<!--  Floating Quick Sky Controls Button & Panel -->
 <button id="quick-sky-controls-toggle" title="Quick Sky Controls">
-<span>️ Sky Controls</span>
+<span> Sky Controls</span>
 </button>
 
 <div id="quick-sky-controls-panel" class="quick-panel-hidden">
 <div class="quick-panel-header">
-<h3>️ Quick Sky Controls</h3>
+<h3> Quick Sky Controls</h3>
 <div style="display: flex; align-items: center; gap: 8px;">
 <label class="switch" title="Toggle WebGPU Developer Status Overlay" style="transform: scale(0.85);">
 <input type="checkbox" data-sky-setting="showRendererOverlay">
@@ -510,7 +510,7 @@ gtag('config', 'G-9747XL0FQQ');
 </div>
 <!-- Observation Assistant Card -->
 <div class="observation-recommendation" style="margin-top: 15px;">
-<div class="icon"></div>
+
 <div class="content">
 <div class="title">Observation Recommendation</div>
 <div class="value" id="obs-recommendation">--</div>
@@ -519,7 +519,7 @@ gtag('config', 'G-9747XL0FQQ');
 
 <div class="observation-card">
 <div class="obs-row">
-<span>️ Visible Tonight</span>
+<span> Visible Tonight</span>
 <span id="obs-visible-tonight"></span>
 </div>
 
@@ -536,7 +536,7 @@ gtag('config', 'G-9747XL0FQQ');
 </div>
 
 <div class="obs-row">
-<span>️ Solar Eclipse</span>
+<span> Solar Eclipse</span>
 <span id="obs-solar-eclipse"></span>
 </div>
 
@@ -574,14 +574,14 @@ gtag('config', 'G-9747XL0FQQ');
 <!-- Sub-navigation Tabs -->
 <nav class="nasa-nav-tabs" aria-label="NASA Services Navigation">
 <button type="button" class="nasa-nav-btn active" data-nasa-view="home">Home</button>
-<button type="button" class="nasa-nav-btn" data-nasa-view="apod">️ APOD</button>
+<button type="button" class="nasa-nav-btn" data-nasa-view="apod"> APOD</button>
 <button type="button" class="nasa-nav-btn" data-nasa-view="mars">Mars Rovers</button>
-<button type="button" class="nasa-nav-btn" data-nasa-view="neo">️ Near-Earth Asteroids</button>
+<button type="button" class="nasa-nav-btn" data-nasa-view="neo"> Near-Earth Asteroids</button>
 <button type="button" class="nasa-nav-btn" data-nasa-view="library">NASA Library</button>
 <button type="button" class="nasa-nav-btn" data-nasa-view="earth">Earth Observatory</button>
-<button type="button" class="nasa-nav-btn" data-nasa-view="spaceweather">️ Space Weather</button>
+<button type="button" class="nasa-nav-btn" data-nasa-view="spaceweather"> Space Weather</button>
 <button type="button" class="nasa-nav-btn" data-nasa-view="exoplanets">Exoplanets</button>
-<button type="button" class="nasa-nav-btn" data-nasa-view="missions">️ Missions</button>
+<button type="button" class="nasa-nav-btn" data-nasa-view="missions"> Missions</button>
 <button type="button" class="nasa-nav-btn" data-nasa-view="launches">Launches</button>
 </nav>
 </header>
@@ -613,7 +613,7 @@ gtag('config', 'G-9747XL0FQQ');
 
 <!-- Services Grid -->
 <section class="nasa-services-section">
-<h3 class="nasa-section-title">️ NASA Science Modules</h3>
+<h3 class="nasa-section-title"> NASA Science Modules</h3>
 <div class="nasa-services-grid">
 
 <!-- Service 1: APOD -->
@@ -651,7 +651,7 @@ gtag('config', 'G-9747XL0FQQ');
 <!-- Service 3: Near Earth Objects -->
 <div class="nasa-service-card" data-view-target="neo">
 <div class="nasa-service-img-wrapper">
-<div class="nasa-service-placeholder-icon">️</div>
+<div class="nasa-service-placeholder-icon"></div>
 <span class="nasa-service-badge">Asteroids</span>
 </div>
 <div class="nasa-service-body">
@@ -699,7 +699,7 @@ gtag('config', 'G-9747XL0FQQ');
 <!-- Service 6: Space Weather (DONKI) -->
 <div class="nasa-service-card" data-view-target="spaceweather">
 <div class="nasa-service-img-wrapper">
-<div class="nasa-service-placeholder-icon">️</div>
+<div class="nasa-service-placeholder-icon"></div>
 <span class="nasa-service-badge">Solar Monitor</span>
 </div>
 <div class="nasa-service-body">
@@ -731,7 +731,7 @@ gtag('config', 'G-9747XL0FQQ');
 <!-- Service 8: NASA Missions -->
 <div class="nasa-service-card" data-view-target="missions">
 <div class="nasa-service-img-wrapper">
-<div class="nasa-service-placeholder-icon">️</div>
+<div class="nasa-service-placeholder-icon"></div>
 <span class="nasa-service-badge">Spaceflight</span>
 </div>
 <div class="nasa-service-body">
@@ -767,20 +767,20 @@ gtag('config', 'G-9747XL0FQQ');
 <!-- 3. View: APOD -->
 <div id="nasa-view-apod" class="nasa-subview">
 <div class="nasa-view-header">
-<h2>️ Astronomy Picture of the Day</h2>
+<h2> Astronomy Picture of the Day</h2>
 <p>Discover the cosmos through NASA's daily featured photograph and expert explanation.</p>
 </div>
 
 <!-- Legacy Controls & Container preserved for compatibility -->
 <div class="nasa-controls">
-<button id="prev-btn" type="button">️ Prev</button>
+<button id="prev-btn" type="button"> Prev</button>
 <input type="date" id="date-picker">
-<button id="next-btn" type="button">️ Next</button>
+<button id="next-btn" type="button"> Next</button>
 <button id="load-btn" type="button">Load</button>
 <button id="apod-random-btn" class="nasa-btn-secondary" type="button">Random</button>
 <button id="apod-sky-btn" class="nasa-btn-secondary" type="button" style="background: linear-gradient(135deg, #3a0ca3, #4361ee); color: #ffffff;">View on Sky Map</button>
 <button id="download-btn" type="button">Download</button>
-<button id="apod-fav-btn" class="nasa-btn-secondary" type="button">Favorite</button>
+<button id="apod-fav-btn" class="nasa-btn-secondary" type="button">Fav</button>
 <button id="apod-share-btn" class="nasa-btn-secondary" type="button">Share</button>
 </div>
 
@@ -846,7 +846,7 @@ gtag('config', 'G-9747XL0FQQ');
 <!-- 6. View: Near Earth Objects (NeoWs) -->
 <div id="nasa-view-neo" class="nasa-subview">
 <div class="nasa-view-header">
-<h2>️ Near Earth Objects (NeoWs)</h2>
+<h2> Near Earth Objects (NeoWs)</h2>
 <p>Real-time tracking of asteroids and comets approaching Earth's orbit.</p>
 </div>
 <div class="nasa-filter-bar">
@@ -919,7 +919,7 @@ gtag('config', 'G-9747XL0FQQ');
 <option value="volcanoes">Volcanoes</option>
 <option value="storms">Severe Storms</option>
 <option value="glaciers">Glaciers & Ice</option>
-<option value="landslides">️ Land Changes</option>
+<option value="landslides"> Land Changes</option>
 <option value="atmosphere">Atmospheric Events</option>
 </select>
 </label>
@@ -931,17 +931,17 @@ gtag('config', 'G-9747XL0FQQ');
 <!-- 10. View: Space Weather (DONKI) -->
 <div id="nasa-view-spaceweather" class="nasa-subview">
 <div class="nasa-view-header">
-<h2>️ Space Weather Dashboard (DONKI)</h2>
+<h2> Space Weather Dashboard (DONKI)</h2>
 <p>Real-time telemetry of Solar Flares (FLR), Coronal Mass Ejections (CME), Geomagnetic Storms (GST), and Satellite Alerts.</p>
 </div>
 <div class="nasa-filter-bar">
 <label>Event Type:
 <select id="sw-type-select">
 <option value="all" selected>All Solar Events</option>
-<option value="FLR">️ Solar Flares (FLR)</option>
+<option value="FLR"> Solar Flares (FLR)</option>
 <option value="CME">Coronal Mass Ejections (CME)</option>
-<option value="GST">️ Geomagnetic Storms (GST)</option>
-<option value="SEP">️ Solar Particles (SEP)</option>
+<option value="GST"> Geomagnetic Storms (GST)</option>
+<option value="SEP"> Solar Particles (SEP)</option>
 <option value="IPS">Interplanetary Shocks (IPS)</option>
 <option value="NOTIF">NASA Weather Alerts</option>
 </select>
@@ -998,7 +998,7 @@ gtag('config', 'G-9747XL0FQQ');
 <!-- 12. View: NASA Missions -->
 <div id="nasa-view-missions" class="nasa-subview">
 <div class="nasa-view-header">
-<h2>️ NASA Missions Explorer</h2>
+<h2> NASA Missions Explorer</h2>
 <p>Discover flagship space exploration programs across Planetary Science, Astrophysics, Earth Science, and Human Spaceflight.</p>
 </div>
 <div class="nasa-filter-bar">
@@ -1071,7 +1071,7 @@ gtag('config', 'G-9747XL0FQQ');
 <div class="nasa-modal-actions">
 <button type="button" id="nasa-modal-download-btn" class="nasa-btn-primary">Download HD</button>
 <button type="button" id="nasa-modal-share-btn" class="nasa-btn-secondary">Copy Link</button>
-<button type="button" id="nasa-modal-fav-btn" class="nasa-btn-secondary">Save Favorite</button>
+<button type="button" id="nasa-modal-fav-btn" class="nasa-btn-secondary">Fav</button>
 <button type="button" id="nasa-modal-sky-btn" class="nasa-btn-secondary" style="background: linear-gradient(135deg, #3a0ca3, #4361ee); color: #ffffff;">View on Sky Map</button>
 </div>
 <div id="nasa-image-viewer-ai-bar" class="nasa-modal-ai-bar-slot"></div>
@@ -1099,7 +1099,7 @@ gtag('config', 'G-9747XL0FQQ');
 </div>
 <div class="nasa-detail-footer">
 <button type="button" id="nasa-detail-sky-btn" class="nasa-btn-secondary" style="background: linear-gradient(135deg, #3a0ca3, #4361ee); color: #ffffff;">View on Sky Map</button>
-<button type="button" id="nasa-detail-fav-btn" class="nasa-btn-primary">Save Favorite</button>
+<button type="button" id="nasa-detail-fav-btn" class="nasa-btn-primary">Fav</button>
 <button type="button" id="nasa-detail-download-btn" class="nasa-btn-secondary">Download Data</button>
 <button type="button" id="nasa-detail-share-btn" class="nasa-btn-secondary">Share</button>
 </div>
@@ -1127,9 +1127,7 @@ gtag('config', 'G-9747XL0FQQ');
 <!-- 2. Quick Stats Cards (UI only) -->
 <section class="observation-stats-grid" aria-label="Observation Quick Statistics">
 <div class="observation-stat-card">
-<div class="stat-icon-wrapper">
-<span class="stat-icon"></span>
-</div>
+
 <div class="stat-details">
 <span class="stat-label">Total Sessions</span>
 <span class="stat-value">0</span>
@@ -1137,9 +1135,7 @@ gtag('config', 'G-9747XL0FQQ');
 </div>
 
 <div class="observation-stat-card">
-<div class="stat-icon-wrapper">
-<span class="stat-icon"></span>
-</div>
+
 <div class="stat-details">
 <span class="stat-label">Total Objects</span>
 <span class="stat-value">0</span>
@@ -1147,9 +1143,7 @@ gtag('config', 'G-9747XL0FQQ');
 </div>
 
 <div class="observation-stat-card">
-<div class="stat-icon-wrapper">
-<span class="stat-icon">️</span>
-</div>
+
 <div class="stat-details">
 <span class="stat-label">Total Observation Hours</span>
 <span class="stat-value">0h</span>
@@ -1157,9 +1151,7 @@ gtag('config', 'G-9747XL0FQQ');
 </div>
 
 <div class="observation-stat-card">
-<div class="stat-icon-wrapper">
-<span class="stat-icon"></span>
-</div>
+
 <div class="stat-details">
 <span class="stat-label">Favorite Object</span>
 <span class="stat-value">—</span>
@@ -1169,10 +1161,7 @@ gtag('config', 'G-9747XL0FQQ');
 
 <!-- 4. Empty State Card -->
 <div class="observation-empty-card">
-<div class="empty-illustration-wrapper">
-<div class="telescope-icon-glow"></div>
-<span class="telescope-illustration"></span>
-</div>
+
 <h3 class="empty-title">No observations yet.</h3>
 <p class="empty-description">Create your first observing session.</p>
 </div>
@@ -1230,18 +1219,16 @@ gtag('config', 'G-9747XL0FQQ');
 </select>
 
 <select id="obs-history-filter-tag" class="history-select">
-<option value="all">️ All Tags</option>
+<option value="all"> All Tags</option>
 </select>
 
-<button type="button" id="obs-history-fav-toggle" class="history-fav-btn" data-active="false">
- Favorites Only
-</button>
+<button type="button" id="obs-history-fav-toggle" class="history-fav-btn" data-active="false">Fav</button>
 
 <select id="obs-history-sort" class="history-select">
 <option value="newest">Sort: Newest First</option>
 <option value="oldest">Sort: Oldest First</option>
 <option value="rating">Sort: Highest Rated</option>
-<option value="duration">️ Sort: Longest Duration</option>
+<option value="duration"> Sort: Longest Duration</option>
 <option value="most-objects">Sort: Most Objects</option>
 <option value="favorites">Sort: Favorites First</option>
 </select>
@@ -1477,15 +1464,15 @@ gtag('config', 'G-9747XL0FQQ');
 <label>Session Rating & Favorite</label>
 <div class="rating-fav-form-row">
 <div class="star-rating-picker" id="obs-rating-picker" data-rating="5">
-<span class="star-item active" data-value="1"></span>
-<span class="star-item active" data-value="2"></span>
-<span class="star-item active" data-value="3"></span>
-<span class="star-item active" data-value="4"></span>
-<span class="star-item active" data-value="5"></span>
+<span class="star-item active" data-value="1">★</span>
+<span class="star-item active" data-value="2">★</span>
+<span class="star-item active" data-value="3">★</span>
+<span class="star-item active" data-value="4">★</span>
+<span class="star-item active" data-value="5">★</span>
 </div>
 <label class="fav-checkbox-label">
 <input type="checkbox" id="obs-favorite-checkbox">
-<span class="fav-star-icon">Favorite</span>
+<span class="fav-star-icon" id="obs-fav-label">Fav</span>
 </label>
 </div>
 </div>
@@ -1501,7 +1488,7 @@ gtag('config', 'G-9747XL0FQQ');
 <input type="time" id="obs-start-time" class="form-input">
 </div>
 <div>
-<label for="obs-end-time">End Time<span id="obs-duration-live-badge" class="obs-live-duration-tag">️ 0h 0m</span></label>
+<label for="obs-end-time">End Time<span id="obs-duration-live-badge" class="obs-live-duration-tag"> 0h 0m</span></label>
 <input type="time" id="obs-end-time" class="form-input">
 </div>
 </div>
@@ -1532,8 +1519,8 @@ gtag('config', 'G-9747XL0FQQ');
 </div>
 </div>
 
-<!-- ️ SKY & ATMOSPHERIC CONDITIONS -->
-<div class="form-section-header">️ Sky & Atmospheric Conditions</div>
+<!--  SKY & ATMOSPHERIC CONDITIONS -->
+<div class="form-section-header"> Sky & Atmospheric Conditions</div>
 <div class="form-row grid-4">
 <div>
 <label for="obs-seeing">Seeing (1–5)</label>
@@ -1590,18 +1577,18 @@ gtag('config', 'G-9747XL0FQQ');
 </div>
 </div>
 
-<!-- ️ TAGS (Built-in + Custom) -->
-<div class="form-section-header">️ Observation Tags</div>
+<!--  TAGS (Built-in + Custom) -->
+<div class="form-section-header"> Observation Tags</div>
 <div class="form-row full-width">
 <label>Built-in Categories & Custom Tags</label>
 <div class="builtin-tags-picker" id="obs-builtin-tags">
 <button type="button" class="tag-selector-chip" data-tag="Galaxy">Galaxy</button>
-<button type="button" class="tag-selector-chip" data-tag="Nebula">️ Nebula</button>
+<button type="button" class="tag-selector-chip" data-tag="Nebula"> Nebula</button>
 <button type="button" class="tag-selector-chip" data-tag="Planet">Planet</button>
 <button type="button" class="tag-selector-chip" data-tag="Moon">Moon</button>
-<button type="button" class="tag-selector-chip" data-tag="Comet">️ Comet</button>
-<button type="button" class="tag-selector-chip" data-tag="Asteroid">️ Asteroid</button>
-<button type="button" class="tag-selector-chip" data-tag="Satellite">️ Satellite</button>
+<button type="button" class="tag-selector-chip" data-tag="Comet"> Comet</button>
+<button type="button" class="tag-selector-chip" data-tag="Asteroid"> Asteroid</button>
+<button type="button" class="tag-selector-chip" data-tag="Satellite"> Satellite</button>
 <button type="button" class="tag-selector-chip" data-tag="Star Cluster">Star Cluster</button>
 <button type="button" class="tag-selector-chip" data-tag="Double Star">Double Star</button>
 <button type="button" class="tag-selector-chip" data-tag="Variable Star">Variable Star</button>
@@ -1642,7 +1629,7 @@ gtag('config', 'G-9747XL0FQQ');
 </div>
 </div>
 
-<!-- ️ FULL OBSERVATION VIEW MODAL -->
+<!--  FULL OBSERVATION VIEW MODAL -->
 <div id="observation-view-modal" class="modal-backdrop hidden" tabindex="-1" role="dialog" aria-modal="true">
 <div class="modal-card full-view-modal">
 <div class="modal-header">
@@ -1653,15 +1640,15 @@ gtag('config', 'G-9747XL0FQQ');
 <div class="modal-footer">
 <button type="button" class="modal-btn btn-secondary" id="view-obs-close-btn">Close</button>
 <button type="button" class="modal-btn btn-secondary" id="view-obs-sky-btn" style="background: linear-gradient(135deg, #3a0ca3, #4361ee); color: #ffffff;">View on Sky Map</button>
-<button type="button" class="modal-btn btn-primary" id="view-obs-edit-btn">️ Edit Session</button>
+<button type="button" class="modal-btn btn-primary" id="view-obs-edit-btn"> Edit Session</button>
 </div>
 </div>
 </div>
 
-<!-- ️ FULLSCREEN IMAGE LIGHTBOX MODAL -->
+<!--  FULLSCREEN IMAGE LIGHTBOX MODAL -->
 <div id="obs-lightbox-modal" class="modal-backdrop hidden" tabindex="-1" role="dialog" aria-modal="true">
 <div class="lightbox-content">
-<button type="button" class="lightbox-close-btn" id="close-obs-lightbox-btn" aria-label="Close image"></button>
+<button type="button" class="lightbox-close-btn" id="close-obs-lightbox-btn" aria-label="Close image">✕</button>
 <img id="obs-lightbox-img" src="" alt="Observation Attachment">
 <div id="obs-lightbox-caption" class="lightbox-caption"></div>
 </div>
@@ -1672,7 +1659,7 @@ gtag('config', 'G-9747XL0FQQ');
 
 <div id="modal-content">
 
-<span id="close-modal"></span>
+<span id="close-modal">✕</span>
 
 <div id="modal-body"></div>
 
@@ -1688,40 +1675,154 @@ gtag('config', 'G-9747XL0FQQ');
 
 <div id="header-actions">
 
-<div id="profile-container">
-
-<img id="profile-pic">
-
-<div id="profile-menu">
-
-<div id="profile-name"></div>
-
-<div id="profile-email"></div>
-
-
-<button id="google-login">
-Sign in with Google
-</button>
-
-<button
-id="logout-menu-btn"
-style="display:none">
-Logout
-</button>
-
-</div>
-
-</div>
-
 <button id="open-context-debug" title="Context Engine Debugger" style="background: rgba(34, 211, 238, 0.15); color: #22d3ee; border: 1px solid rgba(34, 211, 238, 0.4); padding: 4px 8px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 12px; margin-right: 4px;">
  Context
 </button>
 
 <button id="open-settings" title="Settings">⚙</button>
 
+<div id="profile-container">
+  <img id="profile-pic" alt="Profile">
+
+  <!-- ====== PREMIUM PROFILE HUB ====== -->
+  <div id="profile-menu" class="profile-hub-panel">
+
+    <!-- Scrollable content -->
+    <div class="ph-scroll">
+
+      <!-- HEADER -->
+      <div class="ph-header">
+        <div class="ph-avatar-wrapper">
+          <img id="ph-avatar-img" src="" alt="" class="ph-avatar-img hidden">
+          <div id="ph-avatar-letter" class="ph-avatar-letter">A</div>
+          <div class="ph-avatar-ring"></div>
+          <div class="ph-online-dot"></div>
+        </div>
+        <div class="ph-user-block">
+          <div id="profile-name" class="ph-user-name">Astro Explorer</div>
+          <div id="profile-email" class="ph-user-email">Guest User</div>
+          <div class="ph-account-badge">
+            <span class="ph-badge-dot"></span>
+            Astro Explorer User
+          </div>
+        </div>
+      </div>
+
+      <!-- QUICK STATS -->
+      <div class="ph-section">
+        <div class="ph-section-title">Quick Stats</div>
+        <div class="ph-stats-grid">
+          <div class="ph-stat-card">
+            <div class="ph-stat-val" id="ph-stat-obs">—</div>
+            <div class="ph-stat-lbl">Observations</div>
+          </div>
+          <div class="ph-stat-card">
+            <div class="ph-stat-val" id="ph-stat-favs">—</div>
+            <div class="ph-stat-lbl">Favorites</div>
+          </div>
+          <div class="ph-stat-card">
+            <div class="ph-stat-val" id="ph-stat-nasa">—</div>
+            <div class="ph-stat-lbl">NASA Saved</div>
+          </div>
+          <div class="ph-stat-card">
+            <div class="ph-stat-val" id="ph-stat-hrs">—</div>
+            <div class="ph-stat-lbl">Hours Observed</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- QUICK ACTIONS -->
+      <div class="ph-section">
+        <div class="ph-section-title">Quick Actions</div>
+        <div class="ph-action-grid">
+          <button class="ph-action-btn" onclick="document.querySelector('[data-tab=\'observations\']')?.click(); document.getElementById('profile-menu').classList.remove('show')">
+            <span class="ph-action-icon">🔭</span>
+            <span>Observations</span>
+          </button>
+          <button class="ph-action-btn" onclick="document.querySelector('[data-tab=\'nasa\']')?.click(); document.getElementById('profile-menu').classList.remove('show')">
+            <span class="ph-action-icon">🚀</span>
+            <span>NASA Hub</span>
+          </button>
+          <button class="ph-action-btn" onclick="document.querySelector('[data-tab=\'sky-map\']')?.click(); document.getElementById('profile-menu').classList.remove('show')">
+            <span class="ph-action-icon">🌌</span>
+            <span>Sky Map</span>
+          </button>
+          <button class="ph-action-btn" onclick="document.getElementById('ai-input')?.focus(); document.getElementById('profile-menu').classList.remove('show')">
+            <span class="ph-action-icon">✨</span>
+            <span>Ask AI</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- NAV ITEMS -->
+      <div class="ph-section">
+        <div class="ph-section-title">Account</div>
+        <div class="ph-nav-list">
+          <button class="ph-nav-item" onclick="document.getElementById('open-settings')?.click(); document.getElementById('profile-menu').classList.remove('show')">
+            <span class="ph-nav-icon">⚙️</span>
+            <span class="ph-nav-label">AI Settings &amp; Memory</span>
+            <span class="ph-nav-arrow">›</span>
+          </button>
+          <button class="ph-nav-item" onclick="document.querySelector('[data-tab=\'observations\']')?.click(); document.getElementById('profile-menu').classList.remove('show')">
+            <span class="ph-nav-icon">📊</span>
+            <span class="ph-nav-label">Observation Statistics</span>
+            <span class="ph-nav-arrow">›</span>
+          </button>
+          <button class="ph-nav-item" id="ph-fav-nav" onclick="document.getElementById('profile-menu').classList.remove('show')">
+            <span class="ph-nav-icon">⭐</span>
+            <span class="ph-nav-label">Favorites</span>
+            <span class="ph-nav-arrow">›</span>
+          </button>
+          <button class="ph-nav-item" id="ph-export-nav" onclick="document.getElementById('profile-menu').classList.remove('show')">
+            <span class="ph-nav-icon">📤</span>
+            <span class="ph-nav-label">Export Data</span>
+            <span class="ph-nav-arrow">›</span>
+          </button>
+          <button class="ph-nav-item" id="ph-backup-nav" onclick="document.getElementById('profile-menu').classList.remove('show')">
+            <span class="ph-nav-icon">💾</span>
+            <span class="ph-nav-label">Backup &amp; Restore</span>
+            <span class="ph-nav-arrow">›</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- ACCOUNT / SIGN IN -->
+      <div class="ph-footer-section">
+        <button id="google-login" class="ph-signin-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="flex-shrink:0">
+            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+          </svg>
+          Sign in with Google
+        </button>
+        <button id="logout-menu-btn" class="ph-signout-btn" style="display:none">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+            <polyline points="16 17 21 12 16 7"/>
+            <line x1="21" y1="12" x2="9" y2="12"/>
+          </svg>
+          Sign Out
+        </button>
+      </div>
+
+      <!-- FOOTER -->
+      <div class="ph-footer">
+        <span class="ph-footer-ver">Astro Explorer v2.0</span>
+        <span class="ph-footer-sep">·</span>
+        <span class="ph-footer-build">Premium Edition</span>
+      </div>
+
+    </div><!-- end ph-scroll -->
+  </div><!-- end profile-hub-panel -->
+
+</div>
+
 <button id="close-ai" title="Close Assistant">✕</button>
 
 </div>
+
 
 </div>
 
@@ -1797,7 +1898,7 @@ Logout
 <div id="ai-model-popup" class="ai-model-popup hidden">
 <div class="model-popup-header">
 <span class="model-popup-title">AI Models & Providers</span>
-<button id="close-model-popup" class="model-popup-close" type="button"></button>
+<button id="close-model-popup" class="model-popup-close" type="button">✕</button>
 </div>
 <div id="model-popup-content" class="model-popup-content"></div>
 </div>
@@ -2282,7 +2383,7 @@ Pinned
 <option value="telescope_session">Telescope Session</option>
 <option value="camera">Camera</option>
 <option value="binoculars">Binoculars</option>
-<option value="eyepiece">️ Eyepiece</option>
+<option value="eyepiece"> Eyepiece</option>
 </select>
 </div>
 <div class="settings-card">
@@ -2483,7 +2584,7 @@ step="0.1">
 </div>
 
 <div class="settings-card">
-<h3>️ Advanced Layers</h3>
+<h3> Advanced Layers</h3>
 <div class="setting-row">
 <label class="switch">
 <input type="checkbox" id="toggle-orbits" checked>
@@ -2725,7 +2826,7 @@ step="0.1">
 <!-- TIME TRAVEL -->
 <div class="settings-page" id="time-page">
 
-<h2>️ Time Travel & Warp Controls</h2>
+<h2> Time Travel & Warp Controls</h2>
 
 <!-- Live time readout -->
 <div class="settings-card" style="text-align: center;">
@@ -2744,7 +2845,7 @@ step="0.1">
 
 <!-- Spinners -->
 <div class="settings-card">
-<h3>️ Stellarium Spinners</h3>
+<h3> Stellarium Spinners</h3>
 <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.4); border: 1px solid rgba(0,255,255,0.15); border-radius: 12px; padding: 12px;">
 <!-- Date Spinner -->
 <div style="display: flex; align-items: center; gap: 4px;">
@@ -2919,7 +3020,7 @@ step="0.1">
 
 <button onclick="detectGPSLocation()" id="gps-detect-btn"
  style="width: 100%; padding: 10px; margin-bottom: 12px; background: linear-gradient(135deg, rgba(0,255,255,0.15), rgba(100,0,255,0.15)); border: 1px solid rgba(0,255,255,0.35); border-radius: 8px; color: cyan; font-weight: 700; font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.3s;">
- ️ Auto-Detect My Location (GPS)
+  Auto-Detect My Location (GPS)
 </button>
 
 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
