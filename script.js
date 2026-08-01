@@ -15837,19 +15837,19 @@ function openObservationViewModal(obsId) {
       <div class="view-obs-detail-grid">
         <div class="view-detail-item">
           <span class="lbl">Session Rating & Status</span>
-          <span class="val" style="color: #f59e0b; font-weight: 700;">${ratingStars} (${ratingVal}/5) ${obs.isFavorite ? '⭐ Favorite' : ''}</span>
+          <span class="val" style="color: #f59e0b; font-weight: 700;">${ratingStars} (${ratingVal}/5) ${obs.isFavorite ? '⭐' : ''}</span>
         </div>
         <div class="view-detail-item">
           <span class="lbl">Date & Duration</span>
-          <span class="val">📅 ${obs.date || "N/A"} (${obs.startTime || "--"} - ${obs.endTime || "--"}) ${obs.duration ? '⏱️ ' + obs.duration : ''}</span>
+          <span class="val">${obs.date || "N/A"} (${obs.startTime || "--"} - ${obs.endTime || "--"}) ${obs.duration ? obs.duration : ''}</span>
         </div>
         <div class="view-detail-item">
           <span class="lbl">Location</span>
-          <span class="val">📍 ${obs.location || "Not specified"}</span>
+          <span class="val"><svg style="vertical-align:middle;margin-right:4px;color:#f43f5e;" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>${obs.location || "Not specified"}</span>
         </div>
         <div class="view-detail-item">
           <span class="lbl">Telescope & Gear</span>
-          <span class="val">🔭 ${obs.telescope || "None / N/A"} ${obs.eyepiece ? '| ' + obs.eyepiece : ''} ${obs.camera ? '| ' + obs.camera : ''}</span>
+          <span class="val">${obs.telescope || "None / N/A"} ${obs.eyepiece ? '| ' + obs.eyepiece : ''} ${obs.camera ? '| ' + obs.camera : ''}</span>
         </div>
         <div class="view-detail-item">
           <span class="lbl">Sky Quality & Bortle</span>
@@ -16286,9 +16286,9 @@ function renderObservationHistory() {
                 <h4 class="card-obs-title" style="margin:0;">${obs.title || "Untitled Observation"}</h4>
                 <span class="card-rating-stars" title="${ratingVal}/5 Stars">${ratingStars}</span>
               </div>
-              <div class="card-obs-meta" style="margin-top:4px;">
-                <span>${obs.date || "Unknown Date"}</span>
-                ${obs.duration ? `<span>${obs.duration}</span>` : (obs.startTime ? `<span>${obs.startTime}${obs.endTime ? ' - ' + obs.endTime : ''}</span>` : '')}
+              <div class="card-obs-meta" style="margin-top:4px; display:flex; align-items:center; justify-content:space-between; gap:12px;">
+                <span>${obs.duration ? obs.duration : (obs.startTime ? obs.startTime + (obs.endTime ? ' - ' + obs.endTime : '') : '')}</span>
+                <span style="margin-left: auto;">${obs.date || "Unknown Date"}</span>
               </div>
             </div>
             <button type="button" class="card-fav-star ${isFav ? 'active' : ''}" data-id="${obs.id}" title="${isFav ? 'Unmark Favorite' : 'Mark Favorite'}">
@@ -17143,12 +17143,12 @@ function renderLocalSnapshots() {
     <div class="snapshot-item-row" data-id="${snap.id}">
       <div class="snapshot-item-info">
         <span class="snapshot-item-title">Backup Snapshot (${snap.count} Observations)</span>
-        <span class="snapshot-item-meta">📅 ${snap.date} | 💾 ${snap.sizeKB} KB</span>
+        <span class="snapshot-item-meta">${snap.date} | ${snap.sizeKB} KB</span>
       </div>
       <div class="snapshot-item-actions">
-        <button type="button" class="obs-btn-sm restore-snap-btn" data-id="${snap.id}" title="Restore this snapshot">🔄 Restore</button>
-        <button type="button" class="obs-btn-sm download-snap-btn" data-id="${snap.id}" title="Download JSON file">📥 Download</button>
-        <button type="button" class="obs-btn-sm delete-btn delete-snap-btn" data-id="${snap.id}" title="Delete snapshot">🗑️</button>
+        <button type="button" class="obs-btn-sm restore-snap-btn" data-id="${snap.id}" title="Restore this snapshot">Restore</button>
+        <button type="button" class="obs-btn-sm download-snap-btn" data-id="${snap.id}" title="Download JSON file">Download</button>
+        <button type="button" class="obs-btn-sm delete-btn delete-snap-btn" data-id="${snap.id}" title="Delete snapshot">Delete</button>
       </div>
     </div>
   `).join("");
