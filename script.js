@@ -89,6 +89,7 @@ const AstroSettings = {
       showSpacecraft: false,
       showMeteors: false,
       showMeteorShowers: false,
+      showCelestialObjects: true,
       showDSOs: true,
       showFOV: false,
       showTelescopeFOV: false,
@@ -3076,6 +3077,13 @@ let searchHighlight = null;
 let currentTarget = null;
 
 function createMarker() {
+  if (typeof isCelestialSearchEnabled === "function" && !isCelestialSearchEnabled()) {
+    if (marker) {
+      marker.remove();
+      marker = null;
+    }
+    return;
+  }
 
   const container = document.getElementById("skyContainer");
 
@@ -4524,6 +4532,8 @@ function updateSearchStateForCelestialToggle(isEnabled) {
       dsoSearchLabel = null;
     }
 
+    document.querySelectorAll(".star-search-label, .dso-search-label, .sky-crosshair").forEach(el => el.remove());
+
     if (typeof searchedObjectName !== "undefined") searchedObjectName = "";
     if (typeof selectedObject !== "undefined") selectedObject = null;
     if (typeof lastSelectedPlanet !== "undefined") lastSelectedPlanet = null;
@@ -4975,6 +4985,10 @@ function applySkyTime() {
 
 }
 function createStarSearchLabel(name, x, y) {
+  if (typeof isCelestialSearchEnabled === "function" && !isCelestialSearchEnabled()) {
+    if (starLabel) { starLabel.remove(); starLabel = null; }
+    return;
+  }
 
   // 🔥 REMOVE OLD
   if (starLabel) {
@@ -5188,6 +5202,10 @@ function createAllPlanetLabels() {
 
 
 function createDSOSearchLabel(name, x, y) {
+  if (typeof isCelestialSearchEnabled === "function" && !isCelestialSearchEnabled()) {
+    if (dsoSearchLabel) { dsoSearchLabel.remove(); dsoSearchLabel = null; }
+    return;
+  }
 
   // 🔥 REMOVE OLD
   if (dsoSearchLabel) {
