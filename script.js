@@ -12283,23 +12283,15 @@ ${memory.type === "File"
         :
 
         `
-
-<button
-class="memory-btn"
-onclick="togglePin(${memory.id})">
-
-${memory.pinned ? "📍" : "📌"}
-
+<button type="button" class="memory-btn ${memory.pinned ? 'active' : ''}" onclick="togglePin(${memory.id})" title="${memory.pinned ? 'Unpin' : 'Pin'}">
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="${memory.pinned ? '#00f5ff' : 'none'}" stroke="${memory.pinned ? '#00f5ff' : 'currentColor'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="12" y1="17" x2="12" y2="22"></line>
+    <path d="M5 17h14l-1.5-6H19l-1.2-4.8A2 2 0 0 0 15.8 4H8.2a2 2 0 0 0-1.96 1.2L5 11h1.5L5 17z"></path>
+  </svg>
 </button>
-
-<button
-class="memory-btn"
-onclick="toggleFavorite(${memory.id})">
-
-${memory.favorite ? "⭐" : "☆"}
-
+<button type="button" class="memory-btn ${memory.favorite ? 'active' : ''}" onclick="toggleFavorite(${memory.id})" title="${memory.favorite ? 'Remove Favorite' : 'Save Favorite'}">
+  ${memory.favorite ? "⭐" : "☆"}
 </button>
-
 `
 
       }
@@ -16286,9 +16278,9 @@ function renderObservationHistory() {
                 <h4 class="card-obs-title" style="margin:0;">${obs.title || "Untitled Observation"}</h4>
                 <span class="card-rating-stars" title="${ratingVal}/5 Stars">${ratingStars}</span>
               </div>
-              <div class="card-obs-meta" style="margin-top:4px; display:flex; align-items:center; justify-content:space-between; gap:12px;">
-                <span>${obs.duration ? obs.duration : (obs.startTime ? obs.startTime + (obs.endTime ? ' - ' + obs.endTime : '') : '')}</span>
-                <span style="margin-left: auto;">${obs.date || "Unknown Date"}</span>
+              <div class="card-obs-meta" style="margin-top:4px; display:flex; align-items:center; justify-content:space-between; gap:12px; width:100%;">
+                <span>${obs.date || "Unknown Date"}</span>
+                <span style="margin-left: auto; text-align: right;">${obs.duration ? obs.duration : (obs.startTime ? obs.startTime + (obs.endTime ? ' - ' + obs.endTime : '') : '')}</span>
               </div>
             </div>
             <button type="button" class="card-fav-star ${isFav ? 'active' : ''}" data-id="${obs.id}" title="${isFav ? 'Unmark Favorite' : 'Mark Favorite'}">
