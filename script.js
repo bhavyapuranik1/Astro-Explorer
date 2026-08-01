@@ -4490,6 +4490,12 @@ function updateSearchStateForCelestialToggle(isEnabled) {
       suggestionsPanel.innerHTML = "";
     }
 
+    // Hide object info panel
+    const infoPanel = document.getElementById("object-info-panel");
+    if (infoPanel) {
+      infoPanel.style.display = "none";
+    }
+
     // Reset search state & markers
     if (typeof animationId !== "undefined" && animationId) {
       cancelAnimationFrame(animationId);
@@ -4509,12 +4515,18 @@ function updateSearchStateForCelestialToggle(isEnabled) {
       starLabel.remove();
       starLabel = null;
     }
+    if (typeof planetLabel !== "undefined" && planetLabel) {
+      planetLabel.remove();
+      planetLabel = null;
+    }
     if (typeof dsoSearchLabel !== "undefined" && dsoSearchLabel) {
       dsoSearchLabel.remove();
       dsoSearchLabel = null;
     }
 
     if (typeof searchedObjectName !== "undefined") searchedObjectName = "";
+    if (typeof selectedObject !== "undefined") selectedObject = null;
+    if (typeof lastSelectedPlanet !== "undefined") lastSelectedPlanet = null;
     if (typeof currentTarget !== "undefined") currentTarget = null;
     if (typeof tracking !== "undefined") tracking = false;
     if (typeof _syncNavButtons === "function") {
