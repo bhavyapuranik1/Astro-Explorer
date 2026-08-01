@@ -6695,7 +6695,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   addAIMessage(
-    "Hello 🌌 I am Astro AI. Ask me anything about space.",
+    "Hello. I am Astro AI. Ask me anything about space.",
     "Astro AI"
   );
 
@@ -7962,15 +7962,35 @@ document
 function createAIActionToolbar(text) {
   const actions = document.createElement("div");
   actions.className = "message-actions ai-response-toolbar";
+
+  let modelName = "Astro AI";
+  if (typeof getSelectedAIModel === "function") {
+    const rawModel = getSelectedAIModel() || "";
+    if (rawModel.includes("gemini-2.5-flash") || rawModel.includes("gemini-1.5-flash")) modelName = "Gemini 2.5 Flash";
+    else if (rawModel.includes("gemini-3.6-flash")) modelName = "Gemini 3.6 Flash";
+    else if (rawModel.includes("gpt-4o")) modelName = "GPT-4o";
+    else if (rawModel.includes("claude")) modelName = "Claude 3.5";
+    else if (rawModel) modelName = rawModel.split("/").pop();
+  }
+
+  const COPY_SVG = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>`;
+  const SPEAK_SVG = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>`;
+  const REGEN_SVG = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3L21.5 8M22 12.5a10 10 0 0 1-18.8 4.3L2.5 16"></path></svg>`;
+  const MEMORY_SVG = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>`;
+  const OBS_SVG = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>`;
+  const EXPORT_SVG = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><polyline points="16 6 12 2 8 6"></polyline><line x1="12" y1="2" x2="12" y2="15"></line></svg>`;
+  const LIKE_SVG = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path></svg>`;
+  const DISLIKE_SVG = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3"></path></svg>`;
+
   actions.innerHTML = `
-    <button class="message-copy-btn" title="Copy Message">📋</button>
-    <button class="speak-btn" title="Read Aloud">🔊</button>
-    <button class="regen-btn" title="Regenerate Answer">🔄</button>
-    <button class="save-memory-btn" title="Save to AI Memory">📌</button>
-    <button class="save-obs-note-btn" title="Save as Observation Note">⭐</button>
-    <button class="export-md-btn" title="Export as Markdown">📤</button>
-    <button class="like-btn" title="Helpful">👍</button>
-    <button class="dislike-btn" title="Not Helpful">👎</button>
+    <button type="button" class="message-copy-btn" data-tooltip="Copy response" aria-label="Copy response">${COPY_SVG}</button>
+    <button type="button" class="speak-btn" data-tooltip="Read aloud" aria-label="Read aloud">${SPEAK_SVG}</button>
+    <button type="button" class="regen-btn" data-tooltip="Try again...&#10;Used ${modelName}" aria-label="Try again">${REGEN_SVG}</button>
+    <button type="button" class="save-memory-btn" data-tooltip="Save to AI Memory" aria-label="Save to AI Memory">${MEMORY_SVG}</button>
+    <button type="button" class="save-obs-note-btn" data-tooltip="Add to Observation Log" aria-label="Add to Observation Log">${OBS_SVG}</button>
+    <button type="button" class="export-md-btn" data-tooltip="Export as Markdown" aria-label="Export Markdown">${EXPORT_SVG}</button>
+    <button type="button" class="like-btn" data-tooltip="Good response" aria-label="Good response">${LIKE_SVG}</button>
+    <button type="button" class="dislike-btn" data-tooltip="Bad response" aria-label="Bad response">${DISLIKE_SVG}</button>
   `;
 
   const copyBtn = actions.querySelector(".message-copy-btn");
@@ -7985,8 +8005,9 @@ function createAIActionToolbar(text) {
   if (copyBtn) {
     copyBtn.onclick = async () => {
       await navigator.clipboard.writeText(text);
-      copyBtn.textContent = "✅";
-      setTimeout(() => { copyBtn.textContent = "📋"; }, 1000);
+      copyBtn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+      if (typeof showToast === "function") showToast("Copied to clipboard!");
+      setTimeout(() => { copyBtn.innerHTML = COPY_SVG; }, 1500);
     };
   }
 
@@ -8000,15 +8021,18 @@ function createAIActionToolbar(text) {
         speech.rate = 1;
         speech.onend = () => {
           speaking = false;
-          speakBtn.textContent = "🔊";
+          speakBtn.innerHTML = SPEAK_SVG;
+          speakBtn.setAttribute("data-tooltip", "Read aloud");
         };
         window.speechSynthesis.speak(speech);
         speaking = true;
-        speakBtn.textContent = "⏹";
+        speakBtn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="2"></rect></svg>`;
+        speakBtn.setAttribute("data-tooltip", "Stop reading");
       } else {
         window.speechSynthesis.cancel();
         speaking = false;
-        speakBtn.textContent = "🔊";
+        speakBtn.innerHTML = SPEAK_SVG;
+        speakBtn.setAttribute("data-tooltip", "Read aloud");
       }
     };
   }
@@ -8043,7 +8067,7 @@ function createAIActionToolbar(text) {
         localStorage.setItem("astroMemory", JSON.stringify(astroMemory));
         if (typeof updateMemorySettings === "function") updateMemorySettings();
         if (typeof renderMemoryList === "function") renderMemoryList();
-        if (typeof showToast === "function") showToast("📌 Saved snippet to AI Memory!");
+        if (typeof showToast === "function") showToast("Saved snippet to AI Memory!");
       }
     };
   }
@@ -8060,7 +8084,7 @@ function createAIActionToolbar(text) {
       latest.notes = (latest.notes || "") + "\n\n--- AI Note (" + new Date().toLocaleString() + ") ---\n" + text;
       localStorage.setItem("astroObservations", JSON.stringify(observations));
       if (typeof renderObservations === "function") renderObservations();
-      if (typeof showToast === "function") showToast(`⭐ Added note snippet to observation "${latest.title}"!`);
+      if (typeof showToast === "function") showToast(`Added note snippet to observation "${latest.title}"!`);
     };
   }
 
@@ -8073,7 +8097,7 @@ function createAIActionToolbar(text) {
       a.download = `AstroAI_Response_${Date.now()}.md`;
       a.click();
       URL.revokeObjectURL(url);
-      if (typeof showToast === "function") showToast("📤 Exported answer as Markdown!");
+      if (typeof showToast === "function") showToast("Exported answer as Markdown!");
     };
   }
 
@@ -8082,12 +8106,12 @@ function createAIActionToolbar(text) {
       if (likeBtn.classList.contains("active")) {
         likeBtn.classList.remove("active");
         likeBtn.style.color = "";
-        if (dislikeBtn) dislikeBtn.style.display = "inline-block";
+        if (dislikeBtn) dislikeBtn.style.display = "inline-flex";
       } else {
         likeBtn.classList.add("active");
         likeBtn.style.color = "#22d3ee";
         if (dislikeBtn) dislikeBtn.style.display = "none";
-        if (typeof showToast === "function") showToast("👍 Thanks for your feedback");
+        if (typeof showToast === "function") showToast("Thanks for your feedback");
       }
     };
   }
@@ -8097,12 +8121,12 @@ function createAIActionToolbar(text) {
       if (dislikeBtn.classList.contains("active")) {
         dislikeBtn.classList.remove("active");
         dislikeBtn.style.color = "";
-        if (likeBtn) likeBtn.style.display = "inline-block";
+        if (likeBtn) likeBtn.style.display = "inline-flex";
       } else {
         dislikeBtn.classList.add("active");
         dislikeBtn.style.color = "#ef4444";
         if (likeBtn) likeBtn.style.display = "none";
-        if (typeof showToast === "function") showToast("👎 Thanks for your feedback");
+        if (typeof showToast === "function") showToast("Thanks for your feedback");
       }
     };
   }
@@ -8255,10 +8279,12 @@ function addAIMessage(text, sender) {
 
     actions.className = "message-actions";
 
+    const COPY_SVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>`;
+
     actions.innerHTML = `
-<button class="select-btn">🔤</button>
-<button class="edit-btn">✏️</button>
-<button class="message-copy-btn">📋</button>
+<button type="button" class="select-btn" data-tooltip="Select text" aria-label="Select text"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 7 4"></polyline><line x1="14" y1="4" x2="20" y2="4"></line><line x1="20" y1="4" x2="20" y2="10"></line><polyline points="20 17 20 20 17 20"></polyline><line x1="10" y1="20" x2="4" y2="20"></line><line x1="4" y1="20" x2="4" y2="14"></line></svg></button>
+<button type="button" class="edit-btn" data-tooltip="Edit query" aria-label="Edit query"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 1-2 2v14a2 2 0 0 1 2 2h14a2 2 0 0 1 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button>
+<button type="button" class="message-copy-btn" data-tooltip="Copy query" aria-label="Copy query">${COPY_SVG}</button>
 `;
 
     const selectBtn = actions.querySelector(".select-btn");
@@ -8269,13 +8295,13 @@ function addAIMessage(text, sender) {
 
       await navigator.clipboard.writeText(text);
 
-      copyBtn.textContent = "✅";
+      copyBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
 
       setTimeout(() => {
 
-        copyBtn.textContent = "📋";
+        copyBtn.innerHTML = COPY_SVG;
 
-      }, 1000);
+      }, 1200);
 
     };
 
@@ -9564,7 +9590,7 @@ async function createNewConversation(title = "New Chat") {
 
     sender: "Astro AI",
 
-    text: "Hello 🌌 I am Astro AI. Ask me anything about space.",
+    text: "Hello. I am Astro AI. Ask me anything about space.",
 
     time: Date.now()
 
@@ -9581,7 +9607,7 @@ async function createNewConversation(title = "New Chat") {
   clearChatUI();
 
   addAIMessage(
-    "Hello 🌌 I am Astro AI. Ask me anything about space.",
+    "Hello. I am Astro AI. Ask me anything about space.",
     "Astro AI"
   );
   renderHistoryList(historySearch?.value?.toLowerCase() || "");
@@ -10482,7 +10508,7 @@ clearCurrentBtn?.addEventListener("click", async () => {
 
     addAIMessage(
 
-      "Hello 🌌 I am Astro AI. Ask me anything about space.",
+      "Hello. I am Astro AI. Ask me anything about space.",
 
       "Astro AI"
 

@@ -1,4 +1,4 @@
-﻿body,
+body,
 button,
 input,
 select,
@@ -1167,41 +1167,80 @@ code {
 }
 
 .message-actions {
- display: flex;
- align-items: center;
- justify-content: flex-end;
- flex-wrap: wrap;
- gap: 6px;
- margin-top: 8px;
- opacity: .9;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .message-actions button {
- width: auto;
- height: 26px;
- min-width: auto;
- min-height: 26px;
- border: none;
- border-radius: 13px;
- background: rgba(255, 255, 255, 0.08);
- cursor: pointer;
- font-size: 11px;
- font-weight: 500;
- transition: all 0.2s ease;
- color: #9ca3af;
- padding: 0 10px;
- display: inline-flex;
- align-items: center;
- justify-content: center;
- white-space: nowrap;
- line-height: 1;
- box-sizing: border-box;
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  min-height: 32px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  color: #94a3b8;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  position: relative;
 }
 
 .message-actions button:hover {
- background: #1f2937;
- color: white;
- transform: scale(1.12);
+  background: rgba(0, 245, 255, 0.15);
+  color: #00f5ff;
+  border-color: rgba(0, 245, 255, 0.4);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 245, 255, 0.2);
+}
+
+.message-actions button.active {
+  background: rgba(0, 245, 255, 0.2);
+  border-color: #00f5ff;
+  color: #00f5ff;
+}
+
+/* Floating Hover Tooltip Toast */
+.message-actions button[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  background: #0f172a;
+  color: #f8fafc;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 6px 10px;
+  border-radius: 8px;
+  white-space: pre-wrap;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s ease;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(0, 245, 255, 0.25);
+  z-index: 99999;
+  text-align: center;
+  line-height: 1.35;
+  width: max-content;
+  max-width: 200px;
+}
+
+.message-actions button[data-tooltip]:hover::after {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
 }
 
 .select-btn,
