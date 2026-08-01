@@ -1983,7 +1983,12 @@ function switchNASAView(targetView) {
       mars: "Mars Rover Photos",
       neo: "Near Earth Objects",
       library: "NASA Media Library",
-      favorites: "Saved Favorites"
+      favorites: "Saved Favorites",
+      earth: "Earth Observatory",
+      spaceweather: "Space Weather Dashboard",
+      exoplanets: "Exoplanet Explorer",
+      missions: "NASA Missions",
+      launches: "Space Launches"
     };
     breadcrumb.innerText = `NASA Explorer > ${viewNames[targetView] || targetView}`;
   }
@@ -1996,6 +2001,11 @@ function switchNASAView(targetView) {
   else if (targetView === "neo") loadNEOView();
   else if (targetView === "library") loadLibraryView();
   else if (targetView === "favorites") loadFavoritesView();
+  else if (targetView === "earth") loadEarthView();
+  else if (targetView === "spaceweather") loadSpaceWeatherView();
+  else if (targetView === "exoplanets") loadExoplanetsView();
+  else if (targetView === "missions") loadMissionsView();
+  else if (targetView === "launches") loadLaunchesView();
 }
 
 async function loadNASAHomeHub() {
@@ -2312,6 +2322,387 @@ function loadFavoritesView() {
   `).join("");
 }
 
+async function loadEarthView() {
+  const grid = document.getElementById("earth-grid");
+  if (!grid) return;
+  const q = document.getElementById("earth-search-input")?.value?.toLowerCase() || "";
+  const category = document.getElementById("earth-category-select")?.value || "all";
+
+  grid.innerHTML = '<div class="nasa-card-skeleton">Loading Earth Observatory Data...</div>';
+
+  try {
+    let events = [];
+    try {
+      const res = await fetch("https://eonet.gsfc.nasa.gov/api/v3/events?status=open&limit=30");
+      if (res.ok) {
+        const json = await res.json();
+        events = json.events || [];
+      }
+    } catch(e) {}
+
+    const curatedEarth = [
+      { id: "e1", title: "Kilauea Volcano Eruption & Lava Flow", category: "volcanoes", categoryName: "Volcanoes", date: "2024-06-10", desc: "Thermal anomaly and plume observed by NASA Terra and MODIS satellite sensors over Hawaii.", coordinates: "19.421°N, 155.287°W", url: "https://earthobservatory.nasa.gov" },
+      { id: "e2", title: "Canadian Boreal Wildfire Plumes", category: "wildfires", categoryName: "Wildfires", date: "2024-05-28", desc: "Suomi NPP VIIRS captures dense smoke transport crossing into northern US airspace.", coordinates: "56.130°N, 106.346°W", url: "https://earthobservatory.nasa.gov" },
+      { id: "e3", title: "Typhoon Mawar Track & Eyewall Structure", category: "storms", categoryName: "Severe Storms", date: "2024-05-24", desc: "Category 5 equivalent super typhoon captured by NASA-NOAA GOES West satellite imagery.", coordinates: "13.444°N, 144.793°E", url: "https://earthobservatory.nasa.gov" },
+      { id: "e4", title: "Jakobshavn Glacier Retreat & Iceberg Calving", category: "glaciers", categoryName: "Glaciers & Ice", date: "2024-04-15", desc: "Landsat 9 operational land imager measures ice flow rates and fjord disintegration in Greenland.", coordinates: "69.166°N, 49.833°W", url: "https://earthobservatory.nasa.gov" },
+      { id: "e5", title: "Sahara Dust Plume Transatlantic Transport", category: "atmosphere", categoryName: "Atmospheric Events", date: "2024-06-02", desc: "MODIS sensor tracks massive mineral dust aerosol transport across the Atlantic Basin.", coordinates: "18.000°N, 30.000°W", url: "https://earthobservatory.nasa.gov" },
+      { id: "e6", title: "Atacama Desert Flash Flood & Mudslide", category: "landslides", categoryName: "Land Changes", date: "2024-03-12", desc: "Sentinel-2 and NASA Aqua imagery shows sudden runoff in hyper-arid Chilean desert.", coordinates: "23.863°S, 69.132°W", url: "https://earthobservatory.nasa.gov" }
+    ];
+
+    let allItems = [];
+    if (events.length) {
+      allItems = events.map(ev => {
+        const catObj = (ev.categories && ev.categories[0]) || {};
+        const catId = (catObj.id || "").toLowerCase();
+        let catKey = "atmosphere";
+        if (catId.includes("wildfire")) catKey = "wildfires";
+        else if (catId.includes("volcano")) catKey = "volcanoes";
+        else if (catId.includes("storm") || catId.includes("cyclone") || catId.includes("typhoon")) catKey = "storms";
+        else if (catId.includes("ice") || catId.includes("glacier") || catId.includes("snow")) catKey = "glaciers";
+        else if (catId.includes("landslide") || catId.includes("flood")) catKey = "landslides";
+
+        const geom = (ev.geometry && ev.geometry[0]) || {};
+        const coords = geom.coordinates ? `${geom.coordinates[1]?.toFixed(3)}°N, ${geom.coordinates[0]?.toFixed(3)}°E` : "Global Satellite Sensor";
+        return {
+          id: ev.id,
+          title: ev.title,
+          category: catKey,
+          categoryName: catObj.title || "Natural Event",
+          date: (geom.date || ev.closed || "").split("T")[0] || new Date().toISOString().split("T")[0],
+          desc: ev.description || `Active event monitored by NASA EONET satellite sensors. Source: ${ev.sources?.[0]?.id || "NASA GSFC"}`,
+          coordinates: coords,
+          url: ev.link || "https://eonet.gsfc.nasa.gov"
+        };
+      });
+    }
+
+    const combined = [...allItems, ...curatedEarth];
+
+    const filtered = combined.filter(item => {
+      const matchCat = category === "all" || item.category === category;
+      const matchQ = !q || item.title.toLowerCase().includes(q) || item.desc.toLowerCase().includes(q);
+      return matchCat && matchQ;
+    });
+
+    if (!filtered.length) {
+      grid.innerHTML = '<div class="nasa-card-skeleton">No Earth Observatory events match your filters. Try clearing your search.</div>';
+      return;
+    }
+
+    grid.innerHTML = filtered.map(item => `
+      <div class="nasa-card">
+        <div class="nasa-card-body">
+          <div class="nasa-card-badges">
+            <span class="nasa-badge badge-cyan">${item.categoryName || item.category}</span>
+            <span class="nasa-badge badge-gray">${item.date}</span>
+          </div>
+          <h4 class="nasa-card-title">${item.title}</h4>
+          <p class="nasa-card-desc">${item.desc}</p>
+          <div class="nasa-card-meta">
+            <span>Coordinates: ${item.coordinates}</span>
+          </div>
+          <div class="nasa-card-actions">
+            <a href="${item.url}" target="_blank" rel="noopener" class="nasa-btn-sm btn-primary">View NASA Story</a>
+          </div>
+        </div>
+      </div>
+    `).join("");
+  } catch (e) {
+    grid.innerHTML = '<div class="nasa-card-skeleton">Unable to load Earth Observatory data. Please try again.</div>';
+  }
+}
+
+async function loadSpaceWeatherView() {
+  const grid = document.getElementById("sw-grid");
+  if (!grid) return;
+  const type = document.getElementById("sw-type-select")?.value || "all";
+  const severity = document.getElementById("sw-severity-select")?.value || "all";
+
+  grid.innerHTML = '<div class="nasa-card-skeleton">Fetching Live Solar Telemetry & DONKI Alerts...</div>';
+
+  try {
+    let notifications = [];
+    try {
+      const res = await fetch(`https://api.nasa.gov/DONKI/notifications?type=all&api_key=${NASA_API_KEY}`);
+      if (res.ok) {
+        notifications = await res.json();
+      }
+    } catch(e) {}
+
+    const curatedSW = [
+      { id: "sw1", type: "FLR", typeName: "Solar Flare", severity: "high", severityName: "X-Class Flare (X2.8)", time: "2024-05-14 17:09 UTC", desc: "Major X-class solar flare erupted from Active Region AR3664 causing strong R3 high-frequency radio blackouts.", activeRegion: "AR3664", link: "https://ready.gst.nasa.gov" },
+      { id: "sw2", type: "CME", typeName: "Coronal Mass Ejection", severity: "high", severityName: "Halo CME (1800 km/s)", time: "2024-05-11 02:15 UTC", desc: "Full halo CME directed toward Earth resulting in severe G5 geomagnetic storm conditions and auroral display.", activeRegion: "AR3664", link: "https://ready.gst.nasa.gov" },
+      { id: "sw3", type: "GST", typeName: "Geomagnetic Storm", severity: "high", severityName: "G5 Extreme Storm", time: "2024-05-11 12:00 UTC", desc: "K-index reached 9. Extreme geomagnetic field disturbance registered across global magnetometer networks.", activeRegion: "Global Magnetosphere", link: "https://ready.gst.nasa.gov" },
+      { id: "sw4", type: "SEP", typeName: "Solar Proton Event", severity: "moderate", severityName: "S2 Moderate Radiation", time: "2024-05-12 08:30 UTC", desc: ">10 MeV solar energetic proton flux exceeded 100 pfu threshold affecting polar aviation routes.", activeRegion: "AR3664", link: "https://ready.gst.nasa.gov" },
+      { id: "sw5", type: "IPS", typeName: "Interplanetary Shock", severity: "low", severityName: "Minor Shock Arrival", time: "2024-04-20 04:12 UTC", desc: "DSCOVR and ACE spacecraft recorded sudden solar wind speed velocity jump from 380 km/s to 520 km/s.", activeRegion: "L1 Solar Wind", link: "https://ready.gst.nasa.gov" },
+      { id: "sw6", type: "NOTIF", typeName: "NASA Weather Alert", severity: "moderate", severityName: "Moderate Alert", time: "2024-06-01 10:00 UTC", desc: "NASA Space Weather Operations Center alert: Recurrent coronal hole high-speed stream expected to hit Earth magnetosphere.", activeRegion: "Coronal Hole 42", link: "https://ready.gst.nasa.gov" }
+    ];
+
+    let liveItems = [];
+    if (Array.isArray(notifications) && notifications.length) {
+      liveItems = notifications.slice(0, 15).map(item => {
+        const messageType = item.messageType || "NOTIF";
+        const messageBody = item.messageBody || "";
+        let sev = "low";
+        let sevLabel = "Minor / Info";
+        if (messageBody.includes("X-class") || messageBody.includes("G4") || messageBody.includes("G5") || messageBody.includes("Severe")) {
+          sev = "high";
+          sevLabel = "High Impact / Extreme";
+        } else if (messageBody.includes("M-class") || messageBody.includes("G2") || messageBody.includes("G3") || messageBody.includes("Moderate")) {
+          sev = "moderate";
+          sevLabel = "Moderate";
+        }
+
+        return {
+          id: item.messageID || String(Math.random()),
+          type: messageType,
+          typeName: messageType,
+          severity: sev,
+          severityName: sevLabel,
+          time: (item.messageIssueTime || "").replace("T", " ").replace("Z", " UTC"),
+          desc: messageBody.slice(0, 240) + (messageBody.length > 240 ? "..." : ""),
+          activeRegion: item.messageURL ? "NASA DONKI Alert" : "Solar Activity",
+          link: item.messageURL || "https://ready.gst.nasa.gov"
+        };
+      });
+    }
+
+    const combined = [...liveItems, ...curatedSW];
+
+    const filtered = combined.filter(item => {
+      const matchType = type === "all" || item.type === type;
+      const matchSev = severity === "all" || item.severity === severity;
+      return matchType && matchSev;
+    });
+
+    if (!filtered.length) {
+      grid.innerHTML = '<div class="nasa-card-skeleton">No Space Weather events found for the selected filter.</div>';
+      return;
+    }
+
+    grid.innerHTML = filtered.map(item => `
+      <div class="nasa-card">
+        <div class="nasa-card-body">
+          <div class="nasa-card-badges">
+            <span class="nasa-badge badge-orange">${item.typeName}</span>
+            <span class="nasa-badge ${item.severity === 'high' ? 'badge-red' : item.severity === 'moderate' ? 'badge-yellow' : 'badge-gray'}">${item.severityName}</span>
+          </div>
+          <h4 class="nasa-card-title">${item.activeRegion} - ${item.typeName}</h4>
+          <p class="nasa-card-desc">${item.desc}</p>
+          <div class="nasa-card-meta">
+            <span>Issue Time: ${item.time}</span>
+          </div>
+          <div class="nasa-card-actions">
+            <a href="${item.link}" target="_blank" rel="noopener" class="nasa-btn-sm btn-primary">Telemetry Details</a>
+          </div>
+        </div>
+      </div>
+    `).join("");
+  } catch (e) {
+    grid.innerHTML = '<div class="nasa-card-skeleton">Unable to fetch Space Weather telemetry.</div>';
+  }
+}
+
+async function loadExoplanetsView() {
+  const grid = document.getElementById("exo-grid");
+  if (!grid) return;
+  const q = document.getElementById("exo-search-input")?.value?.toLowerCase() || "";
+  const type = document.getElementById("exo-type-select")?.value || "all";
+  const hab = document.getElementById("exo-hab-select")?.value || "all";
+  const sort = document.getElementById("exo-sort-select")?.value || "newest";
+
+  grid.innerHTML = '<div class="nasa-card-skeleton">Querying NASA Exoplanet Archive...</div>';
+
+  const curatedExo = [
+    { id: "ex1", name: "Kepler-186f", hostStar: "Kepler-186", type: "terrestrial", typeName: "Terrestrial (Rocky)", discYear: 2014, distLy: 582, radiusEarth: 1.17, massEarth: 1.4, tempK: 235, habitable: true, desc: "First validated Earth-sized planet orbiting in the conservative habitable zone of an M-dwarf star.", img: "https://images-assets.nasa.gov/image/PIA18008/PIA18008~thumb.jpg" },
+    { id: "ex2", name: "TRAPPIST-1e", hostStar: "TRAPPIST-1", type: "terrestrial", typeName: "Terrestrial (Rocky)", discYear: 2017, distLy: 40, radiusEarth: 0.92, massEarth: 0.69, tempK: 246, habitable: true, desc: "Rocky planet located firmly within the habitable zone of an ultra-cool red dwarf 40 light-years away.", img: "https://images-assets.nasa.gov/image/PIA21422/PIA21422~thumb.jpg" },
+    { id: "ex3", name: "Proxima Centauri b", hostStar: "Proxima Centauri", type: "terrestrial", typeName: "Terrestrial (Rocky)", discYear: 2016, distLy: 4.24, radiusEarth: 1.07, massEarth: 1.17, tempK: 234, habitable: true, desc: "The closest known exoplanet to Earth, orbiting in the habitable zone of our nearest stellar neighbor.", img: "https://images-assets.nasa.gov/image/PIA21004/PIA21004~thumb.jpg" },
+    { id: "ex4", name: "K2-18b", hostStar: "K2-18", type: "super_earth", typeName: "Super-Earth", discYear: 2015, distLy: 124, radiusEarth: 2.61, massEarth: 8.6, tempK: 265, habitable: true, desc: "Hycean candidate world where NASA Webb Telescope detected methane, CO2, and atmospheric water vapor.", img: "https://images-assets.nasa.gov/image/PIA23408/PIA23408~thumb.jpg" },
+    { id: "ex5", name: "TOI-700 d", hostStar: "TOI-700", type: "terrestrial", typeName: "Terrestrial (Rocky)", discYear: 2020, distLy: 101.4, radiusEarth: 1.19, massEarth: 1.72, tempK: 269, habitable: true, desc: "Earth-sized planet in the habitable zone discovered by NASA TESS satellite mission.", img: "https://images-assets.nasa.gov/image/PIA23512/PIA23512~thumb.jpg" },
+    { id: "ex6", name: "Kepler-22b", hostStar: "Kepler-22", type: "super_earth", typeName: "Super-Earth", discYear: 2011, distLy: 635, radiusEarth: 2.4, massEarth: 9.1, tempK: 295, habitable: true, desc: "First Kepler candidate world confirmed in the habitable zone of a Sun-like (G-type) star.", img: "https://images-assets.nasa.gov/image/PIA15257/PIA15257~thumb.jpg" },
+    { id: "ex7", name: "HD 209458 b (Osiris)", hostStar: "HD 209458", type: "gas_giant", typeName: "Gas Giant", discYear: 1999, distLy: 159, radiusEarth: 15.3, massEarth: 220, tempK: 1400, habitable: false, desc: "Famous Hot Jupiter with evaporating atmosphere detected by Hubble Space Telescope atmospheric transits.", img: "https://images-assets.nasa.gov/image/PIA05060/PIA05060~thumb.jpg" },
+    { id: "ex8", name: "WASP-12b", hostStar: "WASP-12", type: "gas_giant", typeName: "Gas Giant", discYear: 2008, distLy: 1400, radiusEarth: 21.3, massEarth: 440, tempK: 2500, habitable: false, desc: "Ultra-hot Jupiter being tidal distorted and consumed by its host star in a dying spiral orbit.", img: "https://images-assets.nasa.gov/image/PIA13083/PIA13083~thumb.jpg" }
+  ];
+
+  let filtered = curatedExo.filter(p => {
+    const matchQ = !q || p.name.toLowerCase().includes(q) || p.hostStar.toLowerCase().includes(q);
+    const matchType = type === "all" || p.type === type;
+    const matchHab = hab === "all" || (hab === "habitable" && p.habitable);
+    return matchQ && matchType && matchHab;
+  });
+
+  if (sort === "newest") filtered.sort((a,b) => b.discYear - a.discYear);
+  else if (sort === "nearest") filtered.sort((a,b) => a.distLy - b.distLy);
+  else if (sort === "largest") filtered.sort((a,b) => b.radiusEarth - a.radiusEarth);
+  else if (sort === "earthlike") filtered.sort((a,b) => Math.abs(a.radiusEarth - 1) - Math.abs(b.radiusEarth - 1));
+
+  if (!filtered.length) {
+    grid.innerHTML = '<div class="nasa-card-skeleton">No exoplanets found matching your criteria.</div>';
+    return;
+  }
+
+  grid.innerHTML = filtered.map(p => `
+    <div class="nasa-card">
+      <div class="nasa-card-media">
+        <img src="${p.img}" alt="${p.name}" loading="lazy" onerror="this.src='https://images-assets.nasa.gov/image/PIA18008/PIA18008~thumb.jpg'" />
+      </div>
+      <div class="nasa-card-body">
+        <div class="nasa-card-badges">
+          <span class="nasa-badge badge-purple">${p.typeName}</span>
+          ${p.habitable ? '<span class="nasa-badge badge-green">Habitable Zone</span>' : '<span class="nasa-badge badge-gray">Non-Habitable</span>'}
+        </div>
+        <h4 class="nasa-card-title">${p.name}</h4>
+        <p class="nasa-card-desc">${p.desc}</p>
+        <div class="nasa-card-meta">
+          <span>Host Star: ${p.hostStar} | Discovered: ${p.discYear}</span>
+          <span>Distance: ${p.distLy} light-years | Radius: ${p.radiusEarth}x Earth</span>
+        </div>
+        <div class="nasa-card-actions">
+          <button type="button" class="nasa-btn-sm btn-secondary" onclick="toggleNASAFavorite({id:'${p.id}',title:'${p.name}',url:'${p.img}',explanation:'${p.desc}'})">⭐ Favorite</button>
+          <a href="https://exoplanetarchive.ipac.caltech.edu" target="_blank" rel="noopener" class="nasa-btn-sm btn-primary">NASA Catalog</a>
+        </div>
+      </div>
+    </div>
+  `).join("");
+}
+
+async function loadMissionsView() {
+  const grid = document.getElementById("mission-grid");
+  if (!grid) return;
+  const q = document.getElementById("mission-search-input")?.value?.toLowerCase() || "";
+  const status = document.getElementById("mission-status-select")?.value || "all";
+  const category = document.getElementById("mission-category-select")?.value || "all";
+
+  grid.innerHTML = '<div class="nasa-card-skeleton">Loading NASA Flagship Missions...</div>';
+
+  const missions = [
+    { id: "m1", name: "James Webb Space Telescope (JWST)", status: "active", category: "astrophysics", catName: "Astrophysics", launch: "2021-12-25", target: "Sun-Earth L2 Lagrange Point", desc: "NASA flagship infrared observatory uncovering cosmic dawn, first stars, early galaxies, and exoplanet atmospheres.", img: "https://images-assets.nasa.gov/image/GSFC_20171208_archive_e001465/GSFC_20171208_archive_e001465~thumb.jpg", url: "https://webb.nasa.gov" },
+    { id: "m2", name: "Artemis Program & SLS", status: "active", category: "human", catName: "Human Spaceflight", launch: "2022-11-16", target: "Lunar South Pole & Gateway Orbit", desc: "NASA mission to land the first woman and first person of color on the Moon and build sustained lunar exploration infrastructure.", img: "https://images-assets.nasa.gov/image/KSC-20221116-PH-KSC01_0001/KSC-20221116-PH-KSC01_0001~thumb.jpg", url: "https://www.nasa.gov/artemis" },
+    { id: "m3", name: "Perseverance & Ingenuity (Mars 2020)", status: "active", category: "planetary", catName: "Planetary Science", launch: "2020-07-30", target: "Jezero Crater, Mars", desc: "Mars rover searching for signs of ancient microbial life and collecting sealed core samples for future return to Earth.", img: "https://images-assets.nasa.gov/image/PIA23764/PIA23764~thumb.jpg", url: "https://mars.nasa.gov/mars2020" },
+    { id: "m4", name: "Hubble Space Telescope", status: "active", category: "astrophysics", catName: "Astrophysics", launch: "1990-04-24", target: "Low Earth Orbit (540 km)", desc: "Iconic space observatory providing over 30 years of deep space ultraviolet and optical astronomical discoveries.", img: "https://images-assets.nasa.gov/image/PIA02258/PIA02258~thumb.jpg", url: "https://hubblesite.org" },
+    { id: "m5", name: "Europa Clipper", status: "active", category: "planetary", catName: "Planetary Science", launch: "2024-10-14", target: "Jupiter Ocean Moon Europa", desc: "NASA flagship probe investigating Europa's subsurface liquid water ocean to determine habitability potential.", img: "https://images-assets.nasa.gov/image/PIA23874/PIA23874~thumb.jpg", url: "https://europa.nasa.gov" },
+    { id: "m6", name: "Voyager 1 & 2 Interstellar Mission", status: "active", category: "planetary", catName: "Planetary Science", launch: "1977-09-05", target: "Interstellar Medium (>160 AU)", desc: "Humanity's farthest spacecraft exploring interstellar space beyond the heliosphere boundary.", img: "https://images-assets.nasa.gov/image/PIA22921/PIA22921~thumb.jpg", url: "https://voyager.jpl.nasa.gov" },
+    { id: "m7", name: "Parker Solar Probe", status: "active", category: "earth", catName: "Earth & Sun Science", launch: "2018-08-12", target: "Solar Corona Outer Atmosphere", desc: "Spacecraft touching the Sun, measuring magnetic fields, solar wind acceleration, and coronal heating dynamics.", img: "https://images-assets.nasa.gov/image/PIA22822/PIA22822~thumb.jpg", url: "https://parkersolarprobe.jhuapl.edu" },
+    { id: "m8", name: "Nancy Grace Roman Space Telescope", status: "upcoming", category: "astrophysics", catName: "Astrophysics", launch: "2027-05-01", target: "Sun-Earth L2 Point", desc: "Next-generation NASA observatory with 100x field of view of Hubble, studying dark energy and exoplanets.", img: "https://images-assets.nasa.gov/image/PIA24057/PIA24057~thumb.jpg", url: "https://roman.gsfc.nasa.gov" }
+  ];
+
+  const filtered = missions.filter(m => {
+    const matchQ = !q || m.name.toLowerCase().includes(q) || m.desc.toLowerCase().includes(q) || m.target.toLowerCase().includes(q);
+    const matchStatus = status === "all" || m.status === status;
+    const matchCat = category === "all" || m.category === category;
+    return matchQ && matchStatus && matchCat;
+  });
+
+  if (!filtered.length) {
+    grid.innerHTML = '<div class="nasa-card-skeleton">No NASA missions found matching your filter selection.</div>';
+    return;
+  }
+
+  grid.innerHTML = filtered.map(m => `
+    <div class="nasa-card">
+      <div class="nasa-card-media">
+        <img src="${m.img}" alt="${m.name}" loading="lazy" onerror="this.src='https://images-assets.nasa.gov/image/PIA23764/PIA23764~thumb.jpg'" />
+      </div>
+      <div class="nasa-card-body">
+        <div class="nasa-card-badges">
+          <span class="nasa-badge badge-blue">${m.catName}</span>
+          <span class="nasa-badge ${m.status === 'active' ? 'badge-green' : m.status === 'upcoming' ? 'badge-yellow' : 'badge-gray'}">${m.status.toUpperCase()}</span>
+        </div>
+        <h4 class="nasa-card-title">${m.name}</h4>
+        <p class="nasa-card-desc">${m.desc}</p>
+        <div class="nasa-card-meta">
+          <span>Target: ${m.target}</span>
+          <span>Launch Date: ${m.launch}</span>
+        </div>
+        <div class="nasa-card-actions">
+          <a href="${m.url}" target="_blank" rel="noopener" class="nasa-btn-sm btn-primary">Official Mission Page</a>
+        </div>
+      </div>
+    </div>
+  `).join("");
+}
+
+async function loadLaunchesView() {
+  const grid = document.getElementById("launch-grid");
+  if (!grid) return;
+  const q = document.getElementById("launch-search-input")?.value?.toLowerCase() || "";
+  const status = document.getElementById("launch-status-select")?.value || "all";
+  const agency = document.getElementById("launch-agency-select")?.value || "all";
+
+  grid.innerHTML = '<div class="nasa-card-skeleton">Fetching Orbital Launch Manifest...</div>';
+
+  try {
+    let apiLaunches = [];
+    try {
+      const res = await fetch("https://lldev.thespacedevs.com/2.2.0/launch/upcoming/?limit=10");
+      if (res.ok) {
+        const json = await res.json();
+        apiLaunches = json.results || [];
+      }
+    } catch(e) {}
+
+    const curatedLaunches = [
+      { id: "l1", title: "Artemis II Crewed Lunar Flyby", agency: "NASA", rocket: "Space Launch System (SLS) Block 1", pad: "LC-39B, Kennedy Space Center, FL, USA", date: "2025-09-15 14:00 UTC", status: "upcoming", desc: "First crewed flight test of the Orion spacecraft carrying 4 astronauts around the Moon.", img: "https://images-assets.nasa.gov/image/KSC-20221116-PH-KSC01_0001/KSC-20221116-PH-KSC01_0001~thumb.jpg" },
+      { id: "l2", title: "Starship Integrated Flight Test 5", agency: "SpaceX", rocket: "Starship / Super Heavy B12/S30", pad: "Starbase, Boca Chica, Texas, USA", date: "2024-08-20 12:00 UTC", status: "upcoming", desc: "Full-scale orbital velocity test including catch attempt of Super Heavy booster at launch tower.", img: "https://images-assets.nasa.gov/image/PIA23764/PIA23764~thumb.jpg" },
+      { id: "l3", title: "Europa Clipper Launch", agency: "NASA", rocket: "Falcon Heavy", pad: "LC-39A, Kennedy Space Center, FL, USA", date: "2024-10-10 16:30 UTC", status: "upcoming", desc: "NASA flagship probe launch to conduct detailed reconnaissance of Jupiter's ice moon Europa.", img: "https://images-assets.nasa.gov/image/PIA23874/PIA23874~thumb.jpg" },
+      { id: "l4", title: "Falcon 9 - Starlink Group 8-5", agency: "SpaceX", rocket: "Falcon 9 Block 5", pad: "SLC-40, Cape Canaveral Space Force Station, FL", date: "2024-06-15 01:20 UTC", status: "past", desc: "Deployment of 22 Starlink V2 Mini satellites into low Earth orbit.", img: "https://images-assets.nasa.gov/image/PIA21004/PIA21004~thumb.jpg" },
+      { id: "l5", title: "Ariane 6 Maiden Flight (VA262)", agency: "ESA", rocket: "Ariane 62", pad: "ELA-4, Guiana Space Centre, Kourou, French Guiana", date: "2024-07-09 19:00 UTC", status: "upcoming", desc: "Maiden orbital mission of Europe's next-generation heavy lift rocket Ariane 6.", img: "https://images-assets.nasa.gov/image/PIA18008/PIA18008~thumb.jpg" }
+    ];
+
+    let liveItems = [];
+    if (apiLaunches.length) {
+      liveItems = apiLaunches.map(l => ({
+        id: l.id,
+        title: l.name || "Orbital Launch",
+        agency: l.launch_service_provider?.name || "Space Agency",
+        rocket: l.rocket?.configuration?.full_name || "Orbital Rocket",
+        pad: l.pad?.name || "Global Launch Site",
+        date: (l.net || "").replace("T", " ").replace("Z", " UTC"),
+        status: "upcoming",
+        desc: l.mission?.description || "Orbital satellite launch mission.",
+        img: l.image || "https://images-assets.nasa.gov/image/PIA23764/PIA23764~thumb.jpg"
+      }));
+    }
+
+    const combined = [...liveItems, ...curatedLaunches];
+
+    const filtered = combined.filter(l => {
+      const matchQ = !q || l.title.toLowerCase().includes(q) || l.rocket.toLowerCase().includes(q) || l.agency.toLowerCase().includes(q);
+      const matchStatus = status === "all" || l.status === status;
+      const matchAgency = agency === "all" || l.agency.toLowerCase().includes(agency.toLowerCase());
+      return matchQ && matchStatus && matchAgency;
+    });
+
+    if (!filtered.length) {
+      grid.innerHTML = '<div class="nasa-card-skeleton">No orbital launches match your filter options.</div>';
+      return;
+    }
+
+    grid.innerHTML = filtered.map(l => `
+      <div class="nasa-card">
+        <div class="nasa-card-media">
+          <img src="${l.img}" alt="${l.title}" loading="lazy" onerror="this.src='https://images-assets.nasa.gov/image/PIA23764/PIA23764~thumb.jpg'" />
+        </div>
+        <div class="nasa-card-body">
+          <div class="nasa-card-badges">
+            <span class="nasa-badge badge-blue">${l.agency}</span>
+            <span class="nasa-badge ${l.status === 'upcoming' ? 'badge-yellow' : 'badge-green'}">${l.status.toUpperCase()}</span>
+          </div>
+          <h4 class="nasa-card-title">${l.title}</h4>
+          <p class="nasa-card-desc">${l.desc}</p>
+          <div class="nasa-card-meta">
+            <span>Rocket: ${l.rocket}</span>
+            <span>Launch Date: ${l.date}</span>
+            <span>Site: ${l.pad}</span>
+          </div>
+        </div>
+      </div>
+    `).join("");
+  } catch (e) {
+    grid.innerHTML = '<div class="nasa-card-skeleton">Unable to load launch manifest data.</div>';
+  }
+}
+
 /* INITIALIZE NASA EXPLORER BINDINGS */
 function initNASAExplorer() {
   // Navigation tabs
@@ -2346,49 +2737,7 @@ function initNASAExplorer() {
     globalSearchInput.onkeydown = (e) => { if (e.key === "Enter") runGlobalSearch(); };
   }
 
-  // APOD Random, Fav, Share buttons
-  const randomApodBtn = document.getElementById("apod-random-btn");
-  if (randomApodBtn) {
-    randomApodBtn.onclick = async () => {
-      showToast("🎲 Fetching Random APOD...");
-      try {
-        const item = await NASAApiService.getAPODRandom();
-        const datePicker = document.getElementById("date-picker");
-        if (datePicker && item.date) datePicker.value = item.date;
-        loadNASA();
-      } catch (e) {
-        showToast("Unable to fetch random APOD");
-      }
-    };
-  }
-
-  const apodFavBtn = document.getElementById("apod-fav-btn");
-  if (apodFavBtn) {
-    apodFavBtn.onclick = () => {
-      const img = document.getElementById("apod-img");
-      const title = document.getElementById("apod-title");
-      const desc = document.getElementById("apod-desc");
-      if (img && img.src) {
-        toggleNASAFavorite({
-          url: img.src,
-          title: title ? title.innerText : "APOD Image",
-          explanation: desc ? desc.innerText : ""
-        });
-      }
-    };
-  }
-
-  const apodShareBtn = document.getElementById("apod-share-btn");
-  if (apodShareBtn) {
-    apodShareBtn.onclick = () => {
-      if (navigator.clipboard) {
-        navigator.clipboard.writeText(location.href);
-        showToast("🔗 NASA Explorer link copied to clipboard!");
-      }
-    };
-  }
-
-  // Subview filter load buttons
+  // Subview filter load buttons & inputs
   const epicLoadBtn = document.getElementById("epic-load-btn");
   if (epicLoadBtn) epicLoadBtn.onclick = loadEPICView;
 
@@ -2401,28 +2750,59 @@ function initNASAExplorer() {
   const marsLoadBtn = document.getElementById("mars-load-btn");
   if (marsLoadBtn) marsLoadBtn.onclick = loadMarsView;
 
-  const marsDateTypeSelect = document.getElementById("mars-date-type-select");
-  const marsSolInput = document.getElementById("mars-sol-input");
-  const marsEarthDateInput = document.getElementById("mars-earth-date-input");
-
-  if (marsDateTypeSelect) {
-    marsDateTypeSelect.onchange = () => {
-      if (marsDateTypeSelect.value === "earth_date") {
-        if (marsSolInput) marsSolInput.style.display = "none";
-        if (marsEarthDateInput) marsEarthDateInput.style.display = "inline-block";
-      } else {
-        if (marsSolInput) marsSolInput.style.display = "inline-block";
-        if (marsEarthDateInput) marsEarthDateInput.style.display = "none";
-      }
-      loadMarsView();
-    };
-  }
-
   const neoLoadBtn = document.getElementById("neo-load-btn");
   if (neoLoadBtn) neoLoadBtn.onclick = loadNEOView;
 
   const libSearchBtn = document.getElementById("library-search-btn");
   if (libSearchBtn) libSearchBtn.onclick = loadLibraryView;
+
+  // Earth Observatory controls
+  const earthLoadBtn = document.getElementById("earth-load-btn");
+  if (earthLoadBtn) earthLoadBtn.onclick = loadEarthView;
+  const earthCategorySelect = document.getElementById("earth-category-select");
+  if (earthCategorySelect) earthCategorySelect.onchange = loadEarthView;
+  const earthSearchInput = document.getElementById("earth-search-input");
+  if (earthSearchInput) earthSearchInput.oninput = loadEarthView;
+
+  // Space Weather controls
+  const swLoadBtn = document.getElementById("sw-load-btn");
+  if (swLoadBtn) swLoadBtn.onclick = loadSpaceWeatherView;
+  const swTypeSelect = document.getElementById("sw-type-select");
+  if (swTypeSelect) swTypeSelect.onchange = loadSpaceWeatherView;
+  const swSeveritySelect = document.getElementById("sw-severity-select");
+  if (swSeveritySelect) swSeveritySelect.onchange = loadSpaceWeatherView;
+
+  // Exoplanets controls
+  const exoLoadBtn = document.getElementById("exo-load-btn");
+  if (exoLoadBtn) exoLoadBtn.onclick = loadExoplanetsView;
+  const exoTypeSelect = document.getElementById("exo-type-select");
+  if (exoTypeSelect) exoTypeSelect.onchange = loadExoplanetsView;
+  const exoHabSelect = document.getElementById("exo-hab-select");
+  if (exoHabSelect) exoHabSelect.onchange = loadExoplanetsView;
+  const exoSortSelect = document.getElementById("exo-sort-select");
+  if (exoSortSelect) exoSortSelect.onchange = loadExoplanetsView;
+  const exoSearchInput = document.getElementById("exo-search-input");
+  if (exoSearchInput) exoSearchInput.oninput = loadExoplanetsView;
+
+  // Missions controls
+  const missionLoadBtn = document.getElementById("mission-load-btn");
+  if (missionLoadBtn) missionLoadBtn.onclick = loadMissionsView;
+  const missionStatusSelect = document.getElementById("mission-status-select");
+  if (missionStatusSelect) missionStatusSelect.onchange = loadMissionsView;
+  const missionCategorySelect = document.getElementById("mission-category-select");
+  if (missionCategorySelect) missionCategorySelect.onchange = loadMissionsView;
+  const missionSearchInput = document.getElementById("mission-search-input");
+  if (missionSearchInput) missionSearchInput.oninput = loadMissionsView;
+
+  // Launches controls
+  const launchLoadBtn = document.getElementById("launch-load-btn");
+  if (launchLoadBtn) launchLoadBtn.onclick = loadLaunchesView;
+  const launchStatusSelect = document.getElementById("launch-status-select");
+  if (launchStatusSelect) launchStatusSelect.onchange = loadLaunchesView;
+  const launchAgencySelect = document.getElementById("launch-agency-select");
+  if (launchAgencySelect) launchAgencySelect.onchange = loadLaunchesView;
+  const launchSearchInput = document.getElementById("launch-search-input");
+  if (launchSearchInput) launchSearchInput.oninput = loadLaunchesView;
 
   // Modal Lightbox bindings
   const modalCloseBtn = document.getElementById("nasa-modal-close-btn");
