@@ -10345,10 +10345,10 @@ function updateAccountSettings() {
       "";
 
     status.textContent =
-      "🟢 Signed In";
+      "Signed In";
 
     document.getElementById("account-type").textContent =
-      "☁ Cloud Account";
+      "Cloud Account";
 
   }
 
@@ -10364,10 +10364,10 @@ function updateAccountSettings() {
       "Not Signed In";
 
     status.textContent =
-      "🔴 Signed Out";
+      "Signed Out";
 
     document.getElementById("account-type").textContent =
-      "☁ Cloud Account";
+      "Cloud Account";
 
 
   }
@@ -10491,11 +10491,11 @@ function updateGeneralSettings() {
 
       ?
 
-      "🟢 Connected"
+      "Connected"
 
       :
 
-      "🔴 Not Connected";
+      "Not Connected";
 
   if (conversationCount) {
 
@@ -10677,18 +10677,18 @@ if (settingsOverlay && openSettingsBtn && closeSettingsBtn) {
 }
 document.getElementById("environment-status").textContent =
   isLocal
-    ? "🟡 Local Development"
-    : "🟢 Production";
+    ? "Local Development"
+    : "Production";
 
 document.getElementById("firebase-status").textContent =
   window.db
-    ? "🟢 Connected"
-    : "🔴 Offline";
+    ? "Connected"
+    : "Offline";
 
 document.getElementById("database-status").textContent =
   window.db
-    ? "🟢 Online"
-    : "🔴 Offline";
+    ? "Online"
+    : "Offline";
 
 document.getElementById("conversation-count").textContent =
   conversations.length;
@@ -10780,12 +10780,12 @@ if (savedKey) {
     "••••••••••••••••";
 
   apiStatus.textContent =
-    "🟢 Connected";
+    "Connected";
 
 } else {
 
   apiStatus.textContent =
-    "🔴 Not Connected";
+    "Not Connected";
 
 }
 
@@ -10811,7 +10811,7 @@ removeApiKeySettingsBtn?.addEventListener("click", () => {
     settingsApiKey.value = "";
 
     apiStatus.textContent =
-      "🔴 Not Connected";
+      "Not Connected";
 
     showToast("API Key Removed");
 
@@ -11775,11 +11775,11 @@ function renderModelPopup() {
 
       let statusBadge = "";
       if (status === "quota_exceeded") {
-        statusBadge = '<span class="provider-status-badge quota_exceeded">🔴 Quota Exceeded</span>';
+        statusBadge = '<span class="provider-status-badge quota_exceeded">Quota Exceeded</span>';
       } else if (status === "rate_limited") {
-        statusBadge = '<span class="provider-status-badge rate_limited">🟠 Rate Limited</span>';
+        statusBadge = '<span class="provider-status-badge rate_limited">Rate Limited</span>';
       } else if (status === "key_missing") {
-        statusBadge = '<span class="provider-status-badge key_missing">🔴 Key Missing</span>';
+        statusBadge = '<span class="provider-status-badge key_missing">Key Missing</span>';
       } else {
         const tagText = model.desc || model.badge || "";
         if (tagText) {
