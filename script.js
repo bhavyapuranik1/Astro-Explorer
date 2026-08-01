@@ -14686,10 +14686,10 @@ function drawAdvancedLayers() {
           const alt = (lookAngles.elevation ?? lookAngles.altitude ?? lookAngles.alt) * 180 / Math.PI;
           const az = (lookAngles.azimuth ?? lookAngles.az) * 180 / Math.PI;
 
-          // Render if above horizon or explicitly selected by user
-          if (alt > 0 || isSelected) {
+          // Render if visible in current celestial map projection or explicitly selected
+          if (alt > -30 || isSelected) {
             const coords = horizontalToEquatorial(alt, az, skyTime, observer);
-            if (coords) {
+            if (coords && Celestial.clip(coords)) {
               const pt = Celestial.mapProjection(coords);
               if (pt) {
                 renderedCount++;
