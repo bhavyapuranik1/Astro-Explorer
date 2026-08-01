@@ -13488,9 +13488,7 @@ if (document.readyState === "loading") {
 
 function updateSkySettingValue(key, val, options = {}) {
   skySettings[key] = val;
-  if (key === "showDSOs" || key === "showCelestialObjects") {
-    skySettings.showDSOs = val;
-    skySettings.showCelestialObjects = val;
+  if (key === "showCelestialObjects") {
     updateSearchStateForCelestialToggle(val);
   }
   if (key === "lightPollution") {
@@ -13512,6 +13510,7 @@ function updateSkySettingValue(key, val, options = {}) {
 
   // 2. Sync legacy element IDs in main settings tab
   const legacyMap = {
+    showCelestialObjects: "toggle-celestial-objects",
     showStars: "toggle-stars",
     showStarLabels: "toggle-star-labels",
     starMagnitude: "star-magnitude",
@@ -13600,6 +13599,7 @@ function initSkySettings() {
   };
 
   const legacyMap = {
+    "toggle-celestial-objects": "showCelestialObjects",
     "toggle-stars": "showStars",
     "toggle-star-labels": "showStarLabels",
     "star-magnitude": "starMagnitude",
