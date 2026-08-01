@@ -2390,25 +2390,25 @@ async function loadEarthView() {
     }
 
     grid.innerHTML = filtered.map(item => `
-      <div class="nasa-card">
-        <div class="nasa-card-body">
+      <div class="nasa-media-card">
+        <img src="${item.img || 'https://images-assets.nasa.gov/image/GSFC_20171208_archive_e001465/GSFC_20171208_archive_e001465~thumb.jpg'}" alt="${item.title}" class="nasa-media-img" loading="lazy" onclick="openNASAImageViewer({url: '${item.img || 'https://images-assets.nasa.gov/image/GSFC_20171208_archive_e001465/GSFC_20171208_archive_e001465~thumb.jpg'}', title: '${item.title}', date: '${item.date}', explanation: '${item.desc}'})" />
+        <div class="nasa-media-info">
           <div class="nasa-card-badges">
             <span class="nasa-badge badge-cyan">${item.categoryName || item.category}</span>
             <span class="nasa-badge badge-gray">${item.date}</span>
           </div>
-          <h4 class="nasa-card-title">${item.title}</h4>
-          <p class="nasa-card-desc">${item.desc}</p>
-          <div class="nasa-card-meta">
-            <span>Coordinates: ${item.coordinates}</span>
-          </div>
-          <div class="nasa-card-actions">
-            <a href="${item.url}" target="_blank" rel="noopener" class="nasa-btn-sm btn-primary">View NASA Story</a>
+          <h4 class="nasa-media-title">${item.title}</h4>
+          <p class="nasa-media-desc" style="font-size: 0.78rem; color: #94a3b8; margin: 4px 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${item.desc}</p>
+          <span class="nasa-media-meta">Coords: ${item.coordinates}</span>
+          <div class="nasa-media-actions">
+            <a href="${item.url}" target="_blank" rel="noopener" class="nasa-btn-secondary">🔍 Details</a>
+            <button type="button" class="nasa-btn-secondary" onclick="toggleNASAFavorite({id: '${item.id}', title: '${item.title}', url: '${item.img || 'https://images-assets.nasa.gov/image/GSFC_20171208_archive_e001465/GSFC_20171208_archive_e001465~thumb.jpg'}'})">⭐ Fav</button>
           </div>
         </div>
       </div>
     `).join("");
   } catch (e) {
-    grid.innerHTML = '<div class="nasa-card-skeleton">Unable to load Earth Observatory data. Please try again.</div>';
+    grid.innerHTML = '<div class="nasa-loading-skeleton">Unable to load Earth Observatory data. Please try again.</div>';
   }
 }
 
@@ -2418,7 +2418,7 @@ async function loadSpaceWeatherView() {
   const type = document.getElementById("sw-type-select")?.value || "all";
   const severity = document.getElementById("sw-severity-select")?.value || "all";
 
-  grid.innerHTML = '<div class="nasa-card-skeleton">Fetching Live Solar Telemetry & DONKI Alerts...</div>';
+  grid.innerHTML = '<div class="nasa-loading-skeleton">Fetching Live Solar Telemetry & DONKI Alerts...</div>';
 
   try {
     let notifications = [];
@@ -2427,15 +2427,17 @@ async function loadSpaceWeatherView() {
       if (res.ok) {
         notifications = await res.json();
       }
-    } catch(e) {}
+    } catch(e) {
+      console.warn("[NASA DONKI Fetch Quiet Catch]", e);
+    }
 
     const curatedSW = [
-      { id: "sw1", type: "FLR", typeName: "Solar Flare", severity: "high", severityName: "X-Class Flare (X2.8)", time: "2024-05-14 17:09 UTC", desc: "Major X-class solar flare erupted from Active Region AR3664 causing strong R3 high-frequency radio blackouts.", activeRegion: "AR3664", link: "https://ready.gst.nasa.gov" },
-      { id: "sw2", type: "CME", typeName: "Coronal Mass Ejection", severity: "high", severityName: "Halo CME (1800 km/s)", time: "2024-05-11 02:15 UTC", desc: "Full halo CME directed toward Earth resulting in severe G5 geomagnetic storm conditions and auroral display.", activeRegion: "AR3664", link: "https://ready.gst.nasa.gov" },
-      { id: "sw3", type: "GST", typeName: "Geomagnetic Storm", severity: "high", severityName: "G5 Extreme Storm", time: "2024-05-11 12:00 UTC", desc: "K-index reached 9. Extreme geomagnetic field disturbance registered across global magnetometer networks.", activeRegion: "Global Magnetosphere", link: "https://ready.gst.nasa.gov" },
-      { id: "sw4", type: "SEP", typeName: "Solar Proton Event", severity: "moderate", severityName: "S2 Moderate Radiation", time: "2024-05-12 08:30 UTC", desc: ">10 MeV solar energetic proton flux exceeded 100 pfu threshold affecting polar aviation routes.", activeRegion: "AR3664", link: "https://ready.gst.nasa.gov" },
-      { id: "sw5", type: "IPS", typeName: "Interplanetary Shock", severity: "low", severityName: "Minor Shock Arrival", time: "2024-04-20 04:12 UTC", desc: "DSCOVR and ACE spacecraft recorded sudden solar wind speed velocity jump from 380 km/s to 520 km/s.", activeRegion: "L1 Solar Wind", link: "https://ready.gst.nasa.gov" },
-      { id: "sw6", type: "NOTIF", typeName: "NASA Weather Alert", severity: "moderate", severityName: "Moderate Alert", time: "2024-06-01 10:00 UTC", desc: "NASA Space Weather Operations Center alert: Recurrent coronal hole high-speed stream expected to hit Earth magnetosphere.", activeRegion: "Coronal Hole 42", link: "https://ready.gst.nasa.gov" }
+      { id: "sw1", type: "FLR", typeName: "Solar Flare", severity: "high", severityName: "X-Class Flare (X2.8)", time: "2024-05-14 17:09 UTC", desc: "Major X-class solar flare erupted from Active Region AR3664 causing strong R3 high-frequency radio blackouts.", activeRegion: "AR3664", link: "https://ready.gst.nasa.gov", img: "https://images-assets.nasa.gov/image/GSFC_20171208_archive_e001465/GSFC_20171208_archive_e001465~thumb.jpg" },
+      { id: "sw2", type: "CME", typeName: "Coronal Mass Ejection", severity: "high", severityName: "Halo CME (1800 km/s)", time: "2024-05-11 02:15 UTC", desc: "Full halo CME directed toward Earth resulting in severe G5 geomagnetic storm conditions and auroral display.", activeRegion: "AR3664", link: "https://ready.gst.nasa.gov", img: "https://images-assets.nasa.gov/image/PIA22822/PIA22822~thumb.jpg" },
+      { id: "sw3", type: "GST", typeName: "Geomagnetic Storm", severity: "high", severityName: "G5 Extreme Storm", time: "2024-05-11 12:00 UTC", desc: "K-index reached 9. Extreme geomagnetic field disturbance registered across global magnetometer networks.", activeRegion: "Global Magnetosphere", link: "https://ready.gst.nasa.gov", img: "https://images-assets.nasa.gov/image/PIA21004/PIA21004~thumb.jpg" },
+      { id: "sw4", type: "SEP", typeName: "Solar Proton Event", severity: "moderate", severityName: "S2 Moderate Radiation", time: "2024-05-12 08:30 UTC", desc: ">10 MeV solar energetic proton flux exceeded 100 pfu threshold affecting polar aviation routes.", activeRegion: "AR3664", link: "https://ready.gst.nasa.gov", img: "https://images-assets.nasa.gov/image/PIA18008/PIA18008~thumb.jpg" },
+      { id: "sw5", type: "IPS", typeName: "Interplanetary Shock", severity: "low", severityName: "Minor Shock Arrival", time: "2024-04-20 04:12 UTC", desc: "DSCOVR and ACE spacecraft recorded sudden solar wind speed velocity jump from 380 km/s to 520 km/s.", activeRegion: "L1 Solar Wind", link: "https://ready.gst.nasa.gov", img: "https://images-assets.nasa.gov/image/PIA23764/PIA23764~thumb.jpg" },
+      { id: "sw6", type: "NOTIF", typeName: "NASA Weather Alert", severity: "moderate", severityName: "Moderate Alert", time: "2024-06-01 10:00 UTC", desc: "NASA Space Weather Operations Center alert: Recurrent coronal hole high-speed stream expected to hit Earth magnetosphere.", activeRegion: "Coronal Hole 42", link: "https://ready.gst.nasa.gov", img: "https://images-assets.nasa.gov/image/PIA24057/PIA24057~thumb.jpg" }
     ];
 
     let liveItems = [];
@@ -2462,7 +2464,8 @@ async function loadSpaceWeatherView() {
           time: (item.messageIssueTime || "").replace("T", " ").replace("Z", " UTC"),
           desc: messageBody.slice(0, 240) + (messageBody.length > 240 ? "..." : ""),
           activeRegion: item.messageURL ? "NASA DONKI Alert" : "Solar Activity",
-          link: item.messageURL || "https://ready.gst.nasa.gov"
+          link: item.messageURL || "https://ready.gst.nasa.gov",
+          img: "https://images-assets.nasa.gov/image/GSFC_20171208_archive_e001465/GSFC_20171208_archive_e001465~thumb.jpg"
         };
       });
     }
@@ -2476,30 +2479,30 @@ async function loadSpaceWeatherView() {
     });
 
     if (!filtered.length) {
-      grid.innerHTML = '<div class="nasa-card-skeleton">No Space Weather events found for the selected filter.</div>';
+      grid.innerHTML = '<div class="nasa-loading-skeleton">No Space Weather events found for the selected filter.</div>';
       return;
     }
 
     grid.innerHTML = filtered.map(item => `
-      <div class="nasa-card">
-        <div class="nasa-card-body">
+      <div class="nasa-media-card">
+        <img src="${item.img}" alt="${item.typeName}" class="nasa-media-img" loading="lazy" />
+        <div class="nasa-media-info">
           <div class="nasa-card-badges">
             <span class="nasa-badge badge-orange">${item.typeName}</span>
             <span class="nasa-badge ${item.severity === 'high' ? 'badge-red' : item.severity === 'moderate' ? 'badge-yellow' : 'badge-gray'}">${item.severityName}</span>
           </div>
-          <h4 class="nasa-card-title">${item.activeRegion} - ${item.typeName}</h4>
-          <p class="nasa-card-desc">${item.desc}</p>
-          <div class="nasa-card-meta">
-            <span>Issue Time: ${item.time}</span>
-          </div>
-          <div class="nasa-card-actions">
-            <a href="${item.link}" target="_blank" rel="noopener" class="nasa-btn-sm btn-primary">Telemetry Details</a>
+          <h4 class="nasa-media-title">${item.activeRegion} - ${item.typeName}</h4>
+          <p class="nasa-media-desc" style="font-size: 0.78rem; color: #94a3b8; margin: 4px 0; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;">${item.desc}</p>
+          <span class="nasa-media-meta">Issue Time: ${item.time}</span>
+          <div class="nasa-media-actions">
+            <a href="${item.link}" target="_blank" rel="noopener" class="nasa-btn-secondary">🔍 Details</a>
+            <button type="button" class="nasa-btn-secondary" onclick="toggleNASAFavorite({id: '${item.id}', title: '${item.typeName}', url: '${item.img}'})">⭐ Fav</button>
           </div>
         </div>
       </div>
     `).join("");
   } catch (e) {
-    grid.innerHTML = '<div class="nasa-card-skeleton">Unable to fetch Space Weather telemetry.</div>';
+    grid.innerHTML = '<div class="nasa-loading-skeleton">Unable to fetch Space Weather telemetry.</div>';
   }
 }
 
@@ -2511,7 +2514,7 @@ async function loadExoplanetsView() {
   const hab = document.getElementById("exo-hab-select")?.value || "all";
   const sort = document.getElementById("exo-sort-select")?.value || "newest";
 
-  grid.innerHTML = '<div class="nasa-card-skeleton">Querying NASA Exoplanet Archive...</div>';
+  grid.innerHTML = '<div class="nasa-loading-skeleton">Querying NASA Exoplanet Archive...</div>';
 
   const curatedExo = [
     { id: "ex1", name: "Kepler-186f", hostStar: "Kepler-186", type: "terrestrial", typeName: "Terrestrial (Rocky)", discYear: 2014, distLy: 582, radiusEarth: 1.17, massEarth: 1.4, tempK: 235, habitable: true, desc: "First validated Earth-sized planet orbiting in the conservative habitable zone of an M-dwarf star.", img: "https://images-assets.nasa.gov/image/PIA18008/PIA18008~thumb.jpg" },
@@ -2537,29 +2540,24 @@ async function loadExoplanetsView() {
   else if (sort === "earthlike") filtered.sort((a,b) => Math.abs(a.radiusEarth - 1) - Math.abs(b.radiusEarth - 1));
 
   if (!filtered.length) {
-    grid.innerHTML = '<div class="nasa-card-skeleton">No exoplanets found matching your criteria.</div>';
+    grid.innerHTML = '<div class="nasa-loading-skeleton">No exoplanets found matching your criteria.</div>';
     return;
   }
 
   grid.innerHTML = filtered.map(p => `
-    <div class="nasa-card">
-      <div class="nasa-card-media">
-        <img src="${p.img}" alt="${p.name}" loading="lazy" onerror="this.src='https://images-assets.nasa.gov/image/PIA18008/PIA18008~thumb.jpg'" />
-      </div>
-      <div class="nasa-card-body">
+    <div class="nasa-media-card">
+      <img src="${p.img}" alt="${p.name}" class="nasa-media-img" loading="lazy" onclick="openNASAImageViewer({url: '${p.img}', title: '${p.name}', explanation: '${p.desc}'})" />
+      <div class="nasa-media-info">
         <div class="nasa-card-badges">
           <span class="nasa-badge badge-purple">${p.typeName}</span>
           ${p.habitable ? '<span class="nasa-badge badge-green">Habitable Zone</span>' : '<span class="nasa-badge badge-gray">Non-Habitable</span>'}
         </div>
-        <h4 class="nasa-card-title">${p.name}</h4>
-        <p class="nasa-card-desc">${p.desc}</p>
-        <div class="nasa-card-meta">
-          <span>Host Star: ${p.hostStar} | Discovered: ${p.discYear}</span>
-          <span>Distance: ${p.distLy} light-years | Radius: ${p.radiusEarth}x Earth</span>
-        </div>
-        <div class="nasa-card-actions">
-          <button type="button" class="nasa-btn-sm btn-secondary" onclick="toggleNASAFavorite({id:'${p.id}',title:'${p.name}',url:'${p.img}',explanation:'${p.desc}'})">⭐ Favorite</button>
-          <a href="https://exoplanetarchive.ipac.caltech.edu" target="_blank" rel="noopener" class="nasa-btn-sm btn-primary">NASA Catalog</a>
+        <h4 class="nasa-media-title">${p.name}</h4>
+        <p class="nasa-media-desc" style="font-size: 0.78rem; color: #94a3b8; margin: 4px 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${p.desc}</p>
+        <span class="nasa-media-meta">Star: ${p.hostStar} • ${p.distLy} ly • ${p.discYear}</span>
+        <div class="nasa-media-actions">
+          <button type="button" class="nasa-btn-secondary" onclick="openNASAImageViewer({url: '${p.img}', title: '${p.name}', explanation: '${p.desc}'})">🔍 View</button>
+          <button type="button" class="nasa-btn-secondary" onclick="toggleNASAFavorite({id: '${p.id}', title: '${p.name}', url: '${p.img}'})">⭐ Fav</button>
         </div>
       </div>
     </div>
@@ -2573,7 +2571,7 @@ async function loadMissionsView() {
   const status = document.getElementById("mission-status-select")?.value || "all";
   const category = document.getElementById("mission-category-select")?.value || "all";
 
-  grid.innerHTML = '<div class="nasa-card-skeleton">Loading NASA Flagship Missions...</div>';
+  grid.innerHTML = '<div class="nasa-loading-skeleton">Loading NASA Flagship Missions...</div>';
 
   const missions = [
     { id: "m1", name: "James Webb Space Telescope (JWST)", status: "active", category: "astrophysics", catName: "Astrophysics", launch: "2021-12-25", target: "Sun-Earth L2 Lagrange Point", desc: "NASA flagship infrared observatory uncovering cosmic dawn, first stars, early galaxies, and exoplanet atmospheres.", img: "https://images-assets.nasa.gov/image/GSFC_20171208_archive_e001465/GSFC_20171208_archive_e001465~thumb.jpg", url: "https://webb.nasa.gov" },
@@ -2594,28 +2592,24 @@ async function loadMissionsView() {
   });
 
   if (!filtered.length) {
-    grid.innerHTML = '<div class="nasa-card-skeleton">No NASA missions found matching your filter selection.</div>';
+    grid.innerHTML = '<div class="nasa-loading-skeleton">No NASA missions found matching your filter selection.</div>';
     return;
   }
 
   grid.innerHTML = filtered.map(m => `
-    <div class="nasa-card">
-      <div class="nasa-card-media">
-        <img src="${m.img}" alt="${m.name}" loading="lazy" onerror="this.src='https://images-assets.nasa.gov/image/PIA23764/PIA23764~thumb.jpg'" />
-      </div>
-      <div class="nasa-card-body">
+    <div class="nasa-media-card">
+      <img src="${m.img}" alt="${m.name}" class="nasa-media-img" loading="lazy" onclick="openNASAImageViewer({url: '${m.img}', title: '${m.name}', date: '${m.launch}', explanation: '${m.desc}'})" />
+      <div class="nasa-media-info">
         <div class="nasa-card-badges">
           <span class="nasa-badge badge-blue">${m.catName}</span>
           <span class="nasa-badge ${m.status === 'active' ? 'badge-green' : m.status === 'upcoming' ? 'badge-yellow' : 'badge-gray'}">${m.status.toUpperCase()}</span>
         </div>
-        <h4 class="nasa-card-title">${m.name}</h4>
-        <p class="nasa-card-desc">${m.desc}</p>
-        <div class="nasa-card-meta">
-          <span>Target: ${m.target}</span>
-          <span>Launch Date: ${m.launch}</span>
-        </div>
-        <div class="nasa-card-actions">
-          <a href="${m.url}" target="_blank" rel="noopener" class="nasa-btn-sm btn-primary">Official Mission Page</a>
+        <h4 class="nasa-media-title">${m.name}</h4>
+        <p class="nasa-media-desc" style="font-size: 0.78rem; color: #94a3b8; margin: 4px 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${m.desc}</p>
+        <span class="nasa-media-meta">Target: ${m.target} • Launch: ${m.launch}</span>
+        <div class="nasa-media-actions">
+          <a href="${m.url}" target="_blank" rel="noopener" class="nasa-btn-secondary">🔍 Mission</a>
+          <button type="button" class="nasa-btn-secondary" onclick="toggleNASAFavorite({id: '${m.id}', title: '${m.name}', url: '${m.img}'})">⭐ Fav</button>
         </div>
       </div>
     </div>
@@ -2629,7 +2623,7 @@ async function loadLaunchesView() {
   const status = document.getElementById("launch-status-select")?.value || "all";
   const agency = document.getElementById("launch-agency-select")?.value || "all";
 
-  grid.innerHTML = '<div class="nasa-card-skeleton">Fetching Orbital Launch Manifest...</div>';
+  grid.innerHTML = '<div class="nasa-loading-skeleton">Fetching Orbital Launch Manifest...</div>';
 
   try {
     let apiLaunches = [];
@@ -2674,32 +2668,30 @@ async function loadLaunchesView() {
     });
 
     if (!filtered.length) {
-      grid.innerHTML = '<div class="nasa-card-skeleton">No orbital launches match your filter options.</div>';
+      grid.innerHTML = '<div class="nasa-loading-skeleton">No orbital launches match your filter options.</div>';
       return;
     }
 
     grid.innerHTML = filtered.map(l => `
-      <div class="nasa-card">
-        <div class="nasa-card-media">
-          <img src="${l.img}" alt="${l.title}" loading="lazy" onerror="this.src='https://images-assets.nasa.gov/image/PIA23764/PIA23764~thumb.jpg'" />
-        </div>
-        <div class="nasa-card-body">
+      <div class="nasa-media-card">
+        <img src="${l.img}" alt="${l.title}" class="nasa-media-img" loading="lazy" onclick="openNASAImageViewer({url: '${l.img}', title: '${l.title}', date: '${l.date}', explanation: '${l.desc}'})" />
+        <div class="nasa-media-info">
           <div class="nasa-card-badges">
             <span class="nasa-badge badge-blue">${l.agency}</span>
             <span class="nasa-badge ${l.status === 'upcoming' ? 'badge-yellow' : 'badge-green'}">${l.status.toUpperCase()}</span>
           </div>
-          <h4 class="nasa-card-title">${l.title}</h4>
-          <p class="nasa-card-desc">${l.desc}</p>
-          <div class="nasa-card-meta">
-            <span>Rocket: ${l.rocket}</span>
-            <span>Launch Date: ${l.date}</span>
-            <span>Site: ${l.pad}</span>
+          <h4 class="nasa-media-title">${l.title}</h4>
+          <p class="nasa-media-desc" style="font-size: 0.78rem; color: #94a3b8; margin: 4px 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${l.desc}</p>
+          <span class="nasa-media-meta">Rocket: ${l.rocket} • Launch: ${l.date}</span>
+          <div class="nasa-media-actions">
+            <button type="button" class="nasa-btn-secondary" onclick="openNASAImageViewer({url: '${l.img}', title: '${l.title}', date: '${l.date}', explanation: '${l.desc}'})">🔍 View</button>
+            <button type="button" class="nasa-btn-secondary" onclick="toggleNASAFavorite({id: '${l.id}', title: '${l.title}', url: '${l.img}'})">⭐ Fav</button>
           </div>
         </div>
       </div>
     `).join("");
   } catch (e) {
-    grid.innerHTML = '<div class="nasa-card-skeleton">Unable to load launch manifest data.</div>';
+    grid.innerHTML = '<div class="nasa-loading-skeleton">Unable to load launch manifest data.</div>';
   }
 }
 
