@@ -91,16 +91,19 @@ gtag('config', 'G-9747XL0FQQ');
 
 <div id="sky-ui">
 
-<div id="sky-search">
+<div id="sky-search" style="flex-direction: column; align-items: flex-start;">
 
+<div style="display: flex; gap: 8px; width: 100%; align-items: center;">
 <input
  type="text"
  id="searchBox"
  placeholder="Search object (JWST, Hubble, Mars, M31...)">
 
-<button onclick="searchObject()">
+<button id="searchBtn" onclick="searchObject()">
  Search
 </button>
+</div>
+<div id="search-disabled-helper" class="search-disabled-helper hidden">Celestial Object Search is currently disabled.</div>
 
 </div>
 
@@ -2481,7 +2484,7 @@ checked>
 <span class="slider"></span>
 </label>
 
-<span>Show Deep Sky Objects</span>
+<span>Show Celestial Objects</span>
 
 </div>
 

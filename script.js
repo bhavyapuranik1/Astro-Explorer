@@ -4437,8 +4437,98 @@ function setSearchCategory(btn) {
   }
 }
 
+// 🌌 CELESTIAL OBJECT SEARCH TOGGLE STATE SYNCHRONIZATION
+const ORIGINAL_SEARCH_PLACEHOLDER = "Search object (JWST, Hubble, Mars, M31...)";
+const DISABLED_SEARCH_PLACEHOLDER = "Enable Celestial Objects to search.";
+
+function isCelestialSearchEnabled() {
+  if (typeof skySettings === "undefined") return true;
+  if (skySettings.showCelestialObjects !== undefined) {
+    return !!skySettings.showCelestialObjects;
+  }
+  if (skySettings.showDSOs !== undefined) {
+    return !!skySettings.showDSOs;
+  }
+  return true;
+}
+
+function updateSearchStateForCelestialToggle(isEnabled) {
+  if (isEnabled === undefined) {
+    isEnabled = isCelestialSearchEnabled();
+  }
+
+  const searchBox = document.getElementById("searchBox");
+  const searchBtn = document.getElementById("searchBtn") || document.querySelector("#sky-search button");
+  const helperEl = document.getElementById("search-disabled-helper");
+  const suggestionsPanel = document.getElementById("search-suggestions");
+
+  if (searchBox) {
+    searchBox.disabled = !isEnabled;
+    searchBox.placeholder = isEnabled ? ORIGINAL_SEARCH_PLACEHOLDER : DISABLED_SEARCH_PLACEHOLDER;
+  }
+
+  if (searchBtn) {
+    searchBtn.disabled = !isEnabled;
+  }
+
+  if (helperEl) {
+    if (isEnabled) {
+      helperEl.classList.add("hidden");
+    } else {
+      helperEl.classList.remove("hidden");
+    }
+  }
+
+  // If turned OFF while search results, suggestions, or input are active: reset state completely
+  if (!isEnabled) {
+    if (searchBox) {
+      searchBox.value = "";
+    }
+
+    if (suggestionsPanel) {
+      suggestionsPanel.classList.add("hidden");
+      suggestionsPanel.innerHTML = "";
+    }
+
+    // Reset search state & markers
+    if (typeof animationId !== "undefined" && animationId) {
+      cancelAnimationFrame(animationId);
+      animationId = null;
+    }
+    if (typeof marker !== "undefined" && marker) {
+      marker.remove();
+      marker = null;
+    }
+    if (typeof searchHighlight !== "undefined" && searchHighlight) {
+      searchHighlight.remove();
+      searchHighlight = null;
+    }
+    document.getElementById("highlight-marker")?.remove();
+
+    if (typeof starLabel !== "undefined" && starLabel) {
+      starLabel.remove();
+      starLabel = null;
+    }
+    if (typeof dsoSearchLabel !== "undefined" && dsoSearchLabel) {
+      dsoSearchLabel.remove();
+      dsoSearchLabel = null;
+    }
+
+    if (typeof searchedObjectName !== "undefined") searchedObjectName = "";
+    if (typeof currentTarget !== "undefined") currentTarget = null;
+    if (typeof tracking !== "undefined") tracking = false;
+    if (typeof _syncNavButtons === "function") {
+      _syncNavButtons();
+    }
+  }
+}
+
 // 🔍 SEARCH FUNCTION
 function searchObject() {
+  if (!isCelestialSearchEnabled()) {
+    updateSearchStateForCelestialToggle(false);
+    return;
+  }
 
   // 🔥 RESET
   if (animationId) {
@@ -5570,6 +5660,14 @@ const SearchManager = {
   },
 
   updateSuggestions() {
+    if (!isCelestialSearchEnabled()) {
+      const suggestionsPanel = document.getElementById("search-suggestions");
+      if (suggestionsPanel) {
+        suggestionsPanel.classList.add("hidden");
+        suggestionsPanel.innerHTML = "";
+      }
+      return;
+    }
     const searchBox = document.getElementById("searchBox");
     const suggestionsPanel = document.getElementById("search-suggestions");
     if (!searchBox || !suggestionsPanel) return;
@@ -13378,6 +13476,11 @@ if (document.readyState === "loading") {
 
 function updateSkySettingValue(key, val, options = {}) {
   skySettings[key] = val;
+  if (key === "showDSOs" || key === "showCelestialObjects") {
+    skySettings.showDSOs = val;
+    skySettings.showCelestialObjects = val;
+    updateSearchStateForCelestialToggle(val);
+  }
   if (key === "lightPollution") {
     window.lightPollution = val;
   }
@@ -13470,6 +13573,7 @@ function initSkySettings() {
   for (const [key, val] of Object.entries(skySettings)) {
     updateSkySettingValue(key, val, { silent: true });
   }
+  updateSearchStateForCelestialToggle();
 
   // Wire legacy inputs in main settings modal tab
   const bindLegacyInput = (id, key) => {

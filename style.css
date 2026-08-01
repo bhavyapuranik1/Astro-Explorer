@@ -10258,5 +10258,36 @@ body.night-vision-active #toggle-night-btn {
   }
 }
 
+#sky-ui input[type="text"]:disabled {
+  opacity: 0.55 !important;
+  cursor: not-allowed !important;
+  background: rgba(15, 23, 42, 0.7) !important;
+  border-color: rgba(239, 68, 68, 0.4) !important;
+  color: #94a3b8 !important;
+  box-shadow: none !important;
+}
+
+#sky-ui button:disabled {
+  opacity: 0.45 !important;
+  cursor: not-allowed !important;
+  background: rgba(40, 50, 70, 0.6) !important;
+  color: #94a3b8 !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+.search-disabled-helper {
+  font-size: 11.5px;
+  color: #f87171;
+  margin-top: 4px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.search-disabled-helper.hidden {
+  display: none;
+}
+
 
 
