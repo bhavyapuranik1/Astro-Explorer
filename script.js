@@ -3178,6 +3178,18 @@ function globalSkyAnimationLoop() {
     // Update dynamic atmosphere calculation state
     updateAtmosphereState();
 
+    if (typeof isCelestialSearchEnabled === "function" && !isCelestialSearchEnabled()) {
+      const infoPanel = document.getElementById("object-info-panel");
+      if (infoPanel && infoPanel.style.display !== "none") {
+        infoPanel.style.display = "none";
+      }
+      if (marker) {
+        marker.remove();
+        marker = null;
+      }
+      document.querySelectorAll(".star-search-label, .dso-search-label, .sky-crosshair").forEach(el => el.remove());
+    }
+
     // Update dynamic object coordinates and info panel
     if (selectedObject) {
       updateDynamicInfo();
@@ -4451,12 +4463,8 @@ const DISABLED_SEARCH_PLACEHOLDER = "Enable Celestial Objects to search.";
 
 function isCelestialSearchEnabled() {
   if (typeof skySettings === "undefined") return true;
-  if (skySettings.showCelestialObjects !== undefined) {
-    return !!skySettings.showCelestialObjects;
-  }
-  if (skySettings.showDSOs !== undefined) {
-    return !!skySettings.showDSOs;
-  }
+  if (skySettings.showCelestialObjects === false) return false;
+  if (skySettings.showDSOs === false) return false;
   return true;
 }
 
@@ -13506,8 +13514,8 @@ if (document.readyState === "loading") {
 
 function updateSkySettingValue(key, val, options = {}) {
   skySettings[key] = val;
-  if (key === "showCelestialObjects") {
-    updateSearchStateForCelestialToggle(val);
+  if (key === "showCelestialObjects" || key === "showDSOs") {
+    updateSearchStateForCelestialToggle();
   }
   if (key === "lightPollution") {
     window.lightPollution = val;
