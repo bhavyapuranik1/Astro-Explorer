@@ -15923,11 +15923,11 @@ function renderObservationHistory() {
 
         <div class="card-footer-actions">
           <div class="card-action-group">
-            <button type="button" class="obs-btn-sm view-obs-btn" data-id="${obs.id}">👁️ View</button>
-            <button type="button" class="obs-btn-sm history-edit-btn" data-id="${obs.id}">✏️ Edit</button>
-            <button type="button" class="obs-btn-sm dup-obs-btn" data-id="${obs.id}">📋 Copy</button>
+            <button type="button" class="obs-btn-sm view-obs-btn" data-id="${obs.id}">View</button>
+            <button type="button" class="obs-btn-sm history-edit-btn" data-id="${obs.id}">Edit</button>
+            <button type="button" class="obs-btn-sm dup-obs-btn" data-id="${obs.id}">Copy</button>
           </div>
-          <button type="button" class="obs-btn-sm delete-btn history-del-btn" data-id="${obs.id}" title="Delete Observation">🗑️</button>
+          <button type="button" class="obs-btn-sm delete-btn history-del-btn" data-id="${obs.id}" title="Delete Observation">Delete</button>
         </div>
       </div>
     `;
@@ -16077,8 +16077,8 @@ function showCalendarEventsForDate(dateKey, events) {
           <h5>
             ${obs.title || 'Untitled Session'}
             <div style="display:flex;gap:4px;">
-              <button class="obs-action-btn edit-btn edit-obs-btn" data-id="${obs.id}" style="padding:2px 5px; font-size:10px;">✏️</button>
-              <button class="obs-action-btn delete-btn delete-obs-btn" data-id="${obs.id}" style="padding:2px 5px; font-size:10px;">🗑️</button>
+              <button class="obs-action-btn edit-btn edit-obs-btn" data-id="${obs.id}" style="padding:2px 5px; font-size:10px;">Edit</button>
+              <button class="obs-action-btn delete-btn delete-obs-btn" data-id="${obs.id}" style="padding:2px 5px; font-size:10px;">Del</button>
             </div>
           </h5>
           <div class="timeline-meta">

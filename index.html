@@ -1735,20 +1735,20 @@ gtag('config', 'G-9747XL0FQQ');
       <div class="ph-section">
         <div class="ph-section-title">Quick Actions</div>
         <div class="ph-action-grid">
-          <button class="ph-action-btn" onclick="document.querySelector('[data-tab=\'observations\']')?.click(); document.getElementById('profile-menu').classList.remove('show')">
-            <span class="ph-action-icon">🔭</span>
+          <button class="ph-action-btn" onclick="showTab('observation'); document.getElementById('profile-menu').classList.remove('show')">
+            <span class="ph-action-icon">[ ]</span>
             <span>Observations</span>
           </button>
-          <button class="ph-action-btn" onclick="document.querySelector('[data-tab=\'nasa\']')?.click(); document.getElementById('profile-menu').classList.remove('show')">
-            <span class="ph-action-icon">🚀</span>
+          <button class="ph-action-btn" onclick="showTab('nasa'); document.getElementById('profile-menu').classList.remove('show')">
+            <span class="ph-action-icon">{ }</span>
             <span>NASA Hub</span>
           </button>
-          <button class="ph-action-btn" onclick="document.querySelector('[data-tab=\'sky-map\']')?.click(); document.getElementById('profile-menu').classList.remove('show')">
-            <span class="ph-action-icon">🌌</span>
+          <button class="ph-action-btn" onclick="showTab('sky'); document.getElementById('profile-menu').classList.remove('show')">
+            <span class="ph-action-icon">* *</span>
             <span>Sky Map</span>
           </button>
           <button class="ph-action-btn" onclick="document.getElementById('ai-input')?.focus(); document.getElementById('profile-menu').classList.remove('show')">
-            <span class="ph-action-icon">✨</span>
+            <span class="ph-action-icon">A I</span>
             <span>Ask AI</span>
           </button>
         </div>
@@ -1759,32 +1759,33 @@ gtag('config', 'G-9747XL0FQQ');
         <div class="ph-section-title">Account</div>
         <div class="ph-nav-list">
           <button class="ph-nav-item" onclick="document.getElementById('open-settings')?.click(); document.getElementById('profile-menu').classList.remove('show')">
-            <span class="ph-nav-icon">⚙️</span>
+            <span class="ph-nav-icon">Settings</span>
             <span class="ph-nav-label">AI Settings &amp; Memory</span>
             <span class="ph-nav-arrow">›</span>
           </button>
-          <button class="ph-nav-item" onclick="document.querySelector('[data-tab=\'observations\']')?.click(); document.getElementById('profile-menu').classList.remove('show')">
-            <span class="ph-nav-icon">📊</span>
+          <button class="ph-nav-item" onclick="showTab('observation'); document.getElementById('profile-menu').classList.remove('show')">
+            <span class="ph-nav-icon">Stats</span>
             <span class="ph-nav-label">Observation Statistics</span>
             <span class="ph-nav-arrow">›</span>
           </button>
-          <button class="ph-nav-item" id="ph-fav-nav" onclick="document.getElementById('profile-menu').classList.remove('show')">
-            <span class="ph-nav-icon">⭐</span>
+          <button class="ph-nav-item" id="ph-fav-nav" onclick="showTab('nasa'); document.getElementById('nasa-fav-tab-btn')?.click(); document.getElementById('profile-menu').classList.remove('show')">
+            <span class="ph-nav-icon">Fav</span>
             <span class="ph-nav-label">Favorites</span>
             <span class="ph-nav-arrow">›</span>
           </button>
-          <button class="ph-nav-item" id="ph-export-nav" onclick="document.getElementById('profile-menu').classList.remove('show')">
-            <span class="ph-nav-icon">📤</span>
+          <button class="ph-nav-item" id="ph-export-nav" onclick="showTab('observation'); setTimeout(()=>document.getElementById('obs-export-json-all-btn')?.scrollIntoView({behavior:'smooth'}),300); document.getElementById('profile-menu').classList.remove('show')">
+            <span class="ph-nav-icon">Export</span>
             <span class="ph-nav-label">Export Data</span>
             <span class="ph-nav-arrow">›</span>
           </button>
-          <button class="ph-nav-item" id="ph-backup-nav" onclick="document.getElementById('profile-menu').classList.remove('show')">
-            <span class="ph-nav-icon">💾</span>
+          <button class="ph-nav-item" id="ph-backup-nav" onclick="showTab('observation'); setTimeout(()=>document.getElementById('obs-create-snapshot-btn')?.scrollIntoView({behavior:'smooth'}),300); document.getElementById('profile-menu').classList.remove('show')">
+            <span class="ph-nav-icon">Backup</span>
             <span class="ph-nav-label">Backup &amp; Restore</span>
             <span class="ph-nav-arrow">›</span>
           </button>
         </div>
       </div>
+
 
       <!-- ACCOUNT / SIGN IN -->
       <div class="ph-footer-section">
