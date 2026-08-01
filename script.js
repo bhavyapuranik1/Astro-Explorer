@@ -12056,6 +12056,22 @@ function updateMemorySettings() {
 
 }
 
+function renderPinSVG(isPinned, size = 18) {
+  if (isPinned) {
+    return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="#00f5ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="pin-icon is-pinned">
+      <line x1="2" y1="2" x2="22" y2="22"></line>
+      <line x1="12" y1="17" x2="12" y2="22"></line>
+      <path d="M9 9v1.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V17h12m2 0v-1.76a2 2 0 0 0-.44-1.24"></path>
+      <path d="M15 9.34V5h1a1 1 0 0 0 0-2H9"></path>
+    </svg>`;
+  } else {
+    return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="pin-icon">
+      <line x1="12" y1="17" x2="12" y2="22"></line>
+      <path d="M5 17h14l-1.5-6H19l-1.2-4.8A2 2 0 0 0 15.8 4H8.2a2 2 0 0 0-1.96 1.2L5 11h1.5L5 17z"></path>
+    </svg>`;
+  }
+}
+
 function renderMemoryList() {
 
   console.log("Memories:", astroMemory);
@@ -12282,23 +12298,7 @@ ${memory.type === "File"
 
         :
 
-function renderPinSVG(isPinned, size = 18) {
-  if (isPinned) {
-    return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="#00f5ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="pin-icon is-pinned">
-      <line x1="2" y1="2" x2="22" y2="22"></line>
-      <line x1="12" y1="17" x2="12" y2="22"></line>
-      <path d="M9 9v1.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V17h12m2 0v-1.76a2 2 0 0 0-.44-1.24"></path>
-      <path d="M15 9.34V5h1a1 1 0 0 0 0-2H9"></path>
-    </svg>`;
-  } else {
-    return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="pin-icon">
-      <line x1="12" y1="17" x2="12" y2="22"></line>
-      <path d="M5 17h14l-1.5-6H19l-1.2-4.8A2 2 0 0 0 15.8 4H8.2a2 2 0 0 0-1.96 1.2L5 11h1.5L5 17z"></path>
-    </svg>`;
-  }
-}
-
-        `
+`
 <button type="button" class="memory-btn ${memory.pinned ? 'active' : ''}" onclick="togglePin(${memory.id})" title="${memory.pinned ? 'Unpin' : 'Pin'}">
   ${renderPinSVG(Boolean(memory.pinned), 18)}
 </button>
