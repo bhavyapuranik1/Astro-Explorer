@@ -14493,7 +14493,7 @@ function ommToTle(sat) {
     const startOfYear = new Date(Date.UTC(fullYear, 0, 1));
     const dayOfYear = (epochDate - startOfYear) / (86400000) + 1;
 
-    const satnum = String(sat.NORAD_CAT_ID || 0).padStart(5, '0');
+    const satnum = String(sat.NORAD_CAT_ID || 0).padStart(5, '0').substring(0, 5);
     const classification = sat.CLASSIFICATION_TYPE || 'U';
     const rawDesig = String(sat.OBJECT_ID || '00000A')
       .replace(/^(19|20)/, '')
@@ -14527,16 +14527,14 @@ function ommToTle(sat) {
     const raanStr = Number(sat.RA_OF_ASC_NODE || 0).toFixed(4).padStart(8, ' ');
 
     let eccVal = sat.ECCENTRICITY || 0;
-    let eccStr = String(Math.round(eccVal * 1e7)).padStart(7, '0');
+    let eccStr = String(Math.round(eccVal * 1e7)).padStart(7, '0').substring(0, 7);
 
     const argpStr = Number(sat.ARG_OF_PERICENTER || 0).toFixed(4).padStart(8, ' ');
     const maStr = Number(sat.MEAN_ANOMALY || 0).toFixed(4).padStart(8, ' ');
     const mmStr = Number(sat.MEAN_MOTION || 0).toFixed(8).padStart(11, ' ');
-    const revStr = String(sat.REV_AT_EPOCH || 0).padStart(5, ' ');
+    const revStr = String(sat.REV_AT_EPOCH || 0).padStart(5, ' ').substring(0, 5);
 
     const line2 = `2 ${satnum} ${incStr} ${raanStr} ${eccStr} ${argpStr} ${maStr} ${mmStr}${revStr}1`;
-    console.log("Generated TLE Line1:", line1, line1.length);
-    console.log("Generated TLE Line2:", line2, line2.length);
     return { line1, line2 };
   } catch (e) {
     return null;
@@ -14656,7 +14654,7 @@ function drawAdvancedLayers() {
     };
     const gmst = satLib.gstime(skyTime);
 
-    const MAX_VISIBLE_SATS = 60;
+    const MAX_VISIBLE_SATS = 250;
     let renderedCount = 0;
 
     const selectedSatName = (selectedObject && selectedObject.type === "satellite")
@@ -14730,10 +14728,14 @@ function drawAdvancedLayers() {
                 context.font = isSelected ? "bold 11px sans-serif" : "bold 10px sans-serif";
                 context.textAlign = "center";
 
-                const displayName = rawName
-                  .replace(/\s*\(NORAD.*?\)/i, "")
-                  .replace(/^STARLINK-\d+.*/i, m => m.match(/STARLINK-\d+/i)[0])
-                  .trim();
+                let displayName = rawName.replace(/\s*\(NORAD.*?\)/i, "").trim();
+                if (/^STARLINK/i.test(displayName)) {
+                  const m = displayName.match(/STARLINK[-\s]?\d+/i);
+                  if (m) displayName = m[0].toUpperCase();
+                } else if (/^QIANFAN/i.test(displayName)) {
+                  const m = displayName.match(/QIANFAN[-\s]?\d+/i);
+                  if (m) displayName = m[0].toUpperCase();
+                }
 
                 context.strokeText(displayName, pt[0], pt[1] + 16);
                 context.fillText(displayName, pt[0], pt[1] + 16);
