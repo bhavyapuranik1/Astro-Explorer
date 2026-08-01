@@ -12282,12 +12282,25 @@ ${memory.type === "File"
 
         :
 
+function renderPinSVG(isPinned, size = 18) {
+  if (isPinned) {
+    return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="#00f5ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="pin-icon is-pinned">
+      <line x1="2" y1="2" x2="22" y2="22"></line>
+      <line x1="12" y1="17" x2="12" y2="22"></line>
+      <path d="M9 9v1.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V17h12m2 0v-1.76a2 2 0 0 0-.44-1.24"></path>
+      <path d="M15 9.34V5h1a1 1 0 0 0 0-2H9"></path>
+    </svg>`;
+  } else {
+    return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="pin-icon">
+      <line x1="12" y1="17" x2="12" y2="22"></line>
+      <path d="M5 17h14l-1.5-6H19l-1.2-4.8A2 2 0 0 0 15.8 4H8.2a2 2 0 0 0-1.96 1.2L5 11h1.5L5 17z"></path>
+    </svg>`;
+  }
+}
+
         `
 <button type="button" class="memory-btn ${memory.pinned ? 'active' : ''}" onclick="togglePin(${memory.id})" title="${memory.pinned ? 'Unpin' : 'Pin'}">
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="${memory.pinned ? '#00f5ff' : 'none'}" stroke="${memory.pinned ? '#00f5ff' : 'currentColor'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-    <line x1="12" y1="17" x2="12" y2="22"></line>
-    <path d="M5 17h14l-1.5-6H19l-1.2-4.8A2 2 0 0 0 15.8 4H8.2a2 2 0 0 0-1.96 1.2L5 11h1.5L5 17z"></path>
-  </svg>
+  ${renderPinSVG(Boolean(memory.pinned), 18)}
 </button>
 <button type="button" class="memory-btn ${memory.favorite ? 'active' : ''}" onclick="toggleFavorite(${memory.id})" title="${memory.favorite ? 'Remove Favorite' : 'Save Favorite'}">
   ${memory.favorite ? "⭐" : "☆"}
@@ -16272,20 +16285,22 @@ function renderObservationHistory() {
     return `
       <div class="obs-history-card ${isFav ? 'is-favorite' : ''}">
         <div>
-          <div class="card-header-row">
-            <div>
+          <div class="card-header-row" style="display:flex; justify-content:space-between; align-items:flex-start; width:100%;">
+            <div style="flex:1;">
               <div style="display:flex; align-items:center; gap:8px;">
                 <h4 class="card-obs-title" style="margin:0;">${obs.title || "Untitled Observation"}</h4>
                 <span class="card-rating-stars" title="${ratingVal}/5 Stars">${ratingStars}</span>
               </div>
-              <div class="card-obs-meta" style="margin-top:4px; display:flex; align-items:center; justify-content:space-between; gap:12px; width:100%;">
+              <div class="card-obs-meta" style="margin-top:4px;">
                 <span>${obs.date || "Unknown Date"}</span>
-                <span style="margin-left: auto; text-align: right;">${obs.duration ? obs.duration : (obs.startTime ? obs.startTime + (obs.endTime ? ' - ' + obs.endTime : '') : '')}</span>
               </div>
             </div>
-            <button type="button" class="card-fav-star ${isFav ? 'active' : ''}" data-id="${obs.id}" title="${isFav ? 'Unmark Favorite' : 'Mark Favorite'}">
-              ${isFav ? '⭐' : '☆'}
-            </button>
+            <div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px; flex-shrink:0;">
+              <button type="button" class="card-fav-star ${isFav ? 'active' : ''}" data-id="${obs.id}" title="${isFav ? 'Unmark Favorite' : 'Mark Favorite'}">
+                ${isFav ? '⭐' : '☆'}
+              </button>
+              ${(obs.duration || obs.startTime) ? `<span class="card-obs-time" style="font-size:0.82rem; color:#94a3b8; font-weight:500;">${obs.duration ? obs.duration : (obs.startTime + (obs.endTime ? ' - ' + obs.endTime : ''))}</span>` : ''}
+            </div>
           </div>
 
           <div class="card-details-grid" style="margin-top: 12px;">
