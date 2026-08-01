@@ -1910,25 +1910,53 @@ function updateNASAFavBadge() {
   }
 }
 
-function toggleNASAFavorite(item) {
+function isNASAFavorite(id) {
+  if (!id) return false;
+  const favs = getNASAFavorites();
+  return favs.some(f => (f.id || f.url || f.name) === id);
+}
+
+function renderNASAFavBtn(item) {
+  const id = item.id || item.url || item.name;
+  const isFav = isNASAFavorite(id);
+  const safeItemJSON = JSON.stringify(item).replace(/'/g, "&#39;").replace(/"/g, "&quot;");
+  return `<button type="button" class="nasa-fav-icon-btn ${isFav ? 'is-favorited' : ''}" title="${isFav ? 'Remove Favorite' : 'Save Favorite'}" aria-label="Favorite" onclick='toggleNASAFavorite(${safeItemJSON}, this)'>${isFav ? '⭐' : '☆'}</button>`;
+}
+
+function toggleNASAFavorite(item, btnElement) {
   let favs = getNASAFavorites();
   const id = item.id || item.url || item.name;
   const idx = favs.findIndex(f => (f.id || f.url || f.name) === id);
+  let isNowFav = false;
 
   if (idx >= 0) {
     favs.splice(idx, 1);
-    if (typeof showToast === "function") showToast("⭐ Removed from NASA Favorites");
+    isNowFav = false;
+    if (typeof showToast === "function") showToast("Removed from NASA Favorites");
   } else {
     favs.push({
       ...item,
       id,
       savedAt: new Date().toISOString()
     });
-    if (typeof showToast === "function") showToast("⭐ Added to NASA Favorites!");
+    isNowFav = true;
+    if (typeof showToast === "function") showToast("Added to NASA Favorites!");
   }
 
   localStorage.setItem("nasaFavorites", JSON.stringify(favs));
   updateNASAFavBadge();
+
+  if (btnElement) {
+    if (isNowFav) {
+      btnElement.innerText = "⭐";
+      btnElement.classList.add("is-favorited");
+      btnElement.title = "Remove Favorite";
+    } else {
+      btnElement.innerText = "☆";
+      btnElement.classList.remove("is-favorited");
+      btnElement.title = "Save Favorite";
+    }
+  }
 }
 
 /* SHARED IMAGE LIGHTBOX VIEWER */
@@ -2160,9 +2188,6 @@ async function loadMarsView() {
 
     if (!data || !data.photos || !data.photos.length) {
       grid.innerHTML = `
-        <div class="nasa-no-data-card" style="grid-column: 1 / -1; text-align:center; padding: 40px 20px; background: rgba(255,255,255,0.03); border: 1px dashed rgba(255,255,255,0.15); border-radius: 12px; color: #a0aec0; margin: 15px 0;">
-          <div style="font-size: 2.5rem; margin-bottom: 12px;">📷</div>
-          <h3 style="color: #e2e8f0; margin-bottom: 8px; font-weight: 600; font-size: 1.2rem;">No photos available for this date</h3>
           <p style="font-size: 0.95rem; color: #94a3b8; margin: 0;">No photos recorded for ${rover.toUpperCase()} on ${dateLabel}${camera !== 'all' ? ' (' + camera.toUpperCase() + ' camera)' : ''}. Try selecting another Sol, Earth Date, or Camera filter.</p>
         </div>
       `;
@@ -2177,7 +2202,7 @@ async function loadMarsView() {
           <span class="nasa-media-meta">Sol ${p.sol} • ${p.earth_date}</span>
           <div class="nasa-media-actions">
             <button type="button" class="nasa-btn-secondary" onclick="openNASAImageViewer({url: '${p.img_src}', title: '${p.rover.name} Rover - ${p.camera.full_name}', date: 'Sol ${p.sol} (${p.earth_date})'})">View</button>
-            <button type="button" class="nasa-fav-icon-btn" title="Save Favorite" aria-label="Favorite" onclick="toggleNASAFavorite({url: '${p.img_src}', title: '${p.rover.name} Sol ${p.sol} (${p.camera.name})', sol: ${p.sol}})">⭐</button>
+            ${renderNASAFavBtn({url: p.img_src, title: `${p.rover.name} Sol ${p.sol} (${p.camera.name})`, id: p.id || p.img_src, sol: p.sol})}
           </div>
         </div>
       </div>
@@ -2230,13 +2255,13 @@ async function loadNEOView() {
             <h4 class="nasa-media-title">${a.name}</h4>
             <span class="nasa-media-meta">Approach Date: ${approach.close_approach_date || 'Today'}</span>
             <div style="font-size: 0.82rem; color: #cbd5e1; margin-top: 4px; display: flex; flex-direction: column; gap: 4px;">
-              <div>🚀 Velocity: <strong>${speed.toLocaleString()} km/h</strong></div>
-              <div>📏 Diameter: <strong>${sizeM} meters</strong></div>
-              <div>🌍 Miss Distance: <strong>${missKm.toLocaleString()} km</strong></div>
-              <div>⚠️ Hazard Rating: <strong>${isHaz ? 'Potentially Hazardous' : 'Safe Orbit'}</strong></div>
+              <div>Velocity: <strong>${speed.toLocaleString()} km/h</strong></div>
+              <div>Diameter: <strong>${sizeM} meters</strong></div>
+              <div>Miss Distance: <strong>${missKm.toLocaleString()} km</strong></div>
+              <div>Hazard Rating: <strong>${isHaz ? 'Potentially Hazardous' : 'Safe Orbit'}</strong></div>
             </div>
             <div class="nasa-media-actions" style="margin-top: 10px;">
-              <button type="button" class="nasa-fav-icon-btn" title="Save Favorite" aria-label="Favorite" onclick="toggleNASAFavorite({name: '${a.name}', speed: ${speed}, missKm: ${missKm}, isHaz: ${isHaz}})">⭐</button>
+              ${renderNASAFavBtn({name: a.name, id: a.id || a.name, speed: speed, missKm: missKm, isHaz: isHaz})}
             </div>
           </div>
         </div>
@@ -2277,7 +2302,7 @@ async function loadLibraryView() {
             <span class="nasa-media-meta">${d.date_created ? d.date_created.split('T')[0] : ''} • ${d.center || 'NASA'}</span>
             <div class="nasa-media-actions">
               ${thumb ? `<button type="button" class="nasa-btn-secondary" onclick="openNASAImageViewer({url: '${thumb}', title: '${(d.title || '').replace(/'/g, "")}', date: '${d.date_created ? d.date_created.split('T')[0] : ''}', explanation: '${(d.description || '').replace(/'/g, "").slice(0, 300)}'})">View</button>` : ''}
-              <button type="button" class="nasa-fav-icon-btn" title="Save Favorite" aria-label="Favorite" onclick="toggleNASAFavorite({title: '${(d.title || '').replace(/'/g, "")}', url: '${thumb}', id: '${d.nasa_id}'})">⭐</button>
+              ${renderNASAFavBtn({title: (d.title || '').replace(/'/g, ""), url: thumb, id: d.nasa_id})}
             </div>
           </div>
         </div>
@@ -2294,7 +2319,7 @@ function loadFavoritesView() {
 
   const favs = getNASAFavorites();
   if (!favs.length) {
-    grid.innerHTML = `<div class="nasa-loading-skeleton">No saved NASA favorites yet. Click ⭐ Favorite on any APOD, EPIC Earth shot, Mars photo, or Asteroid card to save items here!</div>`;
+    grid.innerHTML = `<div class="nasa-loading-skeleton">No saved NASA favorites yet. Click the star button on any APOD, EPIC Earth shot, Mars photo, or Asteroid card to save items here!</div>`;
     return;
   }
 
@@ -2319,7 +2344,7 @@ async function loadEarthView() {
   const q = document.getElementById("earth-search-input")?.value?.toLowerCase() || "";
   const category = document.getElementById("earth-category-select")?.value || "all";
 
-  grid.innerHTML = '<div class="nasa-card-skeleton">Loading Earth Observatory Data...</div>';
+  grid.innerHTML = '<div class="nasa-loading-skeleton">Loading Earth Observatory Data...</div>';
 
   try {
     let events = [];
@@ -2376,7 +2401,7 @@ async function loadEarthView() {
     });
 
     if (!filtered.length) {
-      grid.innerHTML = '<div class="nasa-card-skeleton">No Earth Observatory events match your filters. Try clearing your search.</div>';
+      grid.innerHTML = '<div class="nasa-loading-skeleton">No Earth Observatory events match your filters. Try clearing your search.</div>';
       return;
     }
 
@@ -2393,7 +2418,7 @@ async function loadEarthView() {
           <span class="nasa-media-meta">Coords: ${item.coordinates}</span>
           <div class="nasa-media-actions">
             <a href="${item.url}" target="_blank" rel="noopener" class="nasa-btn-secondary">Details</a>
-            <button type="button" class="nasa-fav-icon-btn" title="Save Favorite" aria-label="Favorite" onclick="toggleNASAFavorite({id: '${item.id}', title: '${item.title}', url: '${item.img || 'https://images-assets.nasa.gov/image/GSFC_20171208_archive_e001465/GSFC_20171208_archive_e001465~thumb.jpg'}'})">⭐</button>
+            ${renderNASAFavBtn({id: item.id, title: item.title, url: item.img || 'https://images-assets.nasa.gov/image/GSFC_20171208_archive_e001465/GSFC_20171208_archive_e001465~thumb.jpg'})}
           </div>
         </div>
       </div>
@@ -2487,7 +2512,7 @@ async function loadSpaceWeatherView() {
           <span class="nasa-media-meta">Issue Time: ${item.time}</span>
           <div class="nasa-media-actions">
             <a href="${item.link}" target="_blank" rel="noopener" class="nasa-btn-secondary">Telemetry</a>
-            <button type="button" class="nasa-fav-icon-btn" title="Save Favorite" aria-label="Favorite" onclick="toggleNASAFavorite({id: '${item.id}', title: '${item.typeName}', url: '${item.img}'})">⭐</button>
+            ${renderNASAFavBtn({id: item.id, title: item.typeName, url: item.img})}
           </div>
         </div>
       </div>
@@ -2548,7 +2573,7 @@ async function loadExoplanetsView() {
         <span class="nasa-media-meta">Star: ${p.hostStar} • ${p.distLy} ly • ${p.discYear}</span>
         <div class="nasa-media-actions">
           <button type="button" class="nasa-btn-secondary" onclick="openNASAImageViewer({url: '${p.img}', title: '${p.name}', explanation: '${p.desc}'})">View</button>
-          <button type="button" class="nasa-fav-icon-btn" title="Save Favorite" aria-label="Favorite" onclick="toggleNASAFavorite({id: '${p.id}', title: '${p.name}', url: '${p.img}'})">⭐</button>
+          ${renderNASAFavBtn({id: p.id, title: p.name, url: p.img})}
         </div>
       </div>
     </div>
@@ -2600,7 +2625,7 @@ async function loadMissionsView() {
         <span class="nasa-media-meta">Target: ${m.target} • Launch: ${m.launch}</span>
         <div class="nasa-media-actions">
           <a href="${m.url}" target="_blank" rel="noopener" class="nasa-btn-secondary">Mission</a>
-          <button type="button" class="nasa-fav-icon-btn" title="Save Favorite" aria-label="Favorite" onclick="toggleNASAFavorite({id: '${m.id}', title: '${m.name}', url: '${m.img}'})">⭐</button>
+          ${renderNASAFavBtn({id: m.id, title: m.name, url: m.img})}
         </div>
       </div>
     </div>
@@ -2676,7 +2701,7 @@ async function loadLaunchesView() {
           <span class="nasa-media-meta">Rocket: ${l.rocket} • Launch: ${l.date}</span>
           <div class="nasa-media-actions">
             <button type="button" class="nasa-btn-secondary" onclick="openNASAImageViewer({url: '${l.img}', title: '${l.title}', date: '${l.date}', explanation: '${l.desc}'})">View</button>
-            <button type="button" class="nasa-fav-icon-btn" title="Save Favorite" aria-label="Favorite" onclick="toggleNASAFavorite({id: '${l.id}', title: '${l.title}', url: '${l.img}'})">⭐</button>
+            ${renderNASAFavBtn({id: l.id, title: l.title, url: l.img})}
           </div>
         </div>
       </div>
