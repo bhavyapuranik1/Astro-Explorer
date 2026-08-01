@@ -16287,33 +16287,33 @@ function renderObservationHistory() {
                 <span class="card-rating-stars" title="${ratingVal}/5 Stars">${ratingStars}</span>
               </div>
               <div class="card-obs-meta" style="margin-top:4px;">
-                <span>📅 ${obs.date || "Unknown Date"}</span>
-                ${obs.duration ? `<span>⏱️ ${obs.duration}</span>` : (obs.startTime ? `<span>⏱️ ${obs.startTime}${obs.endTime ? ' - ' + obs.endTime : ''}</span>` : '')}
+                <span>${obs.date || "Unknown Date"}</span>
+                ${obs.duration ? `<span>${obs.duration}</span>` : (obs.startTime ? `<span>${obs.startTime}${obs.endTime ? ' - ' + obs.endTime : ''}</span>` : '')}
               </div>
             </div>
             <button type="button" class="card-fav-star ${isFav ? 'active' : ''}" data-id="${obs.id}" title="${isFav ? 'Unmark Favorite' : 'Mark Favorite'}">
-              ${isFav ? '★' : '☆'}
+              ${isFav ? '⭐' : '☆'}
             </button>
           </div>
 
           <div class="card-details-grid" style="margin-top: 12px;">
             <div class="card-detail-item" title="Location">
-              <span class="icon">📍</span> ${obs.location || "N/A"}
+              <svg style="vertical-align:middle;margin-right:4px;color:#f43f5e;" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>${obs.location || "N/A"}
             </div>
             <div class="card-detail-item" title="Telescope">
-              <span class="icon">🔭</span> ${obs.telescope || "N/A"}
+              ${obs.telescope || "N/A"}
             </div>
             <div class="card-detail-item" title="Weather">
-              <span class="icon">🌤️</span> ${obs.weather || "Clear"}
+              ${obs.weather || "Clear"}
             </div>
             <div class="card-detail-item" title="Seeing & Transparency">
-              <span class="icon">👁️</span> S:${obs.seeing || 3}/5 | T:${obs.transparency || 3}/5
+              S:${obs.seeing || 3}/5 | T:${obs.transparency || 3}/5
             </div>
           </div>
 
           ${tagsArr.length ? `
             <div class="card-tags-row">
-              ${tagsArr.map(t => `<span class="obs-tag-pill">🏷️ ${t}</span>`).join("")}
+              ${tagsArr.map(t => `<span class="obs-tag-pill">${t}</span>`).join("")}
             </div>
           ` : ''}
 
@@ -16330,7 +16330,7 @@ function renderObservationHistory() {
 
           ${Array.isArray(obs.files) && obs.files.length ? `
             <div class="obs-card-attachments">
-              📎 ${obs.files.length} Attachment${obs.files.length > 1 ? 's' : ''}
+              ${obs.files.length} Attachment${obs.files.length > 1 ? 's' : ''}
             </div>
           ` : ''}
         </div>
