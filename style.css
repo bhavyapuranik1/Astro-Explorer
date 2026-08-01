@@ -2848,9 +2848,39 @@ code {
 }
 
 .setting-card p {
+  margin: 8px 0;
+}
 
- margin: 8px 0;
+.setting-info-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 0 !important;
+  font-size: 15px;
+  line-height: 1.5;
+  color: #e2e8f0;
+}
 
+.setting-info-row b,
+.setting-info-row strong,
+.setting-card p b,
+.setting-card p strong,
+.settings-card p b,
+.settings-card p strong {
+  display: inline-block;
+  min-width: 175px;
+  color: #38bdf8;
+  font-weight: 600;
+}
+
+.setting-info-row span,
+.setting-card p span,
+.settings-card p span {
+  color: #f8fafc;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .setting-card button {
