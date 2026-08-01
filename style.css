@@ -9704,3 +9704,30 @@ body.night-vision-active #toggle-night-btn {
 .nasa-badge.badge-red { background: rgba(239, 68, 68, 0.15); color: #f87171; border-color: rgba(239, 68, 68, 0.3); }
 .nasa-badge.badge-gray { background: rgba(148, 163, 184, 0.15); color: #94a3b8; border-color: rgba(148, 163, 184, 0.3); }
 
+/* NASA FAVORITE ICON-ONLY BUTTON */
+.nasa-fav-icon-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #fbbf24;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  flex-shrink: 0;
+  padding: 0;
+  line-height: 1;
+}
+
+.nasa-fav-icon-btn:hover {
+  background: rgba(245, 158, 11, 0.25);
+  border-color: #f59e0b;
+  transform: scale(1.12);
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.35);
+}
+
+
