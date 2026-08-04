@@ -33,6 +33,8 @@ let planetLabels = [];
 let dsoSearchLabel = null;
 let searchedObjectName = "";
 let selectedObject = null;
+const SMART_LABEL_LIMIT = 10;
+const SMART_MODE = true;
 let isUserDragging = false;
 let currentAIObject = null;
 let researchMode = false;
@@ -2085,7 +2087,7 @@ async function loadEPICView() {
     }
 
     const item = data[0];
-    
+
     // Parse UTC date string directly (YYYY-MM-DD) to prevent timezone conversion shifts
     let year, month, day;
     if (item.date && item.date.includes("-")) {
@@ -2203,7 +2205,7 @@ async function loadMarsView() {
           <span class="nasa-media-meta">Sol ${p.sol} • ${p.earth_date}</span>
           <div class="nasa-media-actions">
             <button type="button" class="nasa-btn-secondary" onclick="openNASAImageViewer({url: '${p.img_src}', title: '${p.rover.name} Rover - ${p.camera.full_name}', date: 'Sol ${p.sol} (${p.earth_date})'})">View</button>
-            ${renderNASAFavBtn({url: p.img_src, title: `${p.rover.name} Sol ${p.sol} (${p.camera.name})`, id: p.id || p.img_src, sol: p.sol})}
+            ${renderNASAFavBtn({ url: p.img_src, title: `${p.rover.name} Sol ${p.sol} (${p.camera.name})`, id: p.id || p.img_src, sol: p.sol })}
           </div>
         </div>
       </div>
@@ -2262,7 +2264,7 @@ async function loadNEOView() {
               <div>Hazard Rating: <strong>${isHaz ? 'Potentially Hazardous' : 'Safe Orbit'}</strong></div>
             </div>
             <div class="nasa-media-actions" style="margin-top: 10px;">
-              ${renderNASAFavBtn({name: a.name, id: a.id || a.name, speed: speed, missKm: missKm, isHaz: isHaz})}
+              ${renderNASAFavBtn({ name: a.name, id: a.id || a.name, speed: speed, missKm: missKm, isHaz: isHaz })}
             </div>
           </div>
         </div>
@@ -2303,7 +2305,7 @@ async function loadLibraryView() {
             <span class="nasa-media-meta">${d.date_created ? d.date_created.split('T')[0] : ''} • ${d.center || 'NASA'}</span>
             <div class="nasa-media-actions">
               ${thumb ? `<button type="button" class="nasa-btn-secondary" onclick="openNASAImageViewer({url: '${thumb}', title: '${(d.title || '').replace(/'/g, "")}', date: '${d.date_created ? d.date_created.split('T')[0] : ''}', explanation: '${(d.description || '').replace(/'/g, "").slice(0, 300)}'})">View</button>` : ''}
-              ${renderNASAFavBtn({title: (d.title || '').replace(/'/g, ""), url: thumb, id: d.nasa_id})}
+              ${renderNASAFavBtn({ title: (d.title || '').replace(/'/g, ""), url: thumb, id: d.nasa_id })}
             </div>
           </div>
         </div>
@@ -2355,7 +2357,7 @@ async function loadEarthView() {
         const json = await res.json();
         events = json.events || [];
       }
-    } catch(e) {}
+    } catch (e) { }
 
     const curatedEarth = [
       { id: "e1", title: "Kilauea Volcano Eruption & Lava Flow", category: "volcanoes", categoryName: "Volcanoes", date: "2024-06-10", desc: "Thermal anomaly and plume observed by NASA Terra and MODIS satellite sensors over Hawaii.", coordinates: "19.421°N, 155.287°W", url: "https://earthobservatory.nasa.gov" },
@@ -2419,7 +2421,7 @@ async function loadEarthView() {
           <span class="nasa-media-meta">Coords: ${item.coordinates}</span>
           <div class="nasa-media-actions">
             <a href="${item.url}" target="_blank" rel="noopener" class="nasa-btn-secondary">Details</a>
-            ${renderNASAFavBtn({id: item.id, title: item.title, url: item.img || 'https://images-assets.nasa.gov/image/GSFC_20171208_archive_e001465/GSFC_20171208_archive_e001465~thumb.jpg'})}
+            ${renderNASAFavBtn({ id: item.id, title: item.title, url: item.img || 'https://images-assets.nasa.gov/image/GSFC_20171208_archive_e001465/GSFC_20171208_archive_e001465~thumb.jpg' })}
           </div>
         </div>
       </div>
@@ -2444,7 +2446,7 @@ async function loadSpaceWeatherView() {
       if (res.ok) {
         notifications = await res.json();
       }
-    } catch(e) {
+    } catch (e) {
       console.warn("[NASA DONKI Fetch Quiet Catch]", e);
     }
 
@@ -2513,7 +2515,7 @@ async function loadSpaceWeatherView() {
           <span class="nasa-media-meta">Issue Time: ${item.time}</span>
           <div class="nasa-media-actions">
             <a href="${item.link}" target="_blank" rel="noopener" class="nasa-btn-secondary">Telemetry</a>
-            ${renderNASAFavBtn({id: item.id, title: item.typeName, url: item.img})}
+            ${renderNASAFavBtn({ id: item.id, title: item.typeName, url: item.img })}
           </div>
         </div>
       </div>
@@ -2551,10 +2553,10 @@ async function loadExoplanetsView() {
     return matchQ && matchType && matchHab;
   });
 
-  if (sort === "newest") filtered.sort((a,b) => b.discYear - a.discYear);
-  else if (sort === "nearest") filtered.sort((a,b) => a.distLy - b.distLy);
-  else if (sort === "largest") filtered.sort((a,b) => b.radiusEarth - a.radiusEarth);
-  else if (sort === "earthlike") filtered.sort((a,b) => Math.abs(a.radiusEarth - 1) - Math.abs(b.radiusEarth - 1));
+  if (sort === "newest") filtered.sort((a, b) => b.discYear - a.discYear);
+  else if (sort === "nearest") filtered.sort((a, b) => a.distLy - b.distLy);
+  else if (sort === "largest") filtered.sort((a, b) => b.radiusEarth - a.radiusEarth);
+  else if (sort === "earthlike") filtered.sort((a, b) => Math.abs(a.radiusEarth - 1) - Math.abs(b.radiusEarth - 1));
 
   if (!filtered.length) {
     grid.innerHTML = '<div class="nasa-loading-skeleton">No exoplanets found matching your criteria.</div>';
@@ -2574,7 +2576,7 @@ async function loadExoplanetsView() {
         <span class="nasa-media-meta">Star: ${p.hostStar} • ${p.distLy} ly • ${p.discYear}</span>
         <div class="nasa-media-actions">
           <button type="button" class="nasa-btn-secondary" onclick="openNASAImageViewer({url: '${p.img}', title: '${p.name}', explanation: '${p.desc}'})">View</button>
-          ${renderNASAFavBtn({id: p.id, title: p.name, url: p.img})}
+          ${renderNASAFavBtn({ id: p.id, title: p.name, url: p.img })}
         </div>
       </div>
     </div>
@@ -2626,7 +2628,7 @@ async function loadMissionsView() {
         <span class="nasa-media-meta">Target: ${m.target} • Launch: ${m.launch}</span>
         <div class="nasa-media-actions">
           <a href="${m.url}" target="_blank" rel="noopener" class="nasa-btn-secondary">Mission</a>
-          ${renderNASAFavBtn({id: m.id, title: m.name, url: m.img})}
+          ${renderNASAFavBtn({ id: m.id, title: m.name, url: m.img })}
         </div>
       </div>
     </div>
@@ -2650,7 +2652,7 @@ async function loadLaunchesView() {
         const json = await res.json();
         apiLaunches = json.results || [];
       }
-    } catch(e) {}
+    } catch (e) { }
 
     const curatedLaunches = [
       { id: "l1", title: "Artemis II Crewed Lunar Flyby", agency: "NASA", rocket: "Space Launch System (SLS) Block 1", pad: "LC-39B, Kennedy Space Center, FL, USA", date: "2025-09-15 14:00 UTC", status: "upcoming", desc: "First crewed flight test of the Orion spacecraft carrying 4 astronauts around the Moon.", img: "https://images-assets.nasa.gov/image/KSC-20221116-PH-KSC01_0001/KSC-20221116-PH-KSC01_0001~thumb.jpg" },
@@ -2702,7 +2704,7 @@ async function loadLaunchesView() {
           <span class="nasa-media-meta">Rocket: ${l.rocket} • Launch: ${l.date}</span>
           <div class="nasa-media-actions">
             <button type="button" class="nasa-btn-secondary" onclick="openNASAImageViewer({url: '${l.img}', title: '${l.title}', date: '${l.date}', explanation: '${l.desc}'})">View</button>
-            ${renderNASAFavBtn({id: l.id, title: l.title, url: l.img})}
+            ${renderNASAFavBtn({ id: l.id, title: l.title, url: l.img })}
           </div>
         </div>
       </div>
@@ -2959,15 +2961,17 @@ function buildSkyConfig() {
       proper: true
     },
 
+
+
     constellations: {
-      show: s.showConstellationNames !== undefined ? s.showConstellationNames : true,
-      names: s.showConstellationNames !== undefined ? s.showConstellationNames : true,
-      lines: s.showConstellationLines !== undefined ? s.showConstellationLines : true
+      show: s.showConstellations !== undefined ? s.showConstellations : (s.showConstellationLines !== undefined ? s.showConstellationLines : true),
+      names: s.showConstellations !== undefined ? s.showConstellations : (s.showConstellationNames !== undefined ? s.showConstellationNames : true),
+      lines: s.showConstellations !== undefined ? s.showConstellations : (s.showConstellationLines !== undefined ? s.showConstellationLines : true)
     },
 
     asterisms: {
       show: s.showAsterisms !== undefined ? s.showAsterisms : true,
-      names: s.showAsterismNames !== undefined ? s.showAsterismNames : true,
+      names: s.showAsterisms !== undefined ? s.showAsterisms : true,
       style: {
         stroke: s.asterismColor || "#ffaa00",
         width: s.asterismWidth || 1.2,
@@ -3434,42 +3438,26 @@ async function loadObjects() {
     if (!o.ra || !o.dec) return null;
 
     return {
+      name: (o.m?.[0] || o.name || "").toLowerCase().replace(/\s+/g, ""),
 
-      name:
-        (
-          o.messier ||
-          o.name ||
-          ""
-        )
-          .toLowerCase()
-          .replace(/\s+/g, ""),
+      id: (o.m?.[0] || o.name || "").toLowerCase().replace(/\s+/g, ""),
 
-      id:
-        (
-          o.messier ||
-          o.name ||
-          ""
-        )
-          .toLowerCase()
-          .replace(/\s+/g, ""),
+      fullName: o.name || "",
+      commonName: o.common_names || "",
+
+      messier: o.m?.[0] || "",
+      ngc: o.name || "",
+      identifiers: o.identifiers || "",
 
       ra: raToDeg(o.ra),
-
       dec: decToDeg(o.dec),
 
       type: "dso",
 
-      mag:
-        o.mag || "N/A",
-
-      constellation:
-        o.const || "N/A",
-
-      size:
-        o.dim || "N/A",
-
-      morph:
-        o.morph || "N/A"
+      mag: o.v_mag || o.b_mag || "N/A",
+      constellation: o.const || "N/A",
+      size: o.majax || "N/A",
+      morph: o.object_definition || "N/A"
     };
 
   }).filter(Boolean);
@@ -3640,6 +3628,14 @@ async function loadObjects() {
 
   // 🔥 SEARCH BASE
   searchObjects = [...allObjects];
+
+  // Build searchable text automatically
+  searchObjects.forEach(obj => {
+    obj.searchText = Object.values(obj)
+      .filter(v => typeof v === "string")
+      .join(" ")
+      .toLowerCase();
+  });
 
   console.log(
     "IC Objects:",
@@ -4463,12 +4459,22 @@ const DISABLED_SEARCH_PLACEHOLDER = "Enable Celestial Objects to search.";
 
 function isCelestialSearchEnabled() {
   if (typeof skySettings === "undefined") return true;
-  if (skySettings.showCelestialObjects === false) return false;
-  if (skySettings.showDSOs === false) return false;
+  if (skySettings.showCelestialObjects === false || skySettings.showCelestialObjects === "false" || skySettings.showCelestialObjects === 0) {
+    return false;
+  }
+  if (skySettings.showDSOs === false || skySettings.showDSOs === "false" || skySettings.showDSOs === 0) {
+    return false;
+  }
   return true;
 }
 
 function updateSearchStateForCelestialToggle(isEnabled) {
+  console.log(
+    "TOGGLE STATE:",
+    skySettings.showCelestialObjects,
+    "DSOs:",
+    skySettings.showDSOs
+  );
   if (isEnabled === undefined) {
     isEnabled = isCelestialSearchEnabled();
   }
@@ -4512,6 +4518,12 @@ function updateSearchStateForCelestialToggle(isEnabled) {
       infoPanel.style.display = "none";
     }
 
+
+
+    if (typeof updateObjectInfo === "function") {
+      updateObjectInfo(null);
+    }
+
     // Reset search state & markers
     if (typeof animationId !== "undefined" && animationId) {
       cancelAnimationFrame(animationId);
@@ -4550,6 +4562,11 @@ function updateSearchStateForCelestialToggle(isEnabled) {
     if (typeof _syncNavButtons === "function") {
       _syncNavButtons();
     }
+    if (searchBox) {
+      searchBox.blur();
+    }
+
+    document.activeElement?.blur();
   }
 }
 
@@ -4601,6 +4618,16 @@ function searchObject() {
   // 🔍 INPUT
   let query = document.getElementById("searchBox").value;
   let searchTerm = query.toLowerCase().trim();
+  if (!searchTerm) {
+    const suggestionsPanel = document.getElementById("search-suggestions");
+
+    if (suggestionsPanel) {
+        suggestionsPanel.classList.add("hidden");
+        suggestionsPanel.innerHTML = "";
+    }
+
+    return;
+}
 
   searchTerm = searchTerm.replace(/\s+/g, " ");
 
@@ -4620,10 +4647,11 @@ function searchObject() {
   // Rank the candidates using fuzzy search
   const scored = candidates
     .map(o => ({ obj: o, rank: (typeof SearchManager !== "undefined") ? SearchManager.getRank(searchTerm, o) : 50 }))
-    .filter(x => x.rank < 100)
+    .filter(x => x.rank < 4)
     .sort((a, b) => a.rank - b.rank || String(a.obj.name).localeCompare(String(b.obj.name)));
 
   let obj = null;
+
 
   const exactAsteroid = scored.find(
     x => x.obj.type === "asteroid" &&
@@ -4657,9 +4685,40 @@ function searchObject() {
     }
   }
 
-  // ❌ NOT FOUND
   if (!obj) {
-    alert("Object not found ❌");
+
+    const suggestionsPanel = document.getElementById("search-suggestions");
+
+    if (suggestionsPanel) {
+
+        suggestionsPanel.classList.remove("hidden");
+
+        suggestionsPanel.innerHTML = `
+            <div class="suggestion-empty">
+                No matching celestial object found
+            </div>
+        `;
+
+    }
+
+    return;
+}
+
+  // Respect visibility toggles
+  const visibilityMap = {
+    planet: "showPlanets",
+    star: "showStars",
+    dso: "showDSOs",
+    asteroid: "showAsteroids",
+    comet: "showComets",
+    satellite: "showSatellites",
+    spacecraft: "showSpacecraft"
+  };
+
+  const setting = visibilityMap[obj.type];
+
+  if (setting && !skySettings[setting]) {
+    // Later you can replace this with your inline message
     return;
   }
 
@@ -4667,7 +4726,11 @@ function searchObject() {
   selectedObject = obj;
 
   updateObjectInfo(obj);
-  document.getElementById("object-info-panel").style.display = "block";
+  if (isCelestialSearchEnabled()) {
+    document.getElementById("object-info-panel").style.display = "block";
+  } else {
+    document.getElementById("object-info-panel").style.display = "none";
+  }
   updateDynamicInfo();
 
   // Add to Search History
@@ -4696,10 +4759,19 @@ function searchObject() {
 
     currentTarget = [raDeg, decDeg];
     selectedObject = obj;
+    const suggestionsPanel = document.getElementById("search-suggestions");
+
+    if (suggestionsPanel) {
+      suggestionsPanel.classList.add("hidden");
+    }
     searchedObjectName = obj.displayName || obj.name;
 
     updateObjectInfo(obj);
-    document.getElementById("object-info-panel").style.display = "block";
+    if (isCelestialSearchEnabled()) {
+      document.getElementById("object-info-panel").style.display = "block";
+    } else {
+      document.getElementById("object-info-panel").style.display = "none";
+    }
     updateDynamicInfo();
 
     if (typeof SearchManager !== "undefined") SearchManager.addHistory(obj);
@@ -5542,6 +5614,10 @@ const TelescopeManager = {
 };
 
 // ================= 🔍 ADVANCED SEARCH MANAGER =================
+// Exact alias match
+
+
+
 const SearchManager = {
   category: "all",
   historyKey: "astro_search_history",
@@ -5585,9 +5661,28 @@ const SearchManager = {
       }
     });
 
+    if (!isCelestialSearchEnabled()) {
+      return;
+    }
+
     searchBox.addEventListener("input", () => {
-      SearchManager.updateSuggestions();
-    });
+
+    if (!isCelestialSearchEnabled()) {
+        searchBox.value = "";
+        suggestionsPanel.classList.add("hidden");
+        suggestionsPanel.innerHTML = "";
+        return;
+    }
+
+    // 👇 Agar input empty hai to panel hide karke return
+    if (searchBox.value.trim() === "") {
+        suggestionsPanel.classList.add("hidden");
+        suggestionsPanel.innerHTML = "";
+        return;
+    }
+
+    SearchManager.updateSuggestions();
+});
 
     if (favBtn) {
       favBtn.addEventListener("click", () => {
@@ -5672,11 +5767,51 @@ const SearchManager = {
     favBtn.style.background = isFav ? "rgba(255,215,0,0.1) !important" : "rgba(0, 255, 255, 0.1) !important";
   },
 
+
+
   getRank(query, obj) {
     const q = query.toLowerCase().replace(/[^a-z0-9]/g, "");
     const name = String(obj.name || "").toLowerCase().replace(/[^a-z0-9]/g, "");
     const id = String(obj.id || "").toLowerCase().replace(/[^a-z0-9]/g, "");
     const fullName = String(obj.fullName || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+
+    // Collect every searchable name automatically
+    const searchableNames = [
+      obj.name,
+      obj.fullName,
+      obj.displayName,
+      obj.commonName,
+      obj.common_names,
+      obj.properName,
+      obj.nickname,
+      obj.messier,
+      obj.ngc,
+      obj.ic,
+      obj.caldwell,
+      obj.object_definition,
+
+      ...(Array.isArray(obj.m) ? obj.m : []),
+
+      ...(obj.aliases || [])
+    ]
+      .filter(Boolean)
+      .flatMap(v => Array.isArray(v) ? v : [v])
+      .map(v => String(v).toLowerCase().replace(/[^a-z0-9]/g, ""));
+
+    if (searchableNames.includes(q)) return 1;
+
+    if (searchableNames.some(v => v.startsWith(q))) return 2;
+
+    if (searchableNames.some(v => v.includes(q))) return 3;
+
+    // Search aliases
+    const aliases = (obj.aliases || []).map(a =>
+      a.toLowerCase().replace(/[^a-z0-9]/g, "")
+    );
+
+    if (aliases.includes(q)) return 1;
+    if (aliases.some(a => a.startsWith(q))) return 2;
+    if (aliases.some(a => a.includes(q))) return 3;
 
     // Check if query matches a starNameMap alias (e.g. "sirius" → "hd48915")
     const aliasTarget = starNameMap[query.toLowerCase().trim()];
@@ -5687,17 +5822,51 @@ const SearchManager = {
     if (name.startsWith(q) || id.startsWith(q) || fullName.startsWith(q)) return 2;
     if (name.includes(q) || id.includes(q) || fullName.includes(q)) return 3;
 
-    let i = 0, j = 0;
-    while (i < q.length && j < name.length) {
-      if (q[i] === name[j]) i++;
-      j++;
-    }
-    if (i === q.length) return 4;
+    
 
     return 100;
   },
 
+  getObjectIcon(type) {
+
+    switch (type) {
+
+      case "planet":
+        return planetIcon;
+
+      case "star":
+        return starIcon;
+
+      case "dso":
+        return galaxyIcon;
+
+      case "asteroid":
+        return asteroidIcon;
+
+      case "comet":
+        return cometIcon;
+
+      case "satellite":
+        return satelliteIcon;
+
+      case "spacecraft":
+        return spacecraftIcon;
+
+      default:
+        return objectIcon;
+    }
+
+  },
+
   updateSuggestions() {
+    if (!isCelestialSearchEnabled()) {
+      const panel = document.getElementById("search-suggestions");
+      if (panel) {
+        panel.innerHTML = "";
+        panel.classList.add("hidden");
+      }
+      return;
+    }
     if (!isCelestialSearchEnabled()) {
       const suggestionsPanel = document.getElementById("search-suggestions");
       if (suggestionsPanel) {
@@ -5708,39 +5877,82 @@ const SearchManager = {
     }
     const searchBox = document.getElementById("searchBox");
     const suggestionsPanel = document.getElementById("search-suggestions");
+
     if (!searchBox || !suggestionsPanel) return;
 
+    // Purane suggestions clear karo
+    suggestionsPanel.innerHTML = "";
+
     const query = searchBox.value.trim().toLowerCase();
-    const history = this.getHistory(); // Array of { name, type, fullName }
+    const history = searchObjects;
+    // Array of { name, type, fullName }
 
     // Filter history based on typed query (if any)
-    let filtered = history;
-    if (query) {
-      filtered = history.filter(h =>
-        h.name.toLowerCase().includes(query) ||
-        (h.fullName && h.fullName.toLowerCase().includes(query))
-      );
-    }
+    let filtered = history.filter(h => {
+
+      const visibilityMap = {
+        planet: "showPlanets",
+        star: "showStars",
+        dso: "showDSOs",
+        asteroid: "showAsteroids",
+        comet: "showComets",
+        satellite: "showSatellites",
+        spacecraft: "showSpacecraft"
+      };
+
+      const setting = visibilityMap[h.type];
+      if (setting && !skySettings[setting]) return false;
+
+      if (!query) return false;
+
+      return SearchManager.getRank(query, h) < 100;
+    });
+
+    filtered.sort((a, b) =>
+      SearchManager.getRank(query, a) -
+      SearchManager.getRank(query, b)
+    );
 
     // Limit to only 2-3 previous searched objects
     const displayList = filtered.slice(0, 3);
 
     if (displayList.length === 0) {
-      suggestionsPanel.innerHTML = "";
-      suggestionsPanel.classList.add("hidden");
-      return;
-    }
+    suggestionsPanel.innerHTML = "";
+    suggestionsPanel.classList.add("hidden");
+    return;
+}
 
     let html = "";
-    displayList.forEach(h => {
-      html += `
-        <div class="suggestion-item" data-name="${h.name}">
-          <span>🕒 ${h.fullName || h.name}</span>
-          <span class="type">${h.type}</span>
-        </div>
-      `;
-    });
 
+    displayList.forEach(h => {
+
+      html += `
+
+<div class="suggestion-item" data-name="${h.name}">
+
+    <div class="suggestion-content">
+
+        <div class="suggestion-title">
+            ${h.fullName || h.name}
+        </div>
+
+        ${h.commonName ? `
+        <div class="suggestion-subtitle">
+            ${h.commonName}
+        </div>
+        ` : ""}
+
+        <div class="suggestion-badge">
+            ${h.type}
+        </div>
+
+    </div>
+
+</div>
+
+`;
+
+    });
     suggestionsPanel.innerHTML = html;
     suggestionsPanel.classList.remove("hidden");
 
@@ -5942,6 +6154,11 @@ function hideEmptyFields() {
 
 }
 function updateObjectInfo(obj) {
+  if (typeof isCelestialSearchEnabled === "function" && !isCelestialSearchEnabled()) {
+    const infoPanel = document.getElementById("object-info-panel");
+    if (infoPanel) infoPanel.style.display = "none";
+    return;
+  }
   currentAIObject = obj;
   displayRA = null;
   displayDEC = null;
@@ -6132,6 +6349,45 @@ function updateObjectInfo(obj) {
   if (infoDescription) {
     infoDescription.innerText = descText;
   }
+}
+
+function getVisibleSpaceObjects(objects, type) {
+
+  if (!SMART_MODE) return objects;
+
+  const zoom = currentZoom || 1;
+
+  let limit = SMART_LABEL_LIMIT;
+
+  if (zoom < 1.5) limit = 5;
+  else if (zoom < 3) limit = 10;
+  else limit = 20;
+
+  const priority = obj => {
+
+    const n = (obj.name || "").toLowerCase();
+
+    // Highest priority
+    if (n.includes("iss")) return 1000;
+    if (n.includes("tiangong")) return 950;
+    if (n.includes("hubble")) return 900;
+    if (n.includes("jwst")) return 900;
+    if (n.includes("voyager")) return 850;
+    if (n.includes("parker")) return 840;
+
+    // Lowest priority
+    if (n.includes("starlink")) return 100;
+    if (n.includes("oneweb")) return 90;
+    if (n.includes("kuiper")) return 80;
+
+    // Default
+    return 500;
+  };
+
+  return [...objects]
+    .sort((a, b) => priority(b) - priority(a))
+    .slice(0, limit);
+
 }
 
 function updateDynamicInfo() {
@@ -6903,7 +7159,7 @@ const AstroContextEngine = {
 
   filterRelevantMemories(queryLower) {
     if (typeof astroMemory === "undefined" || !astroMemory?.memories?.length) return [];
-    
+
     return astroMemory.memories
       .map(m => {
         if (m.key && m.value) return `${m.key}: ${m.value}`;
@@ -6914,7 +7170,7 @@ const AstroContextEngine = {
         const tLower = text.toLowerCase();
         if (!queryLower || queryLower.length < 5) return true;
         return queryLower.split(" ").some(word => word.length > 3 && tLower.includes(word)) ||
-               tLower.includes("telescope") || tLower.includes("bortle") || tLower.includes("camera") || tLower.includes("location");
+          tLower.includes("telescope") || tLower.includes("bortle") || tLower.includes("camera") || tLower.includes("location");
       })
       .slice(0, 5);
   },
@@ -8578,10 +8834,10 @@ function createAIActionToolbar(text) {
     saveMemBtn.onclick = () => {
       if (typeof astroMemory !== "undefined") {
         if (!astroMemory.memories) astroMemory.memories = [];
-        const structured = typeof extractStructuredMemory === "function" 
-          ? extractStructuredMemory(text) 
+        const structured = typeof extractStructuredMemory === "function"
+          ? extractStructuredMemory(text)
           : { category: "AI Response", value: text.slice(0, 250) + (text.length > 250 ? "..." : "") };
-        
+
         astroMemory.memories.push({
           id: Date.now(),
           text: structured.value || text.slice(0, 250),
@@ -9410,13 +9666,13 @@ document
         const obs = JSON.parse(localStorage.getItem("astroObservations") || "[]");
         const nasaFavs = JSON.parse(localStorage.getItem("nasaFavorites") || "[]");
         const favObs = obs.filter(o => o.isFavorite).length;
-        const totalHrs = obs.reduce((s,o) => s + (parseFloat(o.duration) || 0), 0);
+        const totalHrs = obs.reduce((s, o) => s + (parseFloat(o.duration) || 0), 0);
         const el = id => document.getElementById(id);
         if (el("ph-stat-obs")) el("ph-stat-obs").textContent = obs.length;
         if (el("ph-stat-favs")) el("ph-stat-favs").textContent = favObs;
         if (el("ph-stat-nasa")) el("ph-stat-nasa").textContent = nasaFavs.length;
         if (el("ph-stat-hrs")) el("ph-stat-hrs").textContent = totalHrs > 0 ? totalHrs.toFixed(1) + "h" : "0h";
-      } catch(e) {}
+      } catch (e) { }
     }
   });
 
@@ -9452,7 +9708,7 @@ window.onAuthStateChanged(window.auth, async user => {
       user.email;
 
     // Sync Profile Hub avatar
-    (function() {
+    (function () {
       const phLetter = document.getElementById("ph-avatar-letter");
       const phImg = document.getElementById("ph-avatar-img");
       if (user.photoURL && phImg) {
@@ -12434,7 +12690,7 @@ ${memory.type === "File"
 
         :
 
-`
+        `
 <button type="button" class="memory-btn ${memory.pinned ? 'active' : ''}" onclick="togglePin(${memory.id})" title="${memory.pinned ? 'Unpin' : 'Pin'}">
   ${renderPinSVG(Boolean(memory.pinned), 18)}
 </button>
@@ -13513,9 +13769,18 @@ if (document.readyState === "loading") {
 
 
 function updateSkySettingValue(key, val, options = {}) {
+
+  console.log("KEY:", key, "VALUE:", val);
+
   skySettings[key] = val;
+  console.log("AFTER SAVE:", key, "=", skySettings[key]);
   if (key === "showCelestialObjects" || key === "showDSOs") {
+
     updateSearchStateForCelestialToggle();
+
+    setTimeout(() => {
+      updateSearchStateForCelestialToggle();
+    }, 0);
   }
   if (key === "lightPollution") {
     window.lightPollution = val;
@@ -13559,9 +13824,8 @@ function updateSkySettingValue(key, val, options = {}) {
     showEcliptic: "toggle-ecliptic",
     showGalacticPlane: "toggle-galactic-plane",
     showHorizonLine: "toggle-horizon-line",
-    showConstellationLines: "toggle-constellation-lines",
-    showConstellationNames: "toggle-constellation-names",
     showConstellationArt: "toggle-constellation-art",
+    showConstellationLines: "toggle-constellations",
     showAsterisms: "toggle-asterisms",
     showAsterismNames: "toggle-asterism-names",
     enableRefraction: "toggle-refraction",
@@ -13648,8 +13912,6 @@ function initSkySettings() {
     "toggle-ecliptic": "showEcliptic",
     "toggle-galactic-plane": "showGalacticPlane",
     "toggle-horizon-line": "showHorizonLine",
-    "toggle-constellation-lines": "showConstellationLines",
-    "toggle-constellation-names": "showConstellationNames",
     "toggle-asterisms": "showAsterisms",
     "toggle-asterism-names": "showAsterismNames",
     "toggle-refraction": "enableRefraction",
@@ -13743,6 +14005,21 @@ function initSkySettings() {
     input.oninput = handler;
     input.onchange = handler;
   });
+
+  const constellationToggle = document.getElementById("toggle-constellations");
+
+  if (constellationToggle) {
+
+    toggle.checked = skySettings.showConstellationLines;
+
+    constellationToggle.addEventListener("change", function () {
+
+      updateSkySettingValue("showConstellationLines", this.checked);
+      updateSkySettingValue("showConstellationNames", this.checked);
+
+    });
+
+  }
 
   // Reset Sky Settings Button Logic
   const resetBtn = document.getElementById("reset-sky-settings-btn");
@@ -14540,6 +14817,25 @@ function drawSpacecraftOnSky() {
   if (!context) return;
 
   SPACECRAFT_DATA.forEach(sp => {
+
+    const name = (sp.name || "").toLowerCase();
+
+    const important =
+      name.includes("voyager") ||
+      name.includes("parker") ||
+      name.includes("jwst") ||
+      name.includes("hubble") ||
+      name.includes("dragon") ||
+      name.includes("orion") ||
+      name.includes("lucy") ||
+      name.includes("europa") ||
+      name.includes("psyche");
+
+    const zoom = Celestial.zoomBy ? Celestial.zoomBy() : 1;
+
+    if (!important && zoom < 2) {
+      return;
+    }
     try {
       const pos = getSpacecraftPosition(sp, skyTime || new Date());
       if (!Celestial.clip([pos[0], pos[1]])) return;
@@ -14796,8 +15092,13 @@ function drawAdvancedLayers() {
     };
     const gmst = satLib.gstime(skyTime);
 
+    for (let i = 0; i < SATELLITES_DATA.length; i++) {
+      const sat = SATELLITES_DATA[i];
+    }
+
     const MAX_VISIBLE_SATS = 250;
     let renderedCount = 0;
+    let clutterCount = 0;
 
     const selectedSatName = (selectedObject && selectedObject.type === "satellite")
       ? (selectedObject.name || "").toLowerCase()
@@ -14835,10 +15136,45 @@ function drawAdvancedLayers() {
               const pt = Celestial.mapProjection(coords);
               if (pt) {
                 renderedCount++;
+
                 context.save();
                 context.globalAlpha = 1.0;
 
-                const isBrightSat = satName.includes("iss") || satName.includes("tiangong") || satName.includes("hst") || isSelected;
+                const importantSat =
+                  satName.includes("iss") ||
+                  satName.includes("tiangong") ||
+                  satName.includes("hst") ||
+                  satName.includes("jwst") ||
+                  satName.includes("voyager") ||
+                  satName.includes("parker");
+
+                const clutterSat =
+                  satName.includes("starlink") ||
+                  satName.includes("oneweb") ||
+                  satName.includes("qianfan") ||
+                  satName.includes("kuiper");
+
+                if (clutterSat && !isSelected) {
+
+                  clutterCount++;
+
+                  if (clutterCount % 10 !== 0) {
+                    continue;
+                  }
+
+                }
+                let showLabel = true;
+
+                
+
+                // Zoom level (adjust values if needed)
+                const zoom = Celestial.zoomBy ? Celestial.zoomBy() : 1;
+
+                // Hide clutter satellites when zoomed out
+                // Sirf kuch clutter satellites dikhao
+
+
+                const isBrightSat = importantSat || isSelected;
 
                 // Satellite body dot
                 context.fillStyle = isBrightSat ? "#ffff00" : "#00f0ff";
@@ -14864,23 +15200,31 @@ function drawAdvancedLayers() {
                 }
 
                 // Satellite Name Label
-                context.fillStyle = isSelected ? "#00ffff" : "#ffffff";
-                context.strokeStyle = "#000000";
-                context.lineWidth = 3.5;
-                context.font = isSelected ? "bold 11px sans-serif" : "bold 10px sans-serif";
-                context.textAlign = "center";
 
-                let displayName = rawName.replace(/\s*\(NORAD.*?\)/i, "").trim();
-                if (/^STARLINK/i.test(displayName)) {
-                  const m = displayName.match(/STARLINK[-\s]?\d+/i);
-                  if (m) displayName = m[0].toUpperCase();
-                } else if (/^QIANFAN/i.test(displayName)) {
-                  const m = displayName.match(/QIANFAN[-\s]?\d+/i);
-                  if (m) displayName = m[0].toUpperCase();
+                // Hide labels for clutter satellites unless zoomed in
+
+                if (showLabel) {
+
+                  context.fillStyle = isSelected ? "#00ffff" : "#ffffff";
+                  context.strokeStyle = "#000000";
+                  context.lineWidth = 3.5;
+                  context.font = isSelected ? "bold 11px sans-serif" : "bold 10px sans-serif";
+                  context.textAlign = "center";
+
+                  let displayName = rawName.replace(/\s*\(NORAD.*?\)/i, "").trim();
+
+                  if (/^STARLINK/i.test(displayName)) {
+                    const m = displayName.match(/STARLINK[-\s]?\d+/i);
+                    if (m) displayName = m[0].toUpperCase();
+                  } else if (/^QIANFAN/i.test(displayName)) {
+                    const m = displayName.match(/QIANFAN[-\s]?\d+/i);
+                    if (m) displayName = m[0].toUpperCase();
+                  }
+
+                  context.strokeText(displayName, pt[0], pt[1] + 16);
+                  context.fillText(displayName, pt[0], pt[1] + 16);
+
                 }
-
-                context.strokeText(displayName, pt[0], pt[1] + 16);
-                context.fillText(displayName, pt[0], pt[1] + 16);
                 context.restore();
 
                 // Predict orbital path for selected satellite or ISS
@@ -15323,7 +15667,7 @@ function updateLiveDurationBadge() {
   const end = document.getElementById("obs-end-time")?.value;
   const badge = document.getElementById("obs-duration-live-badge");
   if (!badge) return;
-  
+
   const res = calculateSessionDurationFormatted(start, end);
   if (res.formatted) {
     badge.textContent = `⏱️ ${res.formatted}`;
@@ -15721,7 +16065,7 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("obs-history-filter-rating")?.addEventListener("change", renderObservationHistory);
   document.getElementById("obs-history-filter-tag")?.addEventListener("change", renderObservationHistory);
   document.getElementById("obs-history-sort")?.addEventListener("change", renderObservationHistory);
-  
+
   const favToggleBtn = document.getElementById("obs-history-fav-toggle");
   if (favToggleBtn) {
     favToggleBtn.addEventListener("click", () => {
@@ -15981,7 +16325,7 @@ function openObservationViewModal(obsId) {
     const filesArr = Array.isArray(obs.files) ? obs.files : [];
     const ratingVal = obs.rating || 5;
     const ratingStars = "★".repeat(ratingVal) + "☆".repeat(5 - ratingVal);
-    
+
     bodyEl.innerHTML = `
       <div class="view-obs-detail-grid">
         <div class="view-detail-item">
@@ -16044,21 +16388,21 @@ function openObservationViewModal(obsId) {
           <h4>📎 Attached Images & Files (${filesArr.length})</h4>
           <div class="view-attachments-gallery">
             ${filesArr.map(f => {
-              const isImg = f.type && f.type.startsWith("image/");
-              if (isImg) {
-                return `
+      const isImg = f.type && f.type.startsWith("image/");
+      if (isImg) {
+        return `
                   <div class="view-thumb-item" onclick="openObsLightbox('${f.data}', '${f.name}')">
                     <img src="${f.data}" alt="${f.name}" title="Click to view full image: ${f.name}">
                   </div>
                 `;
-              } else {
-                return `
+      } else {
+        return `
                   <a href="${f.data}" target="_blank" download="${f.name}" class="view-doc-item" title="Download PDF: ${f.name}">
                     📄 ${f.name}
                   </a>
                 `;
-              }
-            }).join("")}
+      }
+    }).join("")}
           </div>
         </div>
       ` : ''}
@@ -16085,7 +16429,7 @@ function openObservationViewModal(obsId) {
       aiBtn.addEventListener("click", () => {
         aiBtn.classList.add("loading");
         aiBtn.innerHTML = "⏳ Analyzing Session...";
-        
+
         setTimeout(() => {
           const generated = generateAIObservationSummary(obs);
           obs.aiSummary = generated;
@@ -16268,7 +16612,7 @@ function renderObservationHistory() {
   if (scopeSelect) {
     const currentVal = scopeSelect.value;
     const telescopes = Array.from(new Set(observations.map(o => (o.telescope || "").trim()).filter(Boolean)));
-    scopeSelect.innerHTML = '<option value="all">🔭 All Telescopes</option>' + 
+    scopeSelect.innerHTML = '<option value="all">🔭 All Telescopes</option>' +
       telescopes.map(t => `<option value="${t}">${t}</option>`).join("");
     if (telescopes.includes(currentVal)) {
       scopeSelect.value = currentVal;
@@ -16302,7 +16646,7 @@ function renderObservationHistory() {
 
   const now = new Date();
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
+  const objects = searchObjects;
   // Filter Observations
   let filtered = observations.filter(obs => {
     // 1. Favorites Filter
@@ -16392,7 +16736,7 @@ function renderObservationHistory() {
       const bLen = Array.isArray(b.objects) ? b.objects.length : (b.objects ? String(b.objects).split(",").length : 0);
       if (bLen !== aLen) return bLen - aLen;
     }
-    
+
     const dateA = new Date((a.date || "") + "T" + (a.startTime || "00:00"));
     const dateB = new Date((b.date || "") + "T" + (b.startTime || "00:00"));
     const timeA = !isNaN(dateA.getTime()) ? dateA.getTime() : 0;
@@ -17187,11 +17531,11 @@ function confirmImportObservations() {
   } else {
     // Merge mode: skip duplicate IDs or duplicate title+date combos
     const existingIds = new Set(existing.map(o => o.id).filter(Boolean));
-    const existingKeys = new Set(existing.map(o => `${(o.title||"").trim().toLowerCase()}_${o.date||""}`));
+    const existingKeys = new Set(existing.map(o => `${(o.title || "").trim().toLowerCase()}_${o.date || ""}`));
 
     let addedCount = 0;
     pendingImportObsList.forEach(obs => {
-      const key = `${(obs.title||"").trim().toLowerCase()}_${obs.date||""}`;
+      const key = `${(obs.title || "").trim().toLowerCase()}_${obs.date || ""}`;
       if (obs.id && existingIds.has(obs.id)) {
         return; // skip duplicate ID
       }
@@ -17449,7 +17793,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const item = e.target.closest(".ai-obs-picker-item");
       if (!item) return;
       selectedObsIdForAI = item.dataset.id;
-      
+
       document.querySelectorAll(".ai-obs-picker-item").forEach(el => el.classList.remove("selected"));
       item.classList.add("selected");
 

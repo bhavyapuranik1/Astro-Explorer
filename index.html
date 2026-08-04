@@ -103,6 +103,8 @@ gtag('config', 'G-9747XL0FQQ');
  Search
 </button>
 </div>
+<div id="search-suggestions" class="search-suggestions hidden"></div>
+
 <div id="search-disabled-helper" class="search-disabled-helper hidden">Celestial Object Search is currently disabled.</div>
 
 </div>
@@ -353,17 +355,10 @@ gtag('config', 'G-9747XL0FQQ');
 <div class="quick-accordion-content">
 <div class="quick-setting-row">
 <label class="switch">
-<input type="checkbox" data-sky-setting="showConstellationLines">
+<input type="checkbox" id="toggle-constellations" data-sky-setting="showConstellations">
 <span class="slider"></span>
 </label>
-<span>Constellation Lines</span>
-</div>
-<div class="quick-setting-row">
-<label class="switch">
-<input type="checkbox" data-sky-setting="showConstellationNames">
-<span class="slider"></span>
-</label>
-<span>Constellation Labels</span>
+<span>Show Constellations</span>
 </div>
 <div class="quick-setting-row">
 <label class="switch">
@@ -2420,34 +2415,22 @@ Pinned
 
 <h3>Sky Display</h3>
 
-<!-- Constellation Lines -->
+<!-- Constellations -->
 
 <div class="setting-row">
 <label class="switch">
 <input
 type="checkbox"
-id="toggle-constellation-lines"
+id="toggle-constellations"
+data-sky-setting="showConstellations"
 checked>
 <span class="slider"></span>
 </label>
 
-<span>Show Constellation Lines</span>
+<span>Show Constellations (Lines & Names)</span>
 
 </div>
 
-<!-- Constellation Names -->
-<div class="setting-row">
-<label class="switch">
-<input
-type="checkbox"
-id="toggle-constellation-names"
-checked>
-<span class="slider"></span>
-</label>
-
-<span>Show Constellation Names</span>
-
-</div>
 
 <!-- Asterisms -->
 <div class="setting-row">
@@ -2455,25 +2438,12 @@ checked>
 <input
 type="checkbox"
 id="toggle-asterisms"
+data-sky-setting="showAsterisms"
 checked>
 <span class="slider"></span>
 </label>
 
 <span>Show Asterisms (Big Dipper, Teapot...)</span>
-
-</div>
-
-<!-- Asterism Names -->
-<div class="setting-row">
-<label class="switch">
-<input
-type="checkbox"
-id="toggle-asterism-names"
-checked>
-<span class="slider"></span>
-</label>
-
-<span>Show Asterism Names</span>
 
 </div>
 
@@ -3238,27 +3208,27 @@ step="0.1">
       </p>
       <div class="about-combo-grid">
         <div class="about-combo-item">
-          <div class="about-combo-icon">🌌</div>
+          <div class="about-combo-icon"></div>
           <span>Interactive Sky Simulation</span>
         </div>
         <div class="about-combo-item">
-          <div class="about-combo-icon">🤖</div>
+          <div class="about-combo-icon"></div>
           <span>AI Astronomy Assistant</span>
         </div>
         <div class="about-combo-item">
-          <div class="about-combo-icon">🚀</div>
+          <div class="about-combo-icon"></div>
           <span>NASA Data Integration</span>
         </div>
         <div class="about-combo-item">
-          <div class="about-combo-icon">☄️</div>
+          <div class="about-combo-icon"></div>
           <span>Asteroid Information</span>
         </div>
         <div class="about-combo-item">
-          <div class="about-combo-icon">📝</div>
+          <div class="about-combo-icon"></div>
           <span>Observation Management</span>
         </div>
         <div class="about-combo-item">
-          <div class="about-combo-icon">📚</div>
+          <div class="about-combo-icon"></div>
           <span>Astronomy Learning Tools</span>
         </div>
       </div>
@@ -3275,7 +3245,7 @@ step="0.1">
       <!-- 1. Interactive Sky -->
       <div class="about-feature-card">
         <div class="about-feature-header">
-          <div class="about-feature-icon">🌌</div>
+          
           <h3>Interactive Sky</h3>
         </div>
         <p>Real-time 2D and WebGPU sky canvas renderer visualizing over 100,000 stars, constellations, asterisms, planets, and artificial satellites.</p>
@@ -3284,7 +3254,7 @@ step="0.1">
       <!-- 2. Astro AI -->
       <div class="about-feature-card">
         <div class="about-feature-header">
-          <div class="about-feature-icon">🤖</div>
+        
           <h3>Astro AI</h3>
         </div>
         <p>Intelligent AI assistant trained to answer complex astrophysics queries, guide observing sessions, and provide real-time sky insights.</p>
@@ -3293,7 +3263,7 @@ step="0.1">
       <!-- 3. Observation Manager -->
       <div class="about-feature-card">
         <div class="about-feature-header">
-          <div class="about-feature-icon">🔭</div>
+          
           <h3>Observation Manager</h3>
         </div>
         <p>Log observing logs, pin favorite sky memories, track weather conditions, record target coordinates, and export field observations.</p>
@@ -3302,7 +3272,7 @@ step="0.1">
       <!-- 4. Timeline Calendar -->
       <div class="about-feature-card">
         <div class="about-feature-header">
-          <div class="about-feature-icon">📅</div>
+          
           <h3>Timeline Calendar</h3>
         </div>
         <p>Interactive astronomical event timeline featuring upcoming rocket launches, meteor shower peaks, eclipses, and celestial alignments.</p>
@@ -3311,7 +3281,7 @@ step="0.1">
       <!-- 5. Statistics -->
       <div class="about-feature-card">
         <div class="about-feature-header">
-          <div class="about-feature-icon">📊</div>
+          
           <h3>Statistics</h3>
         </div>
         <p>Comprehensive analytical dashboard displaying observing logs, sky coverage metrics, target breakdown, and system telemetry.</p>
@@ -3320,7 +3290,7 @@ step="0.1">
       <!-- 6. NASA Integration -->
       <div class="about-feature-card">
         <div class="about-feature-header">
-          <div class="about-feature-icon">🛰️</div>
+          
           <h3>NASA Integration</h3>
         </div>
         <p>Direct integration with official NASA APIs including APOD imagery, EONET natural hazard monitoring, and DONKI space weather telemetry.</p>
@@ -3329,7 +3299,7 @@ step="0.1">
       <!-- 7. Asteroid Explorer -->
       <div class="about-feature-card">
         <div class="about-feature-header">
-          <div class="about-feature-icon">☄️</div>
+          
           <h3>Asteroid Explorer</h3>
         </div>
         <p>Near-Earth Object (NEO) tracking hub providing orbital parameters, close approach distances, hazard classifications, and relative velocity.</p>
@@ -3338,7 +3308,7 @@ step="0.1">
       <!-- 8. AI Memory -->
       <div class="about-feature-card">
         <div class="about-feature-header">
-          <div class="about-feature-icon">🧠</div>
+          
           <h3>AI Memory</h3>
         </div>
         <p>Smart persistent memory system that remembers your observational preferences, equipment setup, pinned targets, and past conversations.</p>
@@ -3347,7 +3317,7 @@ step="0.1">
       <!-- 9. Settings -->
       <div class="about-feature-card">
         <div class="about-feature-header">
-          <div class="about-feature-icon">⚙️</div>
+          
           <h3>Settings</h3>
         </div>
         <p>Customizable sky map controls including magnitude limits, atmospheric extinction, coordinate grids, projection types, and rendering modes.</p>
@@ -3356,7 +3326,7 @@ step="0.1">
       <!-- 10. Responsive Interface -->
       <div class="about-feature-card">
         <div class="about-feature-header">
-          <div class="about-feature-icon">📱</div>
+          
           <h3>Responsive Interface</h3>
         </div>
         <p>Fluid, glassmorphism UI optimized for touchscreens, mobile devices, tablets, ultra-wide desktop monitors, and dark-sky environments.</p>
@@ -3383,56 +3353,56 @@ step="0.1">
     </h2>
     <div class="about-tech-grid">
       <div class="about-tech-card">
-        <div class="about-tech-icon">🌐</div>
+        <div class="about-tech-icon"></div>
         <div class="about-tech-info">
           <h4>HTML5</h4>
           <span>Semantic Structure</span>
         </div>
       </div>
       <div class="about-tech-card">
-        <div class="about-tech-icon">🎨</div>
+        <div class="about-tech-icon"></div>
         <div class="about-tech-info">
           <h4>CSS3</h4>
           <span>Glassmorphism & Layout</span>
         </div>
       </div>
       <div class="about-tech-card">
-        <div class="about-tech-icon">⚡</div>
+        <div class="about-tech-icon"></div>
         <div class="about-tech-info">
           <h4>JavaScript</h4>
           <span>ES6+ Async Core</span>
         </div>
       </div>
       <div class="about-tech-card">
-        <div class="about-tech-icon">🌌</div>
+        <div class="about-tech-icon"></div>
         <div class="about-tech-info">
           <h4>Celestial.js</h4>
           <span>Sky Projection Engine</span>
         </div>
       </div>
       <div class="about-tech-card">
-        <div class="about-tech-icon">📐</div>
+        <div class="about-tech-icon"></div>
         <div class="about-tech-info">
           <h4>Astronomy Engine</h4>
           <span>Ephemeris Calculations</span>
         </div>
       </div>
       <div class="about-tech-card">
-        <div class="about-tech-icon">🔥</div>
+        <div class="about-tech-icon"></div>
         <div class="about-tech-info">
           <h4>Firebase</h4>
           <span>Cloud Auth & Sync</span>
         </div>
       </div>
       <div class="about-tech-card">
-        <div class="about-tech-icon">🧠</div>
+        <div class="about-tech-icon"></div>
         <div class="about-tech-info">
           <h4>OpenRouter</h4>
           <span>AI Model Gateway</span>
         </div>
       </div>
       <div class="about-tech-card">
-        <div class="about-tech-icon">🚀</div>
+        <div class="about-tech-icon"></div>
         <div class="about-tech-info">
           <h4>NASA APIs</h4>
           <span>Space Data Feeds</span>
