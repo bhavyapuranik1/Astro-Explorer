@@ -3076,19 +3076,24 @@ function initSky() {
 
   const skyContainer = document.getElementById("skyContainer");
   if (skyContainer && !skyContainer.dataset.rightClickHandlerAttached) {
-    skyContainer.addEventListener("mousedown", (e) => {
-      skyDragStartX = e.clientX;
-      skyDragStartY = e.clientY;
+    const handleDragStart = (e) => {
+      skyDragStartX = e.clientX || (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
+      skyDragStartY = e.clientY || (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
       isSkyDragging = false;
-    });
-    skyContainer.addEventListener("mousemove", (e) => {
-      if (e.buttons > 0) {
-        const dist = Math.hypot(e.clientX - skyDragStartX, e.clientY - skyDragStartY);
-        if (dist > 5) {
-          isSkyDragging = true;
-        }
+    };
+    const handleDragMove = (e) => {
+      const currentX = e.clientX || (e.touches && e.touches[0] ? e.touches[0].clientX : skyDragStartX);
+      const currentY = e.clientY || (e.touches && e.touches[0] ? e.touches[0].clientY : skyDragStartY);
+      const dist = Math.hypot(currentX - skyDragStartX, currentY - skyDragStartY);
+      if (dist > 3) {
+        isSkyDragging = true;
       }
-    });
+    };
+
+    skyContainer.addEventListener("mousedown", handleDragStart);
+    skyContainer.addEventListener("mousemove", handleDragMove);
+    skyContainer.addEventListener("pointerdown", handleDragStart);
+    skyContainer.addEventListener("pointermove", handleDragMove);
     skyContainer.addEventListener("click", handleSkyClick);
     skyContainer.addEventListener("contextmenu", handleSkyRightClick);
     skyContainer.dataset.rightClickHandlerAttached = "true";
