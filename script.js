@@ -5145,6 +5145,20 @@ function getSkyObjectPosition(obj) {
   }
 }
 
+function getSkyObjectScreenPoint(obj) {
+  if (!obj) return null;
+  const pos = getSkyObjectPosition(obj);
+  if (!pos || !Array.isArray(pos) || pos.length < 2) return null;
+  if (typeof Celestial !== "undefined" && typeof Celestial.clip === "function" && !Celestial.clip(pos)) return null;
+  try {
+    const pt = Celestial.mapProjection(pos);
+    if (!pt || !Array.isArray(pt) || pt.length < 2) return null;
+    return pt;
+  } catch (e) {
+    return null;
+  }
+}
+
 function getCelestialRenderSettings() {
   return (typeof Celestial !== "undefined" && typeof Celestial.settings === "function")
     ? Celestial.settings()
