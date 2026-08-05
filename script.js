@@ -5069,6 +5069,23 @@ function getSkyCoordinatesFromEvent(event) {
   return { raDeg, decDeg, x, y };
 }
 
+function getFeatureCenter(coords) {
+  if (!Array.isArray(coords) || coords.length === 0) return null;
+  let sumRa = 0, sumDec = 0, count = 0;
+  const extract = pt => {
+    if (Array.isArray(pt) && pt.length >= 2 && typeof pt[0] === "number" && typeof pt[1] === "number") {
+      sumRa += pt[0];
+      sumDec += pt[1];
+      count++;
+    } else if (Array.isArray(pt)) {
+      pt.forEach(extract);
+    }
+  };
+  extract(coords);
+  if (count === 0) return null;
+  return [sumRa / count, sumDec / count];
+}
+
 function getSkyObjectPosition(obj) {
   if (!obj || !obj.type) return null;
 
@@ -5078,12 +5095,24 @@ function getSkyObjectPosition(obj) {
       if (!pos) return null;
       return [pos[0] * 15, pos[1]];
     }
+    case "constellation":
+    case "asterism": {
+      if (typeof obj.ra === "number" && typeof obj.dec === "number") return [obj.ra, obj.dec];
+      const feature = obj.type === "constellation" ? getConstellationFeatureById(obj) : getAsterismFeatureById(obj);
+      if (feature && feature.geometry && feature.geometry.coordinates) {
+        const center = getFeatureCenter(feature.geometry.coordinates);
+        if (center) return center;
+      }
+      if (Array.isArray(obj.ra) && Array.isArray(obj.dec)) return null;
+      if (typeof obj.ra === "number" && typeof obj.dec === "number") return [obj.ra, obj.dec];
+      return null;
+    }
     case "spacecraft": {
       if (typeof getSpacecraftPosition === "function") {
         const pos = getSpacecraftPosition(obj, skyTime);
         if (pos) return pos;
       }
-      if (obj.ra !== undefined && obj.dec !== undefined) return [obj.ra, obj.dec];
+      if (typeof obj.ra === "number" && typeof obj.dec === "number") return [obj.ra, obj.dec];
       return null;
     }
     case "satellite": {
@@ -5121,7 +5150,7 @@ function getSkyObjectPosition(obj) {
           }
         }
       }
-      if (obj.ra !== undefined && obj.dec !== undefined) return [obj.ra, obj.dec];
+      if (typeof obj.ra === "number" && typeof obj.dec === "number") return [obj.ra, obj.dec];
       return null;
     }
     case "comet": {
@@ -5130,7 +5159,7 @@ function getSkyObjectPosition(obj) {
         if (pos) return [pos[0] * 15, pos[1]];
       }
       if (obj.getCoords) return obj.getCoords(skyTime);
-      if (obj.ra !== undefined && obj.dec !== undefined) return [obj.ra, obj.dec];
+      if (typeof obj.ra === "number" && typeof obj.dec === "number") return [obj.ra, obj.dec];
       return null;
     }
     case "asteroid": {
@@ -5139,11 +5168,11 @@ function getSkyObjectPosition(obj) {
         if (pos) return [pos[0] * 15, pos[1]];
       }
       if (obj.getCoords) return obj.getCoords(skyTime);
-      if (obj.ra !== undefined && obj.dec !== undefined) return [obj.ra, obj.dec];
+      if (typeof obj.ra === "number" && typeof obj.dec === "number") return [obj.ra, obj.dec];
       return null;
     }
     default: {
-      if (obj.ra !== undefined && obj.dec !== undefined) return [obj.ra, obj.dec];
+      if (typeof obj.ra === "number" && typeof obj.dec === "number") return [obj.ra, obj.dec];
       if (obj.getCoords) return obj.getCoords(skyTime);
       return null;
     }
@@ -5459,14 +5488,16 @@ function isSkyObjectRendered(obj) {
 
   if (obj.type === "star") {
     const limit = (typeof skySettings !== "undefined" && skySettings.starMagnitude !== undefined) ? skySettings.starMagnitude : 6;
-    const mag = obj.mag !== undefined ? obj.mag : (obj.properties ? obj.properties.mag : undefined);
-    if (mag !== undefined && mag > limit) return false;
+    const rawMag = obj.mag !== undefined ? obj.mag : (obj.properties ? obj.properties.mag : undefined);
+    const magVal = parseFloat(rawMag);
+    if (!isNaN(magVal) && magVal !== 999 && magVal > limit) return false;
   }
 
   if (obj.type === "dso") {
     const limit = (typeof skySettings !== "undefined" && skySettings.dsoMagnitude !== undefined) ? skySettings.dsoMagnitude : 6;
-    const mag = obj.mag !== undefined ? obj.mag : (obj.properties ? obj.properties.mag : undefined);
-    if (mag !== undefined && mag > limit) return false;
+    const rawMag = obj.mag !== undefined ? obj.mag : (obj.properties ? obj.properties.mag : undefined);
+    const magVal = parseFloat(rawMag);
+    if (!isNaN(magVal) && magVal !== 999 && magVal > limit) return false;
   }
 
   const pt = getSkyObjectScreenPoint(obj);
