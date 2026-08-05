@@ -5327,15 +5327,15 @@ function getLabelBoundingBoxForObject(obj, pt) {
       baseline = "alphabetic";
       break;
     case "constellation":
-      if (!(typeof skySettings !== "undefined" && skySettings.showConstellationNames)) return null;
-      text = obj.fullName || obj.name || obj.id || "";
+      if (typeof skySettings !== "undefined" && skySettings.showConstellations === false) return null;
+      text = obj.displayName || obj.fullName || obj.name || obj.id || "";
       if (!text) return null;
       font = "11px 'Space Grotesk', sans-serif";
       align = "start";
       baseline = "alphabetic";
       break;
     case "asterism":
-      if (!(typeof skySettings !== "undefined" && skySettings.showAsterisms)) return null;
+      if (typeof skySettings !== "undefined" && skySettings.showAsterisms === false) return null;
       text = obj.displayName || obj.name || obj.id || "";
       if (!text) return null;
       font = "11px 'Space Grotesk', sans-serif";
@@ -5355,16 +5355,17 @@ function hitTestSkyObject(obj, x, y) {
 
   switch (obj.type) {
     case "star":
-      return pointInCircle(x, y, pt[0], pt[1], getRenderedObjectRadius(obj));
+      return pointInCircle(x, y, pt[0], pt[1], Math.max(getRenderedObjectRadius(obj), 12));
     case "planet":
-      return pointInCircle(x, y, pt[0], pt[1], getRenderedObjectRadius(obj));
+      return pointInCircle(x, y, pt[0], pt[1], Math.max(getRenderedObjectRadius(obj), 14));
     case "dso": {
-      if (pointInCircle(x, y, pt[0], pt[1], getRenderedObjectRadius(obj))) return true;
+      const radius = Math.max(getRenderedObjectRadius(obj), 14);
+      if (pointInCircle(x, y, pt[0], pt[1], radius)) return true;
       const labelBox = getLabelBoundingBoxForObject(obj, pt);
       return pointInRect(x, y, labelBox);
     }
     case "comet": {
-      const comaRadius = 6;
+      const comaRadius = 12;
       if (pointInCircle(x, y, pt[0], pt[1], comaRadius)) return true;
       const solPos = getPlanetPosition("sol", skyTime);
       if (solPos) {
@@ -5386,32 +5387,24 @@ function hitTestSkyObject(obj, x, y) {
       return pointInRect(x, y, labelBox);
     }
     case "asteroid": {
-      if (pointInCircle(x, y, pt[0], pt[1], 6)) return true;
+      if (pointInCircle(x, y, pt[0], pt[1], 10)) return true;
       const labelBox = getLabelBoundingBoxForObject(obj, pt);
       return pointInRect(x, y, labelBox);
     }
     case "satellite": {
-      const rawName = String(obj.name || obj.displayName || "").toLowerCase();
-      const importantSat = /iss|tiangong|hst|jwst|voyager|parker/.test(rawName);
-      const dotRadius = importantSat ? 3.5 : 2.5;
-      if (pointInCircle(x, y, pt[0], pt[1], dotRadius + 2)) return true;
-      if (pointInRect(x, y, { left: pt[0] - 7, top: pt[1] - 1, width: 4, height: 2 })) return true;
-      if (pointInRect(x, y, { left: pt[0] + 3, top: pt[1] - 1, width: 4, height: 2 })) return true;
+      if (pointInCircle(x, y, pt[0], pt[1], 12)) return true;
       const labelBox = getLabelBoundingBoxForObject(obj, pt);
       return pointInRect(x, y, labelBox);
     }
     case "spacecraft": {
-      const x0 = pt[0], y0 = pt[1];
-      const inTriangle = pointInTriangle(x, y, x0, y0 - 4, x0 + 4, y0 + 3, x0 - 4, y0 + 3);
-      if (inTriangle) return true;
-      if (pointInRect(x, y, { left: x0 - 1.5, top: y0 - 7, width: 3, height: 4 })) return true;
-      if (pointInRect(x, y, { left: x0 - 1.5, top: y0 + 3, width: 3, height: 4 })) return true;
+      if (pointInCircle(x, y, pt[0], pt[1], 14)) return true;
       const labelBox = getLabelBoundingBoxForObject(obj, pt);
       return pointInRect(x, y, labelBox);
     }
     case "constellation":
     case "asterism": {
-      if (isPointOnFeatureLines(obj, x, y, 5)) return true;
+      if (pointInCircle(x, y, pt[0], pt[1], 16)) return true;
+      if (isPointOnFeatureLines(obj, x, y, 6)) return true;
       const labelBox = getLabelBoundingBoxForObject(obj, pt);
       return pointInRect(x, y, labelBox);
     }
