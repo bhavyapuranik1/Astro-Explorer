@@ -5674,20 +5674,25 @@ function createStarSearchLabel(name, x, y) {
 }
 
 function updatePlanetLabelPositions(projChanged) {
+  if (typeof skySettings !== "undefined" && skySettings.showPlanets === false) {
+    planetLabels.forEach(p => { if (p.el) p.el.style.display = "none"; });
+    return;
+  }
+
   planetLabels.forEach(p => {
-    const isRendered = isSkyObjectRendered({ type: "planet", name: p.name });
-    if (!isRendered) {
-      p.el.style.display = "none";
-      return;
-    }
     const pos = getPlanetPosition(p.name, skyTime);
     if (!pos) {
-      p.el.style.display = "none";
+      if (p.el) p.el.style.display = "none";
       return;
     }
 
     const raDeg = pos[0] * 15;
     const dec = pos[1];
+
+    if (typeof Celestial.clip === "function" && !Celestial.clip([raDeg, dec])) {
+      if (p.el) p.el.style.display = "none";
+      return;
+    }
 
     let pt = null;
     try {
@@ -5695,7 +5700,7 @@ function updatePlanetLabelPositions(projChanged) {
     } catch (e) { }
 
     if (!pt || isNaN(pt[0]) || isNaN(pt[1])) {
-      p.el.style.display = "none";
+      if (p.el) p.el.style.display = "none";
       return;
     }
 
@@ -5706,65 +5711,38 @@ function updatePlanetLabelPositions(projChanged) {
 }
 
 function createPlanetLabel(name, pt) {
-
   if (planetLabel) {
     planetLabel.remove();
     planetLabel = null;
   }
 
   const container = document.getElementById("skyContainer");
-
+  if (!container) return;
 
   const label = document.createElement("div");
   label.className = "planet-label";
   label.innerText = name;
 
-  label.style.color =
-    planetLabelColors[name.toLowerCase()] || "#ffffff";
-
-  // 👇 YE ADD KARO
+  label.style.color = planetLabelColors[name.toLowerCase()] || "#ffffff";
   label.style.fontSize = "18px";
   label.style.fontWeight = "700";
   label.style.whiteSpace = "nowrap";
 
-  // 🌟 Glow strength by planet
-  const glow =
-    (
-      fullName || name
-    ).toLowerCase();
+  const glow = (name || "").toLowerCase();
 
-  if (
-    glow === "sun" ||
-    glow === "moon"
-  ) {
-
-    label.style.textShadow =
-      "0 0 3px currentColor,0 0 6px currentColor,0 0 10px currentColor";
-
-  }
-  else if (glow === "venus") {
-
-    label.style.textShadow =
-      "0 0 3px currentColor,0 0 6px currentColor";
-
-  }
-  else {
-
-    label.style.textShadow =
-      "0 0 2px currentColor,0 0 4px currentColor";
-
+  if (glow === "sun" || glow === "moon") {
+    label.style.textShadow = "0 0 3px currentColor,0 0 6px currentColor,0 0 10px currentColor";
+  } else if (glow === "venus") {
+    label.style.textShadow = "0 0 3px currentColor,0 0 6px currentColor";
+  } else {
+    label.style.textShadow = "0 0 2px currentColor,0 0 4px currentColor";
   }
 
-  label.style.zIndex = "30";
   label.style.position = "absolute";
-  label.style.fontSize = "18px";
-  label.style.fontWeight = "bold";
   label.style.zIndex = "9999";
-
-  // 🔥 OFFSET FIX
   label.style.left = (pt[0] + 3) + "px";
   label.style.top = (pt[1] - 3) + "px";
-  document.getElementById("skyContainer").appendChild(label); // 🔥 CHANGE HERE
+  container.appendChild(label);
 
   planetLabel = label;
 }
