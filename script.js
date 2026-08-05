@@ -5394,56 +5394,39 @@ function hitTestSkyObject(obj, x, y) {
 
   switch (obj.type) {
     case "star":
-      return pointInCircle(x, y, pt[0], pt[1], Math.max(getRenderedObjectRadius(obj), 12));
-    case "planet":
       return pointInCircle(x, y, pt[0], pt[1], Math.max(getRenderedObjectRadius(obj), 14));
+    case "planet":
+      return pointInCircle(x, y, pt[0], pt[1], Math.max(getRenderedObjectRadius(obj), 18));
     case "dso": {
-      const radius = Math.max(getRenderedObjectRadius(obj), 14);
+      const radius = Math.max(getRenderedObjectRadius(obj), 18);
       if (pointInCircle(x, y, pt[0], pt[1], radius)) return true;
       const labelBox = getLabelBoundingBoxForObject(obj, pt);
       return pointInRect(x, y, labelBox);
     }
     case "comet": {
-      const comaRadius = 12;
-      if (pointInCircle(x, y, pt[0], pt[1], comaRadius)) return true;
-      const solPos = getPlanetPosition("sol", skyTime);
-      if (solPos) {
-        const solCoords = [solPos[0] * 15, solPos[1]];
-        const solPt = Celestial.mapProjection(solCoords);
-        if (solPt) {
-          const tailAngle = Math.atan2(pt[1] - solPt[1], pt[0] - solPt[0]);
-          const dx = x - pt[0];
-          const dy = y - pt[1];
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist <= 30) {
-            const angle = Math.atan2(dy, dx);
-            const delta = Math.abs(((angle - tailAngle + Math.PI) % (2 * Math.PI)) - Math.PI);
-            if (delta <= 0.22) return true;
-          }
-        }
-      }
+      if (pointInCircle(x, y, pt[0], pt[1], 16)) return true;
       const labelBox = getLabelBoundingBoxForObject(obj, pt);
       return pointInRect(x, y, labelBox);
     }
     case "asteroid": {
-      if (pointInCircle(x, y, pt[0], pt[1], 10)) return true;
+      if (pointInCircle(x, y, pt[0], pt[1], 14)) return true;
       const labelBox = getLabelBoundingBoxForObject(obj, pt);
       return pointInRect(x, y, labelBox);
     }
     case "satellite": {
-      if (pointInCircle(x, y, pt[0], pt[1], 12)) return true;
+      if (pointInCircle(x, y, pt[0], pt[1], 16)) return true;
       const labelBox = getLabelBoundingBoxForObject(obj, pt);
       return pointInRect(x, y, labelBox);
     }
     case "spacecraft": {
-      if (pointInCircle(x, y, pt[0], pt[1], 14)) return true;
+      if (pointInCircle(x, y, pt[0], pt[1], 16)) return true;
       const labelBox = getLabelBoundingBoxForObject(obj, pt);
       return pointInRect(x, y, labelBox);
     }
     case "constellation":
     case "asterism": {
-      if (pointInCircle(x, y, pt[0], pt[1], 16)) return true;
-      if (isPointOnFeatureLines(obj, x, y, 6)) return true;
+      if (pointInCircle(x, y, pt[0], pt[1], 24)) return true;
+      if (isPointOnFeatureLines(obj, x, y, 10)) return true;
       const labelBox = getLabelBoundingBoxForObject(obj, pt);
       return pointInRect(x, y, labelBox);
     }
@@ -5496,20 +5479,6 @@ function isSkyObjectRendered(obj) {
   const settingKey = visibilityMap[obj.type];
   if (settingKey && skySettings[settingKey] === false) return false;
 
-  if (obj.type === "star") {
-    const limit = (typeof skySettings !== "undefined" && skySettings.starMagnitude !== undefined) ? skySettings.starMagnitude : 6;
-    const rawMag = obj.mag !== undefined ? obj.mag : (obj.properties ? obj.properties.mag : undefined);
-    const magVal = parseFloat(rawMag);
-    if (!isNaN(magVal) && magVal !== 999 && magVal > limit) return false;
-  }
-
-  if (obj.type === "dso") {
-    const limit = (typeof skySettings !== "undefined" && skySettings.dsoMagnitude !== undefined) ? skySettings.dsoMagnitude : 6;
-    const rawMag = obj.mag !== undefined ? obj.mag : (obj.properties ? obj.properties.mag : undefined);
-    const magVal = parseFloat(rawMag);
-    if (!isNaN(magVal) && magVal !== 999 && magVal > limit) return false;
-  }
-
   const pt = getSkyObjectScreenPoint(obj);
   if (!pt || !Array.isArray(pt) || pt.length < 2) return false;
   if (isNaN(pt[0]) || isNaN(pt[1])) return false;
@@ -5517,7 +5486,7 @@ function isSkyObjectRendered(obj) {
   const container = document.getElementById("skyContainer");
   if (container) {
     const rect = container.getBoundingClientRect();
-    if (pt[0] < -20 || pt[0] > rect.width + 20 || pt[1] < -20 || pt[1] > rect.height + 20) {
+    if (pt[0] < -50 || pt[0] > rect.width + 50 || pt[1] < -50 || pt[1] > rect.height + 50) {
       return false;
     }
   }
