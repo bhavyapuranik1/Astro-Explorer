@@ -16,6 +16,8 @@ let showHazardOnly = false;
 let showNewestOnly = false;
 let searchQuery = "";
 let searchObjects = [];
+let CONSTELLATION_FEATURES = [];
+let ASTERISM_FEATURES = [];
 let messierObjects = [];
 let lgObjects = [];
 let animationId = null;
@@ -3071,6 +3073,13 @@ function initSky() {
       try { drawAdvancedLayers(); } catch (e) { }
     }
   });
+
+  const skyContainer = document.getElementById("skyContainer");
+  if (skyContainer && !skyContainer.dataset.rightClickHandlerAttached) {
+    skyContainer.addEventListener("click", handleSkyClick);
+    skyContainer.addEventListener("contextmenu", handleSkyRightClick);
+    skyContainer.dataset.rightClickHandlerAttached = "true";
+  }
 }
 
 
@@ -3664,6 +3673,7 @@ async function loadObjects() {
   const constData = await fetch("data/constellations.json").then(r => r.json());
   console.log("CONST RAW:", constData);
   const constEntries = constData.features;
+  CONSTELLATION_FEATURES = constEntries;
 
   searchObjects.push(...constEntries.map(c => ({
     name: c.id.toLowerCase(),                 // "umi"
@@ -3855,6 +3865,7 @@ async function loadObjects() {
     const geo = await res.json();
     if (geo && Array.isArray(geo.features)) {
       ASTERISMS_DATA = geo.features;
+      ASTERISM_FEATURES = ASTERISMS_DATA;
     }
   } catch (e) {
     console.warn("Could not load data/asterisms.json:", e);
@@ -4570,14 +4581,31 @@ function updateSearchStateForCelestialToggle(isEnabled) {
   }
 }
 
-// 🔍 SEARCH FUNCTION
-function searchObject() {
-  if (!isCelestialSearchEnabled()) {
-    updateSearchStateForCelestialToggle(false);
-    return;
+function clearSearchError() {
+  const errorPanel = document.getElementById("search-error");
+  if (errorPanel) {
+    errorPanel.classList.add("hidden");
+    errorPanel.textContent = "";
   }
+}
 
-  // 🔥 RESET
+function showSearchError(message) {
+  const errorPanel = document.getElementById("search-error");
+  if (errorPanel) {
+    errorPanel.textContent = message;
+    errorPanel.classList.remove("hidden");
+  }
+}
+
+// 🔍 SEARCH FUNCTION
+function resetSelectionState() {
+  const suggestionsPanel = document.getElementById("search-suggestions");
+  if (suggestionsPanel) {
+    suggestionsPanel.classList.add("hidden");
+    suggestionsPanel.innerHTML = "";
+  }
+  clearSearchError();
+
   if (animationId) {
     cancelAnimationFrame(animationId);
     animationId = null;
@@ -4585,16 +4613,12 @@ function searchObject() {
 
   if (marker) {
     marker.remove();
-    marker = null; // 🔥 IMPORTANT
+    marker = null;
   }
 
-
   if (searchHighlight) {
-
     searchHighlight.remove();
-
     searchHighlight = null;
-
   }
 
   document.getElementById("highlight-marker")?.remove();
@@ -4614,6 +4638,15 @@ function searchObject() {
   }
 
   searchedObjectName = "";
+}
+
+function searchObject() {
+  if (!isCelestialSearchEnabled()) {
+    updateSearchStateForCelestialToggle(false);
+    return;
+  }
+
+  resetSelectionState();
 
   // 🔍 INPUT
   let query = document.getElementById("searchBox").value;
@@ -4622,12 +4655,12 @@ function searchObject() {
     const suggestionsPanel = document.getElementById("search-suggestions");
 
     if (suggestionsPanel) {
-        suggestionsPanel.classList.add("hidden");
-        suggestionsPanel.innerHTML = "";
+      suggestionsPanel.classList.add("hidden");
+      suggestionsPanel.innerHTML = "";
     }
 
     return;
-}
+  }
 
   searchTerm = searchTerm.replace(/\s+/g, " ");
 
@@ -4686,25 +4719,43 @@ function searchObject() {
   }
 
   if (!obj) {
-
     const suggestionsPanel = document.getElementById("search-suggestions");
-
     if (suggestionsPanel) {
-
-        suggestionsPanel.classList.remove("hidden");
-
-        suggestionsPanel.innerHTML = `
-            <div class="suggestion-empty">
-                No matching celestial object found
-            </div>
-        `;
-
+      suggestionsPanel.classList.add("hidden");
+      suggestionsPanel.innerHTML = "";
     }
 
+    const infoPanel = document.getElementById("object-info-panel");
+    if (infoPanel) {
+      infoPanel.style.display = "none";
+    }
+
+    if (typeof updateObjectInfo === "function") {
+      updateObjectInfo(null);
+    }
+
+    selectedObject = null;
+    showSearchError("No matching object found");
     return;
+  }
+
+  return selectObject(obj);
 }
 
-  // Respect visibility toggles
+function selectObject(obj) {
+  if (!obj) return;
+  if (!isCelestialSearchEnabled()) {
+    updateSearchStateForCelestialToggle(false);
+    return;
+  }
+
+  resetSelectionState();
+
+  const searchBox = document.getElementById("searchBox");
+  if (searchBox) {
+    searchBox.value = obj.displayName || obj.name || searchBox.value || "";
+  }
+
   const visibilityMap = {
     planet: "showPlanets",
     star: "showStars",
@@ -4716,9 +4767,7 @@ function searchObject() {
   };
 
   const setting = visibilityMap[obj.type];
-
   if (setting && !skySettings[setting]) {
-    // Later you can replace this with your inline message
     return;
   }
 
@@ -4726,18 +4775,10 @@ function searchObject() {
   selectedObject = obj;
 
   updateObjectInfo(obj);
-  if (isCelestialSearchEnabled()) {
-    document.getElementById("object-info-panel").style.display = "block";
-  } else {
-    document.getElementById("object-info-panel").style.display = "none";
-  }
+  document.getElementById("object-info-panel").style.display = isCelestialSearchEnabled() ? "block" : "none";
   updateDynamicInfo();
+  if (typeof SearchManager !== "undefined") SearchManager.addHistory(obj);
 
-  // Add to Search History
-  SearchManager.addHistory(obj);
-
-
-  // 🌌 DSO
   if (obj.type === "dso") {
     lastSelectedPlanet = null;
     currentTarget = [obj.ra, obj.dec];
@@ -4747,7 +4788,6 @@ function searchObject() {
     return;
   }
 
-  // 🚀 SPACECRAFT
   if (obj.type === "spacecraft") {
     lastSelectedPlanet = null;
     const pos = getSpacecraftPosition(obj, skyTime);
@@ -4756,16 +4796,8 @@ function searchObject() {
 
     obj.ra = raDeg;
     obj.dec = decDeg;
-
     currentTarget = [raDeg, decDeg];
-    selectedObject = obj;
-    const suggestionsPanel = document.getElementById("search-suggestions");
-
-    if (suggestionsPanel) {
-      suggestionsPanel.classList.add("hidden");
-    }
     searchedObjectName = obj.displayName || obj.name;
-
     updateObjectInfo(obj);
     if (isCelestialSearchEnabled()) {
       document.getElementById("object-info-panel").style.display = "block";
@@ -4773,9 +4805,6 @@ function searchObject() {
       document.getElementById("object-info-panel").style.display = "none";
     }
     updateDynamicInfo();
-
-    if (typeof SearchManager !== "undefined") SearchManager.addHistory(obj);
-
     createMarker();
     trackMarker();
     return;
@@ -4833,7 +4862,7 @@ function searchObject() {
     }
     return;
   }
-  // 🪐 PLANET
+
   if (obj.type === "planet") {
     const planetName = reversePlanetMap[obj.id] || obj.name;
     lastSelectedPlanet = planetName;
@@ -4850,7 +4879,6 @@ function searchObject() {
     return;
   }
 
-  // ⭐ CONSTELLATION
   if (obj.type === "constellation") {
     lastSelectedPlanet = null;
     currentTarget = [obj.ra, obj.dec];
@@ -4867,7 +4895,6 @@ function searchObject() {
     return;
   }
 
-  // ⭐ STAR
   if (obj.type === "star") {
     lastSelectedPlanet = null;
     currentTarget = [obj.ra, obj.dec];
@@ -4880,7 +4907,6 @@ function searchObject() {
     return;
   }
 
-  // ☄️ COMET
   if (obj.type === "comet") {
     lastSelectedPlanet = null;
     const term = (obj.name || "").toLowerCase();
@@ -4934,14 +4960,12 @@ function searchObject() {
     return;
   }
 
-  // 🪨 ASTEROID
   if (obj.type === "asteroid") {
     lastSelectedPlanet = null;
     const term = (obj.name || "").toLowerCase();
     const numTerm = (obj.number || "").toLowerCase();
     const desigTerm = (obj.designation || "").toLowerCase();
 
-    // Priority search: Exact match > Designation > Number > Partial match
     const asteroid = obj.asteroidData || ASTEROIDS_DATA.find(a =>
       (a.name && a.name.toLowerCase() === term) ||
       (a.displayName && a.displayName.toLowerCase() === term) ||
@@ -5006,6 +5030,545 @@ function searchObject() {
     return;
   }
 }
+
+function getSkyCoordinatesFromEvent(event) {
+  if (!Celestial.mapProjection || typeof Celestial.mapProjection.invert !== "function") return null;
+  const container = document.getElementById("skyContainer");
+  if (!container) return null;
+
+  const rect = container.getBoundingClientRect();
+  const x = event.clientX - rect.left;
+  const y = event.clientY - rect.top;
+  const coords = Celestial.mapProjection.invert([x, y]);
+  if (!coords || coords.length < 2) return null;
+
+  let raDeg = coords[0];
+  const decDeg = coords[1];
+  if (typeof raDeg === "number") {
+    raDeg = ((raDeg % 360) + 360) % 360;
+  }
+
+  return { raDeg, decDeg, x, y };
+}
+
+function getSkyObjectPosition(obj) {
+  if (!obj || !obj.type) return null;
+
+  switch (obj.type) {
+    case "planet": {
+      const pos = getPlanetPosition(obj.name, skyTime);
+      if (!pos) return null;
+      return [pos[0] * 15, pos[1]];
+    }
+    case "spacecraft": {
+      if (typeof getSpacecraftPosition === "function") {
+        const pos = getSpacecraftPosition(obj, skyTime);
+        if (pos) return pos;
+      }
+      if (obj.ra !== undefined && obj.dec !== undefined) return [obj.ra, obj.dec];
+      return null;
+    }
+    case "satellite": {
+      if (typeof satellite !== "undefined") {
+        const satName = (obj.name || "").toLowerCase();
+        const sat = obj.satData || SATELLITES_DATA.find(
+          s => s && (
+            (s.name && s.name.toLowerCase().includes(satName)) ||
+            (s.OBJECT_NAME && s.OBJECT_NAME.toLowerCase().includes(satName)) ||
+            (s.NORAD_CAT_ID && String(s.NORAD_CAT_ID) === String(obj.id))
+          )
+        );
+        if (sat) {
+          try {
+            const satrec = getSatRec(sat);
+            if (satrec) {
+              const posVel = satellite.propagate(satrec, skyTime);
+              const posEci = posVel ? posVel.position : null;
+              if (posEci && observer) {
+                const gmst = satellite.gstime(skyTime);
+                const observerGd = {
+                  longitude: observer.longitude * Math.PI / 180,
+                  latitude: observer.latitude * Math.PI / 180,
+                  height: (observer.elevation || 0) / 1000
+                };
+                const lookAngles = satellite.ecfToLookAngles(observerGd, satellite.eciToEcf(posEci, gmst));
+                const alt = (lookAngles.elevation ?? lookAngles.altitude ?? lookAngles.alt) * 180 / Math.PI;
+                const az = (lookAngles.azimuth ?? lookAngles.az) * 180 / Math.PI;
+                const coords = horizontalToEquatorial(alt, az, skyTime, observer);
+                if (coords) return [coords[0], coords[1]];
+              }
+            }
+          } catch (e) {
+            console.error("Satellite position lookup failed:", e);
+          }
+        }
+      }
+      if (obj.ra !== undefined && obj.dec !== undefined) return [obj.ra, obj.dec];
+      return null;
+    }
+    case "comet": {
+      if (obj.cometData) {
+        const pos = getCometPosition(obj.cometData, skyTime, observer);
+        if (pos) return [pos[0] * 15, pos[1]];
+      }
+      if (obj.getCoords) return obj.getCoords(skyTime);
+      if (obj.ra !== undefined && obj.dec !== undefined) return [obj.ra, obj.dec];
+      return null;
+    }
+    case "asteroid": {
+      if (obj.asteroidData) {
+        const pos = getAsteroidPosition(obj.asteroidData, skyTime, observer);
+        if (pos) return [pos[0] * 15, pos[1]];
+      }
+      if (obj.getCoords) return obj.getCoords(skyTime);
+      if (obj.ra !== undefined && obj.dec !== undefined) return [obj.ra, obj.dec];
+      return null;
+    }
+    default: {
+      if (obj.ra !== undefined && obj.dec !== undefined) return [obj.ra, obj.dec];
+      if (obj.getCoords) return obj.getCoords(skyTime);
+      return null;
+    }
+  }
+}
+
+function getCelestialRenderSettings() {
+  return (typeof Celestial !== "undefined" && typeof Celestial.settings === "function")
+    ? Celestial.settings()
+    : {};
+}
+
+function getHitTestContext() {
+  if (typeof Celestial !== "undefined" && Celestial.context) return Celestial.context;
+  const canvas = document.createElement("canvas");
+  return canvas.getContext("2d");
+}
+
+function pointInCircle(x, y, cx, cy, r) {
+  const dx = x - cx;
+  const dy = y - cy;
+  return dx * dx + dy * dy <= r * r;
+}
+
+function pointInRect(x, y, rect) {
+  return rect && x >= rect.left && x <= rect.left + rect.width && y >= rect.top && y <= rect.top + rect.height;
+}
+
+function pointToLineDistance(x, y, x1, y1, x2, y2) {
+  const A = x - x1;
+  const B = y - y1;
+  const C = x2 - x1;
+  const D = y2 - y1;
+  const dot = A * C + B * D;
+  const lenSq = C * C + D * D;
+  let t = lenSq > 0 ? dot / lenSq : -1;
+  t = Math.max(0, Math.min(1, t));
+  const projX = x1 + C * t;
+  const projY = y1 + D * t;
+  const dx = x - projX;
+  const dy = y - projY;
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+function measureTextBoundingBox(text, x, y, font, align = "start", baseline = "alphabetic") {
+  const ctx = getHitTestContext();
+  if (!ctx || !text) return null;
+  ctx.save();
+  ctx.font = font;
+  ctx.textAlign = align;
+  ctx.textBaseline = baseline;
+  const metrics = ctx.measureText(text);
+  const width = metrics.width;
+  const lineHeight = Math.max(12, Math.round(parseInt(font, 10) || 12));
+  let left = x;
+  if (align === "center") left = x - width / 2;
+  else if (align === "right" || align === "end") left = x - width;
+  let top = y - lineHeight;
+  if (baseline === "middle") top = y - lineHeight / 2;
+  else if (baseline === "top" || baseline === "hanging") top = y;
+  ctx.restore();
+  return { left, top, width, height: lineHeight };
+}
+
+function getConstellationFeatureById(obj) {
+  if (!obj || !obj.id) return null;
+  return CONSTELLATION_FEATURES.find(feature => String(feature.id).toLowerCase() === String(obj.id).toLowerCase()) || null;
+}
+
+function getAsterismFeatureById(obj) {
+  if (!obj) return null;
+  if (obj.asterismData) return obj.asterismData;
+  return ASTERISM_FEATURES.find(feature => String(feature.id || "").toLowerCase() === String(obj.id || "").toLowerCase()) || null;
+}
+
+function projectGeometryLineSegments(coords) {
+  if (!Array.isArray(coords) || coords.length === 0) return [];
+  const segments = [];
+  const addSegment = (a, b) => {
+    if (!a || !b) return;
+    const p1 = Celestial.mapProjection(a);
+    const p2 = Celestial.mapProjection(b);
+    if (p1 && p2 && isFinite(p1[0]) && isFinite(p1[1]) && isFinite(p2[0]) && isFinite(p2[1])) {
+      segments.push([p1, p2]);
+    }
+  };
+
+  const processLine = line => {
+    if (!Array.isArray(line) || line.length < 2) return;
+    for (let i = 1; i < line.length; i++) {
+      addSegment(line[i - 1], line[i]);
+    }
+  };
+
+  if (!Array.isArray(coords[0][0])) {
+    processLine(coords);
+  } else {
+    for (const line of coords) {
+      processLine(line);
+    }
+  }
+
+  return segments;
+}
+
+function isPointOnFeatureLines(obj, x, y, threshold = 5) {
+  const feature = obj.type === "constellation" ? getConstellationFeatureById(obj) : getAsterismFeatureById(obj);
+  if (!feature || !feature.geometry || !feature.geometry.coordinates) return false;
+  const segments = projectGeometryLineSegments(feature.geometry.coordinates);
+  return segments.some(([p1, p2]) => pointToLineDistance(x, y, p1[0], p1[1], p2[0], p2[1]) <= threshold);
+}
+
+function getLabelBoundingBoxForObject(obj, pt) {
+  if (!pt) return null;
+  let text;
+  let font = "11px sans-serif";
+  let align = "start";
+  let baseline = "alphabetic";
+  let x = pt[0];
+  let y = pt[1];
+
+  switch (obj.type) {
+    case "dso":
+      text = obj.displayName || obj.name || "";
+      if (!text) return null;
+      const dsoRadius = getRenderedObjectRadius(obj) - 6;
+      x += dsoRadius;
+      y -= dsoRadius;
+      font = "11px 'Space Grotesk', sans-serif";
+      align = "start";
+      baseline = "alphabetic";
+      break;
+    case "comet":
+      text = obj.displayName || obj.name || "";
+      if (!text) return null;
+      x += 10;
+      y -= 2;
+      font = "bold italic 10px sans-serif";
+      align = "start";
+      baseline = "alphabetic";
+      break;
+    case "asteroid":
+      text = obj.displayName || obj.name || "";
+      if (!text) return null;
+      x += 8;
+      y -= 3;
+      font = "9px sans-serif";
+      align = "start";
+      baseline = "alphabetic";
+      break;
+    case "satellite":
+      text = obj.displayName || obj.name || "";
+      if (!text) return null;
+      x += 0;
+      y += 16;
+      font = "bold 10px sans-serif";
+      align = "center";
+      baseline = "alphabetic";
+      break;
+    case "spacecraft":
+      text = obj.displayName || obj.name || "";
+      if (!text) return null;
+      x += 0;
+      y += 16;
+      font = "bold 11px sans-serif";
+      align = "center";
+      baseline = "alphabetic";
+      break;
+    case "constellation":
+      if (!(typeof skySettings !== "undefined" && skySettings.showConstellationNames)) return null;
+      text = obj.fullName || obj.name || obj.id || "";
+      if (!text) return null;
+      font = "11px 'Space Grotesk', sans-serif";
+      align = "start";
+      baseline = "alphabetic";
+      break;
+    case "asterism":
+      if (!(typeof skySettings !== "undefined" && skySettings.showAsterisms)) return null;
+      text = obj.displayName || obj.name || obj.id || "";
+      if (!text) return null;
+      font = "11px 'Space Grotesk', sans-serif";
+      align = "center";
+      baseline = "middle";
+      break;
+    default:
+      return null;
+  }
+
+  return measureTextBoundingBox(text, x, y, font, align, baseline);
+}
+
+function hitTestSkyObject(obj, x, y) {
+  const pt = getSkyObjectScreenPoint(obj);
+  if (!pt) return false;
+
+  switch (obj.type) {
+    case "star":
+      return pointInCircle(x, y, pt[0], pt[1], getRenderedObjectRadius(obj));
+    case "planet":
+      return pointInCircle(x, y, pt[0], pt[1], getRenderedObjectRadius(obj));
+    case "dso": {
+      if (pointInCircle(x, y, pt[0], pt[1], getRenderedObjectRadius(obj))) return true;
+      const labelBox = getLabelBoundingBoxForObject(obj, pt);
+      return pointInRect(x, y, labelBox);
+    }
+    case "comet": {
+      const comaRadius = 6;
+      if (pointInCircle(x, y, pt[0], pt[1], comaRadius)) return true;
+      const solPos = getPlanetPosition("sol", skyTime);
+      if (solPos) {
+        const solCoords = [solPos[0] * 15, solPos[1]];
+        const solPt = Celestial.mapProjection(solCoords);
+        if (solPt) {
+          const tailAngle = Math.atan2(pt[1] - solPt[1], pt[0] - solPt[0]);
+          const dx = x - pt[0];
+          const dy = y - pt[1];
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist <= 30) {
+            const angle = Math.atan2(dy, dx);
+            const delta = Math.abs(((angle - tailAngle + Math.PI) % (2 * Math.PI)) - Math.PI);
+            if (delta <= 0.22) return true;
+          }
+        }
+      }
+      const labelBox = getLabelBoundingBoxForObject(obj, pt);
+      return pointInRect(x, y, labelBox);
+    }
+    case "asteroid": {
+      if (pointInCircle(x, y, pt[0], pt[1], 6)) return true;
+      const labelBox = getLabelBoundingBoxForObject(obj, pt);
+      return pointInRect(x, y, labelBox);
+    }
+    case "satellite": {
+      const rawName = String(obj.name || obj.displayName || "").toLowerCase();
+      const importantSat = /iss|tiangong|hst|jwst|voyager|parker/.test(rawName);
+      const dotRadius = importantSat ? 3.5 : 2.5;
+      if (pointInCircle(x, y, pt[0], pt[1], dotRadius + 2)) return true;
+      if (pointInRect(x, y, { left: pt[0] - 7, top: pt[1] - 1, width: 4, height: 2 })) return true;
+      if (pointInRect(x, y, { left: pt[0] + 3, top: pt[1] - 1, width: 4, height: 2 })) return true;
+      const labelBox = getLabelBoundingBoxForObject(obj, pt);
+      return pointInRect(x, y, labelBox);
+    }
+    case "spacecraft": {
+      const x0 = pt[0], y0 = pt[1];
+      const inTriangle = pointInTriangle(x, y, x0, y0 - 4, x0 + 4, y0 + 3, x0 - 4, y0 + 3);
+      if (inTriangle) return true;
+      if (pointInRect(x, y, { left: x0 - 1.5, top: y0 - 7, width: 3, height: 4 })) return true;
+      if (pointInRect(x, y, { left: x0 - 1.5, top: y0 + 3, width: 3, height: 4 })) return true;
+      const labelBox = getLabelBoundingBoxForObject(obj, pt);
+      return pointInRect(x, y, labelBox);
+    }
+    case "constellation":
+    case "asterism": {
+      if (isPointOnFeatureLines(obj, x, y, 5)) return true;
+      const labelBox = getLabelBoundingBoxForObject(obj, pt);
+      return pointInRect(x, y, labelBox);
+    }
+    default:
+      return false;
+  }
+}
+
+function pointInTriangle(px, py, x1, y1, x2, y2, x3, y3) {
+  const area = 0.5 * (-y2 * x3 + y1 * (-x2 + x3) + x1 * (y2 - y3) + x2 * y3);
+  const s = (1 / (2 * area)) * (y1 * x3 - x1 * y3 + (y3 - y1) * px + (x1 - x3) * py);
+  const t = (1 / (2 * area)) * (x1 * y2 - y1 * x2 + (y1 - y2) * px + (x2 - x1) * py);
+  return s >= 0 && t >= 0 && (s + t) <= 1;
+}
+
+function getSkyObjectHitOrder() {
+  return [
+    "spacecraft",
+    "satellite",
+    "comet",
+    "asteroid",
+    "planet",
+    "dso",
+    "star",
+    "constellation",
+    "asterism"
+  ];
+}
+
+function findSkyObjectUnderCursor(x, y) {
+  if (!searchObjects || !Array.isArray(searchObjects) || searchObjects.length === 0) return null;
+  const visibilityMap = {
+    planet: "showPlanets",
+    star: "showStars",
+    dso: "showDSOs",
+    asteroid: "showAsteroids",
+    comet: "showComets",
+    satellite: "showSatellites",
+    spacecraft: "showSpacecraft",
+    constellation: "showConstellations",
+    asterism: "showAsterisms"
+  };
+
+  const order = getSkyObjectHitOrder();
+  for (const type of order) {
+    for (const obj of searchObjects) {
+      if (!obj || obj.type !== type) continue;
+      const setting = visibilityMap[type];
+      if (setting && skySettings[setting] === false) continue;
+      if (hitTestSkyObject(obj, x, y)) return obj;
+    }
+  }
+
+  return null;
+}
+
+function getDsoHitRadius(obj) {
+  const cfg = getCelestialRenderSettings();
+  const dsobase = (cfg.dsos?.size !== undefined && cfg.dsos.size !== null) ? cfg.dsos.size : (cfg.stars?.size || 7);
+  const dsoexp = cfg.dsos?.exponent || cfg.stars?.exponent || -0.28;
+  const prop = obj.properties || {};
+  let size;
+  if (!prop.mag || prop.mag === 999) {
+    const dim = parseInt(prop.dim || 0, 10) || 0;
+    size = Math.pow(dim * dsobase / 7, 0.5);
+  } else {
+    size = Math.pow(2 * dsobase - prop.mag, dsoexp);
+  }
+  const radius = Math.sqrt(Math.max(size, 1)) / 2;
+  return radius + 4;
+}
+
+function getRenderedObjectRadius(obj) {
+  if (!obj || !obj.type) return 0;
+
+  switch (obj.type) {
+    case "star":
+      return getStarHitRadius(obj.mag);
+    case "dso":
+      return getDsoHitRadius(obj) + 6;
+    case "planet":
+      return 12;
+    case "comet":
+      return 12;
+    case "asteroid":
+      return 10;
+    case "satellite":
+      return 10;
+    case "spacecraft":
+      return 12;
+    case "asterism":
+    case "constellation":
+      return 12;
+    default:
+      return 6;
+  }
+}
+
+function getSkyObjectScreenPoint(obj) {
+  const pos = getSkyObjectPosition(obj);
+  if (!pos || !Array.isArray(pos) || pos.length < 2) return null;
+  if (typeof Celestial.clip === "function" && !Celestial.clip(pos)) return null;
+  try {
+    const pt = Celestial.mapProjection(pos);
+    if (!pt || !Array.isArray(pt) || pt.length < 2) return null;
+    return pt;
+  } catch (e) {
+    return null;
+  }
+}
+
+function getStarHitRadius(mag) {
+  const cfg = getCelestialRenderSettings();
+  const starBase = cfg.stars?.size || 7;
+  const starExp = cfg.stars?.exponent || -0.28;
+  const radius = starBase * Math.pow(2.512, starExp * ((typeof mag === "number" ? mag : 0) + 1)) * 0.35;
+  return Math.max(radius, 0.5) + 2;
+}
+
+function getSkyObjectFromLabelTarget(target) {
+  if (!target) return null;
+
+  const label = target.closest?.(".planet-label, .star-search-label, .dso-search-label");
+  if (label) {
+    const text = (label.textContent || "").trim().toLowerCase();
+    if (!text) return null;
+    if (label.classList.contains("planet-label")) {
+      return searchObjects.find(o => o.type === "planet" && ((o.name || "").toLowerCase() === text || (o.id || "").toLowerCase() === text));
+    }
+    if (label.classList.contains("star-search-label")) {
+      return searchObjects.find(o => o.type === "star" && ((o.name || "").toLowerCase() === text || (o.displayName || "").toLowerCase() === text));
+    }
+    if (label.classList.contains("dso-search-label")) {
+      return searchObjects.find(o => o.type === "dso" && ((o.name || "").toLowerCase() === text || (o.displayName || "").toLowerCase() === text));
+    }
+  }
+
+  const tagName = target.tagName?.toLowerCase();
+  if (tagName === "text" || tagName === "tspan") {
+    const text = (target.textContent || "").trim().toLowerCase();
+    if (!text) return null;
+    return searchObjects.find(o => {
+      const lowerName = (o.name || "").toLowerCase();
+      const lowerDisplay = (o.displayName || "").toLowerCase();
+      const lowerFull = (o.fullName || "").toLowerCase();
+      return lowerName === text || lowerDisplay === text || lowerFull === text;
+    }) || null;
+  }
+
+  return null;
+}
+
+function getSkyObjectFromEvent(event) {
+  const labelTarget = getSkyObjectFromLabelTarget(event.target);
+  if (labelTarget) return labelTarget;
+  const coords = getSkyCoordinatesFromEvent(event);
+  if (!coords) return null;
+  return findSkyObjectUnderCursor(coords.x, coords.y);
+}
+
+function handleSkyClick(event) {
+  if (!isCelestialSearchEnabled()) return;
+  const target = getSkyObjectFromEvent(event);
+  if (!target) return;
+
+  event.stopPropagation();
+
+  const searchBox = document.getElementById("searchBox");
+  if (searchBox) {
+    searchBox.value = target.displayName || target.name || searchBox.value || "";
+  }
+
+  selectObject(target);
+}
+
+function handleSkyRightClick(event) {
+  event.preventDefault();
+  if (!isCelestialSearchEnabled()) return;
+  const target = getSkyObjectFromEvent(event);
+  if (!target) return;
+
+  const searchBox = document.getElementById("searchBox");
+  if (searchBox) {
+    searchBox.value = target.displayName || target.name || searchBox.value || "";
+  }
+
+  selectObject(target);
+}
+
 function smoothRotate(target, duration = 1000) {
 
   return new Promise(resolve => {
@@ -5090,7 +5653,8 @@ function createStarSearchLabel(name, x, y) {
   label.style.fontSize = "14px";
   label.style.fontWeight = "bold";
 
-  label.style.pointerEvents = "none";
+  label.style.pointerEvents = "auto";
+  label.style.cursor = "pointer";
   label.style.zIndex = "9999";
 
   // ✨ GLOW
@@ -5328,7 +5892,8 @@ function createDSOSearchLabel(name, x, y) {
   label.style.color = "cyan";
   label.style.fontSize = "14px";
   label.style.fontWeight = "bold";
-  label.style.pointerEvents = "none";
+  label.style.pointerEvents = "auto";
+  label.style.cursor = "pointer";
   label.style.zIndex = "9999";
 
   // 🔥 PERFECT POSITION
@@ -5653,6 +6218,14 @@ const SearchManager = {
 
     searchBox.addEventListener("focus", () => {
       SearchManager.updateSuggestions();
+      clearSearchError();
+    });
+
+    searchBox.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        searchObject();
+      }
     });
 
     document.addEventListener("click", (e) => {
@@ -5666,23 +6239,24 @@ const SearchManager = {
     }
 
     searchBox.addEventListener("input", () => {
+      clearSearchError();
 
-    if (!isCelestialSearchEnabled()) {
+      if (!isCelestialSearchEnabled()) {
         searchBox.value = "";
         suggestionsPanel.classList.add("hidden");
         suggestionsPanel.innerHTML = "";
         return;
-    }
+      }
 
-    // 👇 Agar input empty hai to panel hide karke return
-    if (searchBox.value.trim() === "") {
+      // 👇 Agar input empty hai to panel hide karke return
+      if (searchBox.value.trim() === "") {
         suggestionsPanel.classList.add("hidden");
         suggestionsPanel.innerHTML = "";
         return;
-    }
+      }
 
-    SearchManager.updateSuggestions();
-});
+      SearchManager.updateSuggestions();
+    });
 
     if (favBtn) {
       favBtn.addEventListener("click", () => {
@@ -5822,7 +6396,7 @@ const SearchManager = {
     if (name.startsWith(q) || id.startsWith(q) || fullName.startsWith(q)) return 2;
     if (name.includes(q) || id.includes(q) || fullName.includes(q)) return 3;
 
-    
+
 
     return 100;
   },
@@ -5917,10 +6491,10 @@ const SearchManager = {
     const displayList = filtered.slice(0, 3);
 
     if (displayList.length === 0) {
-    suggestionsPanel.innerHTML = "";
-    suggestionsPanel.classList.add("hidden");
-    return;
-}
+      suggestionsPanel.innerHTML = "";
+      suggestionsPanel.classList.add("hidden");
+      return;
+    }
 
     let html = "";
 
@@ -6159,6 +6733,17 @@ function updateObjectInfo(obj) {
     if (infoPanel) infoPanel.style.display = "none";
     return;
   }
+
+  if (!obj) {
+    const infoPanel = document.getElementById("object-info-panel");
+    if (infoPanel) infoPanel.style.display = "none";
+    currentAIObject = null;
+    displayRA = null;
+    displayDEC = null;
+    if (SearchManager.initialized) SearchManager.updateFavoriteButton();
+    return;
+  }
+
   currentAIObject = obj;
   displayRA = null;
   displayDEC = null;
@@ -13788,7 +14373,29 @@ function updateSkySettingValue(key, val, options = {}) {
   if (key === "showRendererOverlay" && window.rendererManager) {
     window.rendererManager.setOverlayVisible(val);
   }
-  AstroSettings.set("skySettings." + key, val);
+  if (key === "showConstellations" || key === "showConstellationLines" || key === "showConstellationNames") {
+    skySettings.showConstellations = val;
+    skySettings.showConstellationLines = val;
+    skySettings.showConstellationNames = val;
+    skySettings.showConstellationLabels = val;
+    AstroSettings.set("skySettings.showConstellations", val);
+    AstroSettings.set("skySettings.showConstellationLines", val);
+    AstroSettings.set("skySettings.showConstellationNames", val);
+  }
+
+  if (key === "showAsterisms" || key === "showAsterismNames") {
+    skySettings.showAsterisms = val;
+    skySettings.showAsterismNames = val;
+    AstroSettings.set("skySettings.showAsterisms", val);
+    AstroSettings.set("skySettings.showAsterismNames", val);
+  }
+
+  if (key === "showConstellationArt" || key === "showConstellationArtwork") {
+    skySettings.showConstellationArt = val;
+    skySettings.showConstellationArtwork = val;
+    AstroSettings.set("skySettings.showConstellationArt", val);
+    AstroSettings.set("skySettings.showConstellationArtwork", val);
+  }
 
   // 1. Sync all data-sky-setting inputs (Quick panel + Main Settings)
   document.querySelectorAll(`input[data-sky-setting="${key}"]`).forEach(input => {
@@ -13798,6 +14405,24 @@ function updateSkySettingValue(key, val, options = {}) {
       input.value = val;
     }
   });
+
+  if (key === "showConstellations" || key === "showConstellationLines" || key === "showConstellationNames") {
+    document.querySelectorAll(`input[data-sky-setting="showConstellations"], input[data-sky-setting="showConstellationLines"], #toggle-constellations`).forEach(input => {
+      if (input.type === "checkbox") input.checked = !!val;
+    });
+  }
+
+  if (key === "showAsterisms" || key === "showAsterismNames") {
+    document.querySelectorAll(`input[data-sky-setting="showAsterisms"], #toggle-asterisms`).forEach(input => {
+      if (input.type === "checkbox") input.checked = !!val;
+    });
+  }
+
+  if (key === "showConstellationArt" || key === "showConstellationArtwork") {
+    document.querySelectorAll(`input[data-sky-setting="showConstellationArt"], #toggle-constellation-art`).forEach(input => {
+      if (input.type === "checkbox") input.checked = !!val;
+    });
+  }
 
   // 2. Sync legacy element IDs in main settings tab
   const legacyMap = {
@@ -13824,10 +14449,10 @@ function updateSkySettingValue(key, val, options = {}) {
     showEcliptic: "toggle-ecliptic",
     showGalacticPlane: "toggle-galactic-plane",
     showHorizonLine: "toggle-horizon-line",
+    showConstellations: "toggle-constellations",
     showConstellationArt: "toggle-constellation-art",
     showConstellationLines: "toggle-constellations",
     showAsterisms: "toggle-asterisms",
-    showAsterismNames: "toggle-asterism-names",
     enableRefraction: "toggle-refraction",
     horizonGlow: "toggle-horizon-glow",
     skyBrightness: "sky-brightness",
@@ -13912,8 +14537,9 @@ function initSkySettings() {
     "toggle-ecliptic": "showEcliptic",
     "toggle-galactic-plane": "showGalacticPlane",
     "toggle-horizon-line": "showHorizonLine",
+    "toggle-constellations": "showConstellations",
+    "toggle-constellation-art": "showConstellationArt",
     "toggle-asterisms": "showAsterisms",
-    "toggle-asterism-names": "showAsterismNames",
     "toggle-refraction": "enableRefraction",
     "toggle-horizon-glow": "horizonGlow",
     "sky-brightness": "skyBrightness",
@@ -14005,21 +14631,6 @@ function initSkySettings() {
     input.oninput = handler;
     input.onchange = handler;
   });
-
-  const constellationToggle = document.getElementById("toggle-constellations");
-
-  if (constellationToggle) {
-
-    toggle.checked = skySettings.showConstellationLines;
-
-    constellationToggle.addEventListener("change", function () {
-
-      updateSkySettingValue("showConstellationLines", this.checked);
-      updateSkySettingValue("showConstellationNames", this.checked);
-
-    });
-
-  }
 
   // Reset Sky Settings Button Logic
   const resetBtn = document.getElementById("reset-sky-settings-btn");
@@ -15048,6 +15659,38 @@ function drawAdvancedLayers() {
   const width = metrics.width;
   const height = metrics.height;
 
+  // 🎨 CONSTELLATION ARTWORK OVERLAYS
+  if ((skySettings.showConstellationArt || skySettings.showConstellationArtwork) && typeof CONSTELLATION_FEATURES !== "undefined" && CONSTELLATION_FEATURES.length > 0) {
+    context.save();
+    for (const c of CONSTELLATION_FEATURES) {
+      if (!c.geometry || !c.geometry.coordinates) continue;
+      const raDec = [c.geometry.coordinates[0], c.geometry.coordinates[1]];
+      if (Celestial.clip(raDec)) {
+        const pt = Celestial.mapProjection(raDec);
+        if (pt) {
+          context.save();
+          context.fillStyle = "rgba(0, 245, 255, 0.08)";
+          context.strokeStyle = "rgba(0, 245, 255, 0.35)";
+          context.lineWidth = 1.2;
+          context.setLineDash([3, 3]);
+
+          context.beginPath();
+          context.arc(pt[0], pt[1], 36, 0, Math.PI * 2);
+          context.fill();
+          context.stroke();
+
+          context.fillStyle = "rgba(0, 255, 255, 0.85)";
+          context.font = "italic bold 11px 'Space Grotesk', sans-serif";
+          context.textAlign = "center";
+          const artTitle = `✨ ${c.properties?.name || c.id.toUpperCase()}`;
+          context.fillText(artTitle, pt[0], pt[1] + 4);
+          context.restore();
+        }
+      }
+    }
+    context.restore();
+  }
+
   // 1. ORBITS DRAWING
   if (skySettings.showOrbits) {
     const orbitBodies = ["mercury", "venus", "mars", "jupiter", "saturn", "uranus", "neptune", "moon"];
@@ -15165,7 +15808,7 @@ function drawAdvancedLayers() {
                 }
                 let showLabel = true;
 
-                
+
 
                 // Zoom level (adjust values if needed)
                 const zoom = Celestial.zoomBy ? Celestial.zoomBy() : 1;
