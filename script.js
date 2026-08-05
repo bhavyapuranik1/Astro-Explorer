@@ -15640,55 +15640,92 @@ function drawAdvancedLayers() {
   const width = metrics.width;
   const height = metrics.height;
 
-  // 🌟 SEARCHED NON-RENDERED OBJECT CELESTIAL.JS DEFAULT LABEL RENDERING
+  // 🌟 SEARCHED NON-RENDERED OBJECT CELESTIAL.JS DEFAULT NATIVE LABEL & SYMBOL RENDERING
   if (selectedObject && typeof isSkyObjectRendered === "function" && !isSkyObjectRendered(selectedObject)) {
     const pt = getSkyObjectScreenPoint(selectedObject);
     if (pt && !isNaN(pt[0]) && !isNaN(pt[1])) {
       context.save();
       const objType = selectedObject.type;
-      let labelColor = "#00f0ff";
-      let labelText = selectedObject.displayName || selectedObject.name || selectedObject.id || "";
 
       if (objType === "dso") {
-        const prop = selectedObject.properties || {};
-        const dType = (prop.type || selectedObject.dsoType || "").toLowerCase();
-        if (dType.includes("gg") || dType.includes("g") || dType.includes("galaxy")) {
-          labelColor = "#ff4466"; // Red for Galaxies
-        } else if (dType.includes("nebula") || dType.includes("pn") || dType.includes("en")) {
-          labelColor = "#00ccff"; // Blue/Cyan for Nebulae
-        } else if (dType.includes("cluster") || dType.includes("oc") || dType.includes("gc")) {
-          labelColor = "#ffcc00"; // Yellow for Clusters
+        const prop = selectedObject.properties || selectedObject;
+        const rawType = String(prop.type || selectedObject.dsoType || "g").toLowerCase();
+
+        // Exact Celestial.js native symbol table lookup
+        const celSymbols = {
+          gg: { shape: "circle", fill: "#ff0000" },
+          g:  { shape: "ellipse", fill: "#ff0000" },
+          s:  { shape: "ellipse", fill: "#ff0000" },
+          s0: { shape: "ellipse", fill: "#ff0000" },
+          sd: { shape: "ellipse", fill: "#ff0000" },
+          e:  { shape: "ellipse", fill: "#ff0000" },
+          i:  { shape: "ellipse", fill: "#ff0000" },
+          oc: { shape: "circle", fill: "#ff9900", stroke: "#ff9900", width: 1.5 },
+          gc: { shape: "circle", fill: "#ff9900" },
+          en: { shape: "square", fill: "#ff00cc" },
+          bn: { shape: "square", fill: "#ff00cc" },
+          sfr:{ shape: "square", fill: "#cc00ff" },
+          rn: { shape: "square", fill: "#0000ff" },
+          pn: { shape: "diamond", fill: "#00cccc" },
+          snr:{ shape: "diamond", fill: "#ff00cc" },
+          dn: { shape: "square", fill: "#999999", stroke: "#999999", width: 1.5 },
+          pos:{ shape: "marker", fill: "#cccccc" }
+        };
+
+        const sym = celSymbols[rawType] || celSymbols.g;
+        const labelText = (selectedObject.displayName || selectedObject.name || selectedObject.id || "").toUpperCase();
+
+        context.save();
+        context.fillStyle = sym.fill;
+        context.strokeStyle = sym.stroke || sym.fill;
+        context.lineWidth = sym.width || 1;
+
+        const size = 6;
+        if (sym.shape === "circle") {
+          context.beginPath();
+          context.arc(pt[0], pt[1], size / 2, 0, Math.PI * 2);
+          if (sym.stroke) context.stroke();
+          else context.fill();
+        } else if (sym.shape === "ellipse") {
+          context.beginPath();
+          context.arc(pt[0], pt[1], size / 2, 0, Math.PI * 2);
+          context.fill();
+        } else if (sym.shape === "square") {
+          context.fillRect(pt[0] - size / 2, pt[1] - size / 2, size, size);
+        } else if (sym.shape === "diamond") {
+          context.beginPath();
+          context.moveTo(pt[0], pt[1] - size);
+          context.lineTo(pt[0] + size, pt[1]);
+          context.lineTo(pt[0], pt[1] + size);
+          context.lineTo(pt[0] - size, pt[1]);
+          context.closePath();
+          context.fill();
         } else {
-          labelColor = "#00ccff"; // Native DSO Blue/Cyan
+          context.fillRect(pt[0] - 2, pt[1] - 2, 4, 4);
         }
+
+        context.font = "11px 'Lucida Sans Unicode', 'DejaVu Sans', Helvetica, Arial, sans-serif";
+        context.textAlign = "left";
+        context.textBaseline = "middle";
+        context.fillStyle = sym.fill;
+        context.fillText(labelText, pt[0] + size + 3, pt[1] - size / 2);
+        context.restore();
+
       } else if (objType === "star") {
-        labelColor = "#99ccff";
-      } else if (objType === "comet") {
-        labelColor = "#55ffaa";
-      } else if (objType === "asteroid") {
-        labelColor = "#ffaa44";
+        const starName = selectedObject.displayName || selectedObject.name || selectedObject.id || "";
+        context.save();
+        context.fillStyle = "#ffffff";
+        context.beginPath();
+        context.arc(pt[0], pt[1], 2, 0, Math.PI * 2);
+        context.fill();
+
+        context.font = "11px 'Lucida Sans Unicode', 'DejaVu Sans', Helvetica, Arial, sans-serif";
+        context.fillStyle = "#aaaaaa";
+        context.textAlign = "left";
+        context.textBaseline = "middle";
+        context.fillText(starName, pt[0] + 5, pt[1]);
+        context.restore();
       }
-
-      // Draw Celestial.js native default object symbol
-      context.save();
-      context.strokeStyle = labelColor;
-      context.fillStyle = labelColor;
-      context.lineWidth = 1.5;
-      context.shadowBlur = 6;
-      context.shadowColor = labelColor;
-
-      context.beginPath();
-      context.arc(pt[0], pt[1], 4, 0, Math.PI * 2);
-      context.stroke();
-      context.fill();
-
-      // Draw Celestial.js native default canvas text label
-      context.font = "11px 'Space Grotesk', sans-serif";
-      context.textAlign = "left";
-      context.textBaseline = "middle";
-      context.strokeText(labelText, pt[0] + 8, pt[1]);
-      context.fillText(labelText, pt[0] + 8, pt[1]);
-      context.restore();
 
       context.restore();
     }
