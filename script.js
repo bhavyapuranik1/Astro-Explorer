@@ -15662,6 +15662,60 @@ function drawAdvancedLayers() {
   const width = metrics.width;
   const height = metrics.height;
 
+  // 🌟 SEARCHED NON-RENDERED OBJECT CELESTIAL.JS DEFAULT LABEL RENDERING
+  if (selectedObject && typeof isSkyObjectRendered === "function" && !isSkyObjectRendered(selectedObject)) {
+    const pt = getSkyObjectScreenPoint(selectedObject);
+    if (pt && !isNaN(pt[0]) && !isNaN(pt[1])) {
+      context.save();
+      const objType = selectedObject.type;
+      let labelColor = "#00f0ff";
+      let labelText = selectedObject.displayName || selectedObject.name || selectedObject.id || "";
+
+      if (objType === "dso") {
+        const prop = selectedObject.properties || {};
+        const dType = (prop.type || selectedObject.dsoType || "").toLowerCase();
+        if (dType.includes("gg") || dType.includes("g") || dType.includes("galaxy")) {
+          labelColor = "#ff4466"; // Red for Galaxies
+        } else if (dType.includes("nebula") || dType.includes("pn") || dType.includes("en")) {
+          labelColor = "#00ccff"; // Blue/Cyan for Nebulae
+        } else if (dType.includes("cluster") || dType.includes("oc") || dType.includes("gc")) {
+          labelColor = "#ffcc00"; // Yellow for Clusters
+        } else {
+          labelColor = "#00ccff"; // Native DSO Blue/Cyan
+        }
+      } else if (objType === "star") {
+        labelColor = "#99ccff";
+      } else if (objType === "comet") {
+        labelColor = "#55ffaa";
+      } else if (objType === "asteroid") {
+        labelColor = "#ffaa44";
+      }
+
+      // Draw Celestial.js native default object symbol
+      context.save();
+      context.strokeStyle = labelColor;
+      context.fillStyle = labelColor;
+      context.lineWidth = 1.5;
+      context.shadowBlur = 6;
+      context.shadowColor = labelColor;
+
+      context.beginPath();
+      context.arc(pt[0], pt[1], 4, 0, Math.PI * 2);
+      context.stroke();
+      context.fill();
+
+      // Draw Celestial.js native default canvas text label
+      context.font = "11px 'Space Grotesk', sans-serif";
+      context.textAlign = "left";
+      context.textBaseline = "middle";
+      context.strokeText(labelText, pt[0] + 8, pt[1]);
+      context.fillText(labelText, pt[0] + 8, pt[1]);
+      context.restore();
+
+      context.restore();
+    }
+  }
+
   // 1. ORBITS DRAWING
   if (skySettings.showOrbits) {
     const orbitBodies = ["mercury", "venus", "mars", "jupiter", "saturn", "uranus", "neptune", "moon"];
