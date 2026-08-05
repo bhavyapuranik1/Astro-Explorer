@@ -2959,8 +2959,18 @@ function buildSkyConfig() {
     stars: {
       show: s.showStars !== undefined ? s.showStars : true,
       limit: s.starMagnitude || 6,
+      colors: true,
+      style: { fill: "#ffffff", opacity: 0.95 },
       names: s.showStarLabels !== undefined ? s.showStarLabels : true,
-      proper: true
+      proper: true,
+      propername: true,
+      propernameLimit: 2.5,
+      propernameStyle: {
+        fill: "rgba(240, 244, 255, 0.9)",
+        font: "11px 'Space Grotesk', sans-serif",
+        align: "left",
+        baseline: "top"
+      }
     },
 
 
@@ -15809,6 +15819,76 @@ function drawAdvancedLayers() {
         context.setLineDash([4, 4]);
         context.stroke();
         context.restore();
+      }
+    });
+  }
+
+  // 🌟 STELLARIUM PLANET ATMOSPHERIC GLOWS & BRIGHT DISKS
+  const planetGlowColors = {
+    sun: "rgba(255, 220, 120, 0.45)",
+    moon: "rgba(240, 240, 255, 0.35)",
+    venus: "rgba(255, 255, 240, 0.55)",
+    jupiter: "rgba(255, 220, 160, 0.40)",
+    mars: "rgba(255, 120, 80, 0.45)",
+    saturn: "rgba(255, 230, 170, 0.35)",
+    mercury: "rgba(200, 220, 255, 0.30)",
+    uranus: "rgba(160, 230, 255, 0.30)",
+    neptune: "rgba(120, 180, 255, 0.30)"
+  };
+
+  const planetGlowBodies = ["sun", "moon", "venus", "jupiter", "mars", "saturn", "mercury", "uranus", "neptune"];
+  planetGlowBodies.forEach(pName => {
+    const pos = getPlanetPosition(pName, skyTime);
+    if (!pos) return;
+    const raDeg = pos[0] * 15;
+    const dec = pos[1];
+    if (typeof Celestial.clip === "function" && Celestial.clip([raDeg, dec])) {
+      const pt = Celestial.mapProjection([raDeg, dec]);
+      if (pt && !isNaN(pt[0]) && !isNaN(pt[1])) {
+        context.save();
+        const glowColor = planetGlowColors[pName] || "rgba(255,255,255,0.3)";
+        const radGrad = context.createRadialGradient(pt[0], pt[1], 0, pt[0], pt[1], pName === "venus" || pName === "sun" ? 18 : 12);
+        radGrad.addColorStop(0, glowColor);
+        radGrad.addColorStop(1, "rgba(0,0,0,0)");
+        context.fillStyle = radGrad;
+        context.beginPath();
+        context.arc(pt[0], pt[1], pName === "venus" || pName === "sun" ? 18 : 12, 0, Math.PI * 2);
+        context.fill();
+
+        context.fillStyle = pName === "venus" ? "#ffffff" : (pName === "mars" ? "#ff8866" : "#ffffdd");
+        context.beginPath();
+        context.arc(pt[0], pt[1], pName === "venus" ? 3.5 : (pName === "jupiter" || pName === "sun" ? 3.0 : 2.0), 0, Math.PI * 2);
+        context.fill();
+        context.restore();
+      }
+    }
+  });
+
+  // 🌟 STELLARIUM CARDINAL POINTS (N, E, S, W in Coral typography)
+  if (typeof skySettings !== "undefined" && skySettings.showHorizonLine !== false && observer) {
+    const cardinals = [
+      { name: "N", az: 0 },
+      { name: "E", az: 90 },
+      { name: "S", az: 180 },
+      { name: "W", az: 270 }
+    ];
+    cardinals.forEach(c => {
+      const coords = horizontalToEquatorial(0, c.az, skyTime, observer);
+      if (coords && Celestial.clip(coords)) {
+        const pt = Celestial.mapProjection(coords);
+        if (pt && !isNaN(pt[0]) && !isNaN(pt[1])) {
+          context.save();
+          context.fillStyle = "#d96666";
+          context.font = "bold 13px 'Space Grotesk', sans-serif";
+          context.textAlign = "center";
+          context.textBaseline = "middle";
+          context.fillText(c.name, pt[0], pt[1] - 10);
+
+          context.beginPath();
+          context.arc(pt[0], pt[1], 2, 0, Math.PI * 2);
+          context.fill();
+          context.restore();
+        }
       }
     });
   }
