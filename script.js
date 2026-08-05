@@ -3260,23 +3260,14 @@ function globalSkyAnimationLoop() {
             searchHighlight.style.top = smoothY + "px";
           }
 
-          if (searchedObjectName) {
-            if (!dsoSearchLabel) {
-              createDSOSearchLabel(searchedObjectName, smoothX, smoothY);
-            } else {
-              dsoSearchLabel.style.left = smoothX + "px";
-              dsoSearchLabel.style.top = smoothY + "px";
-            }
-          }
-
-          if (planetLabel && skyContainerRect) {
-            planetLabel.style.left = (smoothX + skyContainerRect.left + 3) + "px";
-            planetLabel.style.top = (smoothY + skyContainerRect.top - 3) + "px";
+          if (dsoSearchLabel) {
+            dsoSearchLabel.remove();
+            dsoSearchLabel = null;
           }
 
           if (starLabel) {
-            starLabel.style.left = smoothX + "px";
-            starLabel.style.top = smoothY + "px";
+            starLabel.remove();
+            starLabel = null;
           }
         }
       }
@@ -15640,8 +15631,8 @@ function drawAdvancedLayers() {
   const width = metrics.width;
   const height = metrics.height;
 
-  // 🌟 SEARCHED NON-RENDERED OBJECT CELESTIAL.JS DEFAULT NATIVE LABEL & SYMBOL RENDERING
-  if (selectedObject && typeof isSkyObjectRendered === "function" && !isSkyObjectRendered(selectedObject)) {
+  // 🌟 SEARCHED OBJECT CELESTIAL.JS DEFAULT NATIVE LABEL & SYMBOL RENDERING
+  if (selectedObject) {
     const pt = getSkyObjectScreenPoint(selectedObject);
     if (pt && !isNaN(pt[0]) && !isNaN(pt[1])) {
       context.save();
@@ -15678,9 +15669,9 @@ function drawAdvancedLayers() {
         context.save();
         context.fillStyle = sym.fill;
         context.strokeStyle = sym.stroke || sym.fill;
-        context.lineWidth = sym.width || 1;
+        context.lineWidth = sym.width || 1.5;
 
-        const size = 6;
+        const size = 7;
         if (sym.shape === "circle") {
           context.beginPath();
           context.arc(pt[0], pt[1], size / 2, 0, Math.PI * 2);
@@ -15704,11 +15695,11 @@ function drawAdvancedLayers() {
           context.fillRect(pt[0] - 2, pt[1] - 2, 4, 4);
         }
 
-        context.font = "11px 'Lucida Sans Unicode', 'DejaVu Sans', Helvetica, Arial, sans-serif";
+        context.font = "12px 'Lucida Sans Unicode', 'DejaVu Sans', Helvetica, Arial, sans-serif";
         context.textAlign = "left";
         context.textBaseline = "middle";
         context.fillStyle = sym.fill;
-        context.fillText(labelText, pt[0] + size + 3, pt[1] - size / 2);
+        context.fillText(labelText, pt[0] + size + 4, pt[1]);
         context.restore();
 
       } else if (objType === "star") {
@@ -15716,14 +15707,14 @@ function drawAdvancedLayers() {
         context.save();
         context.fillStyle = "#ffffff";
         context.beginPath();
-        context.arc(pt[0], pt[1], 2, 0, Math.PI * 2);
+        context.arc(pt[0], pt[1], 3, 0, Math.PI * 2);
         context.fill();
 
         context.font = "11px 'Lucida Sans Unicode', 'DejaVu Sans', Helvetica, Arial, sans-serif";
-        context.fillStyle = "#aaaaaa";
+        context.fillStyle = "#cccc99";
         context.textAlign = "left";
         context.textBaseline = "middle";
-        context.fillText(starName, pt[0] + 5, pt[1]);
+        context.fillText(starName, pt[0] + 6, pt[1]);
         context.restore();
       }
 
