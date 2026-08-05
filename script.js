@@ -3260,14 +3260,23 @@ function globalSkyAnimationLoop() {
             searchHighlight.style.top = smoothY + "px";
           }
 
-          if (dsoSearchLabel) {
-            dsoSearchLabel.remove();
-            dsoSearchLabel = null;
+          if (searchedObjectName) {
+            if (!dsoSearchLabel) {
+              createDSOSearchLabel(searchedObjectName, smoothX, smoothY);
+            } else {
+              dsoSearchLabel.style.left = smoothX + "px";
+              dsoSearchLabel.style.top = smoothY + "px";
+            }
+          }
+
+          if (planetLabel && skyContainerRect) {
+            planetLabel.style.left = (smoothX + skyContainerRect.left + 3) + "px";
+            planetLabel.style.top = (smoothY + skyContainerRect.top - 3) + "px";
           }
 
           if (starLabel) {
-            starLabel.remove();
-            starLabel = null;
+            starLabel.style.left = smoothX + "px";
+            starLabel.style.top = smoothY + "px";
           }
         }
       }
@@ -15640,12 +15649,13 @@ function drawAdvancedLayers() {
 
       if (objType === "dso") {
         const prop = selectedObject.properties || selectedObject;
-        const rawType = String(prop.type || selectedObject.dsoType || "g").toLowerCase();
+        let rawType = String(prop.type || selectedObject.dsoType || selectedObject.morph || "g").toLowerCase();
 
         // Exact Celestial.js native symbol table lookup
         const celSymbols = {
           gg: { shape: "circle", fill: "#ff0000" },
           g:  { shape: "ellipse", fill: "#ff0000" },
+          gx: { shape: "ellipse", fill: "#ff0000" },
           s:  { shape: "ellipse", fill: "#ff0000" },
           s0: { shape: "ellipse", fill: "#ff0000" },
           sd: { shape: "ellipse", fill: "#ff0000" },
@@ -15655,6 +15665,7 @@ function drawAdvancedLayers() {
           gc: { shape: "circle", fill: "#ff9900" },
           en: { shape: "square", fill: "#ff00cc" },
           bn: { shape: "square", fill: "#ff00cc" },
+          neb:{ shape: "square", fill: "#ff00cc" },
           sfr:{ shape: "square", fill: "#cc00ff" },
           rn: { shape: "square", fill: "#0000ff" },
           pn: { shape: "diamond", fill: "#00cccc" },
@@ -15663,7 +15674,13 @@ function drawAdvancedLayers() {
           pos:{ shape: "marker", fill: "#cccccc" }
         };
 
-        const sym = celSymbols[rawType] || celSymbols.g;
+        let sym = celSymbols[rawType];
+        if (!sym) {
+          if (rawType.includes("cluster") || rawType.includes("oc") || rawType.includes("gc")) sym = celSymbols.gc;
+          else if (rawType.includes("nebula") || rawType.includes("pn") || rawType.includes("en")) sym = celSymbols.en;
+          else sym = celSymbols.g;
+        }
+
         const labelText = (selectedObject.displayName || selectedObject.name || selectedObject.id || "").toUpperCase();
 
         context.save();
@@ -15671,7 +15688,7 @@ function drawAdvancedLayers() {
         context.strokeStyle = sym.stroke || sym.fill;
         context.lineWidth = sym.width || 1.5;
 
-        const size = 7;
+        const size = 8;
         if (sym.shape === "circle") {
           context.beginPath();
           context.arc(pt[0], pt[1], size / 2, 0, Math.PI * 2);
@@ -15695,7 +15712,7 @@ function drawAdvancedLayers() {
           context.fillRect(pt[0] - 2, pt[1] - 2, 4, 4);
         }
 
-        context.font = "12px 'Lucida Sans Unicode', 'DejaVu Sans', Helvetica, Arial, sans-serif";
+        context.font = "bold 12px 'Lucida Sans Unicode', 'DejaVu Sans', Helvetica, Arial, sans-serif";
         context.textAlign = "left";
         context.textBaseline = "middle";
         context.fillStyle = sym.fill;
