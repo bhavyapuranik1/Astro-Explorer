@@ -10484,3 +10484,72 @@ body.night-vision-active #toggle-night-btn {
     font-weight:500;
 
 }
+
+/* ===========================
+   Experimental Renderer V2 Badge & Developer Switch
+=========================== */
+
+.v2-badge {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  z-index: 9999;
+  background: rgba(10, 15, 30, 0.88);
+  border: 1px solid rgba(0, 240, 255, 0.5);
+  box-shadow: 0 0 16px rgba(0, 240, 255, 0.3);
+  color: #00f0ff;
+  font-family: 'Space Grotesk', system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+  backdrop-filter: blur(10px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.v2-badge.hidden {
+  display: none !important;
+}
+
+.v2-badge-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #00f0ff;
+  box-shadow: 0 0 8px #00f0ff;
+  animation: v2Pulse 2s infinite ease-in-out;
+}
+
+@keyframes v2Pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.85); }
+}
+
+.dev-renderer-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(0, 240, 255, 0.3);
+  border-radius: 8px;
+  padding: 4px 8px;
+  font-size: 12px;
+  color: #e2e8f0;
+}
+
+.dev-renderer-select {
+  background: rgba(0, 0, 0, 0.5);
+  color: #00f0ff;
+  border: 1px solid rgba(0, 240, 255, 0.3);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+}

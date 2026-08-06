@@ -3120,6 +3120,69 @@ function initSky() {
 
 
 
+// 🌌 DEVELOPER RENDERER SWITCHER (Celestial.js Default vs SkyRendererV2 Experimental)
+let activeRendererMode = "celestial";
+let skyRendererV2Instance = null;
+
+async function setRendererMode(mode) {
+  if (mode !== "celestial" && mode !== "v2") return;
+  activeRendererMode = mode;
+
+  const container = document.getElementById("skyContainer");
+  const badge = document.getElementById("sky-renderer-v2-badge");
+  const selectDropdown = document.getElementById("rendererEngineSelect");
+  if (selectDropdown) selectDropdown.value = mode;
+
+  const celestialCanvases = container ? container.querySelectorAll("canvas:not(.sky-renderer-v2-canvas)") : [];
+  const celestialSvg = container ? container.querySelectorAll("svg") : [];
+
+  if (mode === "celestial") {
+    // Restore Celestial.js 2D map canvas
+    celestialCanvases.forEach(c => c.style.display = "block");
+    celestialSvg.forEach(s => s.style.display = "block");
+
+    // Hide V2 Badge
+    if (badge) badge.classList.add("hidden");
+
+    // Cleanly dispose V2 instance
+    if (skyRendererV2Instance) {
+      try {
+        skyRendererV2Instance.dispose();
+      } catch (e) {
+        console.error("Error disposing SkyRendererV2:", e);
+      }
+      skyRendererV2Instance = null;
+    }
+    console.log("[RendererSwitch] Restored Celestial.js (Default).");
+  } else if (mode === "v2") {
+    // Hide Celestial.js 2D map canvas
+    celestialCanvases.forEach(c => c.style.display = "none");
+    celestialSvg.forEach(s => s.style.display = "none");
+
+    // Show V2 Badge
+    if (badge) badge.classList.remove("hidden");
+
+    // Initialize V2 instance lazily
+    if (!skyRendererV2Instance && container) {
+      try {
+        const { SkyRendererV2 } = await import("./rendererV2/skyRendererV2.js");
+        skyRendererV2Instance = new SkyRendererV2({
+          enableControls: false,
+          clearColor: 0x000000,
+          clearAlpha: 1.0
+        });
+        skyRendererV2Instance.init(container);
+        skyRendererV2Instance.start();
+        skyRendererV2Instance.updateTimeAndObserver(skyTime, observer);
+      } catch (e) {
+        console.error("[RendererSwitch] Failed to initialize SkyRendererV2:", e);
+      }
+    }
+    console.log("[RendererSwitch] Activated Sky Renderer V2 (Experimental).");
+  }
+}
+window.setRendererMode = setRendererMode;
+
 let marker;
 let searchHighlight = null;
 let currentTarget = null;
