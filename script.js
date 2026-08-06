@@ -3171,7 +3171,7 @@ async function setRendererMode(mode) {
           clearColor: 0x000000,
           clearAlpha: 1.0
         });
-        skyRendererV2Instance.init(container);
+        await skyRendererV2Instance.init(container);
         skyRendererV2Instance.start();
         skyRendererV2Instance.updateTimeAndObserver(skyTime, observer);
       } catch (e) {

@@ -328,6 +328,10 @@ export class SkyRendererV2 {
 
     this.isInitialized = true;
     console.log(`[SkyRendererV2] Successfully loaded ${this.loadedStarCount} real astronomical stars from catalog.`);
+    if (this._pendingStart) {
+      this._pendingStart = false;
+      this.start();
+    }
   }
 
   /**
@@ -335,7 +339,7 @@ export class SkyRendererV2 {
    */
   start() {
     if (!this.isInitialized) {
-      console.warn('[SkyRendererV2] Cannot start animation loop before init(container) is called.');
+      this._pendingStart = true;
       return;
     }
     if (this.isRendering) return;
