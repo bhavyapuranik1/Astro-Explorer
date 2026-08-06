@@ -4305,6 +4305,7 @@ function adjustSimTime(unit, val) {
   else if (unit === 'second') date.setSeconds(date.getSeconds() + val);
   skyTime = date;
 
+  syncV2RendererState();
   _updateSimTimeUI();
   updateDynamicInfo();
 }
@@ -5725,6 +5726,7 @@ function applySkyTime() {
 
   selectedObject = selectedObject;
 
+  syncV2RendererState();
   updateDynamicInfo();
   _updateSimTimeUI();
 
