@@ -660,6 +660,14 @@ export class SkyRendererV2 {
   _animate() {
     if (!this.isRendering) return;
     this.animationFrameId = requestAnimationFrame(() => this._animate());
+
+    // Auto-sync active simulation time & location on every frame
+    if (typeof window !== 'undefined') {
+      const activeTime = window.skyTime || new Date();
+      const activeObs = window.observer || { latitude: 0, longitude: 0 };
+      this.updateTimeAndObserver(activeTime, activeObs);
+    }
+
     this.render();
   }
 

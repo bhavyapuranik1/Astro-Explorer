@@ -25,6 +25,7 @@ let starLabel = null;
 let planetLabel = null;
 let isRotating = false;
 let skyTime = new Date(); // 🔥 main simulation time
+if (typeof window !== 'undefined') window.skyTime = skyTime;
 let simPaused = false;    // ⏸ pause simulation
 let simSpeed = 1;        // ⚡ seconds of sim time per real second
 let lastSelectedPlanet = null;
@@ -3182,6 +3183,17 @@ async function setRendererMode(mode) {
   }
 }
 window.setRendererMode = setRendererMode;
+
+function syncV2RendererState() {
+  if (typeof window !== 'undefined') {
+    window.skyTime = skyTime;
+    window.observer = observer;
+  }
+  if (typeof activeRendererMode !== 'undefined' && activeRendererMode === "v2" && skyRendererV2Instance) {
+    skyRendererV2Instance.updateTimeAndObserver(skyTime, observer);
+  }
+}
+window.syncV2RendererState = syncV2RendererState;
 
 let marker;
 let searchHighlight = null;
