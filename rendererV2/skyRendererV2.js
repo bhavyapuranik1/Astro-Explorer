@@ -568,8 +568,8 @@ export class SkyRendererV2 {
 
     // 6. Load Atmosphere System
     this.atmosphere = new Atmosphere({ radius: this.options.sphereRadius * 0.99 });
-    if (this.atmosphere && this.atmosphere.mesh) {
-      this.scene.add(this.atmosphere.mesh);
+    if (this.atmosphere && this.atmosphere.mesh && this.starSphereGroup) {
+      this.starSphereGroup.add(this.atmosphere.mesh);
     }
 
     // 7. Load Complete Solar System Module (Sun, Moon, Planets)
