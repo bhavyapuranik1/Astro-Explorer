@@ -4508,9 +4508,6 @@ function isCelestialSearchEnabled() {
   if (skySettings.showCelestialObjects === false || skySettings.showCelestialObjects === "false" || skySettings.showCelestialObjects === 0) {
     return false;
   }
-  if (skySettings.showDSOs === false || skySettings.showDSOs === "false" || skySettings.showDSOs === 0) {
-    return false;
-  }
   return true;
 }
 
