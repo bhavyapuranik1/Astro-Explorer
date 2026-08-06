@@ -4294,6 +4294,9 @@ function _updateSimTimeUI() {
     skyDt.value = localISOTime;
   }
 
+  // Sync V2 Renderer state for all time travel UI controls
+  syncV2RendererState();
+
   // Update dynamic atmosphere calculations synchronously before starmap redraw
   updateAtmosphereState();
 
