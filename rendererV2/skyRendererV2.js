@@ -2,10 +2,11 @@
  * SkyRendererV2 - Three.js Astronomical Sky Renderer Module
  * 
  * FEATURES:
+ * - Complete Solar System Renderer (Sun, Moon, Mercury, Venus, Mars, Jupiter, Saturn, Uranus, Neptune, Pluto).
+ * - Solar Corona Lens Flare & Photorealistic Planetary GLSL Shaders.
  * - Integrated Physically-Inspired GPU WebGL Atmosphere System (rendererV2/atmosphere.js).
  * - Smooth solar altitude transitions: Day Sky, Sunset/Sunrise, Civil, Nautical & Astronomical Twilight, and Night Sky.
  * - Automatic star daytime fading & atmosphere blending.
- * - Extensible atmosphere architecture (prepared for extinction, airglow, light pollution, moonlight, weather).
  * - Planetarium-grade HDR WebGL Star Shader with ACES tone mapping & selective diffraction bloom.
  * - High-precision Blackbody / Morgan-Keenan spectral color temperatures (B-V color index).
  * - Physically realistic 3D Milky Way all-sky equirectangular sphere with Galactic Euler alignment.
@@ -21,6 +22,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { Atmosphere } from './atmosphere.js';
+import { SolarSystem } from './solarSystem.js';
 
 export class SkyRendererV2 {
   /**
@@ -63,6 +65,7 @@ export class SkyRendererV2 {
     this.milkyWayBrightness = 1.0;
 
     this.atmosphere = null;
+    this.solarSystem = null;
 
     this.isInitialized = false;
     this.isRendering = false;
@@ -279,7 +282,7 @@ export class SkyRendererV2 {
     });
 
     const points = new THREE.Points(geometry, material);
-    points.renderOrder = 1; // Render stars above Milky Way background & atmosphere
+    points.renderOrder = 1;
     return points;
   }
 
@@ -430,7 +433,7 @@ export class SkyRendererV2 {
   }
 
   /**
-   * Updates celestial sphere rotation & atmosphere solar position according to date, time, and observer location.
+   * Updates celestial sphere rotation, atmosphere solar position, and Solar System positions.
    * @param {Date} [date=new Date()] - Active simulation date/time.
    * @param {Object} [obs={ latitude: 0, longitude: 0 }] - Observer location ({ latitude, longitude }).
    */
@@ -472,10 +475,15 @@ export class SkyRendererV2 {
         }
       }
     }
+
+    // Update Solar System Positions (Sun, Moon, Planets)
+    if (this.solarSystem) {
+      this.solarSystem.updatePositions(date, obs);
+    }
   }
 
   /**
-   * Initializes Three.js WebGL renderer, star catalog, Milky Way, and Atmosphere.
+   * Initializes Three.js WebGL renderer, star catalog, Milky Way, Atmosphere, and Solar System.
    * @param {HTMLElement} containerElement - DOM parent container.
    * @param {Array<Object>} [customStarCatalog] - Optional star catalog array.
    */
@@ -543,7 +551,13 @@ export class SkyRendererV2 {
       this.scene.add(this.atmosphere.mesh);
     }
 
-    // 7. Load Real Astronomical Star Catalog with Planetarium HDR Star Shader
+    // 7. Load Complete Solar System Module (Sun, Moon, Planets)
+    this.solarSystem = new SolarSystem({ radius: this.options.sphereRadius });
+    if (this.solarSystem && this.solarSystem.group) {
+      this.starSphereGroup.add(this.solarSystem.group);
+    }
+
+    // 8. Load Real Astronomical Star Catalog with Planetarium HDR Star Shader
     const stars = customStarCatalog || await this.loadProjectStarCatalog();
     if (stars && stars.length > 0) {
       this.starFieldPoints = this.createAstronomicalStarField(stars);
@@ -553,7 +567,7 @@ export class SkyRendererV2 {
     // Initial position alignment
     this.updateTimeAndObserver(new Date(), { latitude: 0, longitude: 0 });
 
-    // 8. Camera Drag Rotation Controls
+    // 9. Camera Drag Rotation Controls
     if (this.options.enableControls) {
       this.controls = new OrbitControls(this.camera, this.canvas);
       this.controls.enableDamping = true;
@@ -564,11 +578,11 @@ export class SkyRendererV2 {
       this.controls.enablePan = false;
     }
 
-    // 9. Resize Listener
+    // 10. Resize Listener
     window.addEventListener('resize', this._onWindowResizeBound, false);
 
     this.isInitialized = true;
-    console.log(`[SkyRendererV2] Successfully loaded Planetarium HDR Star Shader, Atmosphere, and 3D Milky Way.`);
+    console.log(`[SkyRendererV2] Successfully loaded Planetarium HDR Star Shader, Atmosphere, 3D Milky Way, and Solar System.`);
 
     if (this._pendingStart) {
       this._pendingStart = false;
@@ -647,6 +661,11 @@ export class SkyRendererV2 {
     if (this.controls) {
       this.controls.dispose();
       this.controls = null;
+    }
+
+    if (this.solarSystem) {
+      this.solarSystem.dispose();
+      this.solarSystem = null;
     }
 
     if (this.atmosphere) {
