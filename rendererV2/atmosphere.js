@@ -85,8 +85,8 @@ export class Atmosphere {
 
           float sunAlt = uSunAltitude;
 
-          vec3 zenithColor = vec3(0.01, 0.02, 0.05);
-          vec3 horizonColor = vec3(0.02, 0.03, 0.06);
+          vec3 zenithColor = vec3(0.005, 0.008, 0.020);
+          vec3 horizonColor = vec3(0.010, 0.015, 0.030);
 
           if (sunAlt > 0.0) {
             // Day Sky (Rayleigh blue scattering)
@@ -96,18 +96,18 @@ export class Atmosphere {
           } else if (sunAlt > -6.0) {
             // Civil Twilight / Sunset & Sunrise Golden Glow
             float t = (sunAlt + 6.0) / 6.0;
-            zenithColor = mix(vec3(0.04, 0.08, 0.22), vec3(0.12, 0.32, 0.60), t);
+            zenithColor = mix(vec3(0.03, 0.06, 0.18), vec3(0.12, 0.32, 0.60), t);
             horizonColor = mix(vec3(0.95, 0.42, 0.15), vec3(0.44, 0.64, 0.90), t);
           } else if (sunAlt > -12.0) {
-            // Nautical Twilight (Deep Navy to Sunset Crimson)
+            // Nautical Twilight (Deep Crimson to Navy)
             float t = (sunAlt + 12.0) / 6.0;
-            zenithColor = mix(vec3(0.02, 0.04, 0.12), vec3(0.04, 0.08, 0.22), t);
-            horizonColor = mix(vec3(0.25, 0.15, 0.35), vec3(0.95, 0.42, 0.15), t);
+            zenithColor = mix(vec3(0.015, 0.030, 0.090), vec3(0.03, 0.06, 0.18), t);
+            horizonColor = mix(vec3(0.25, 0.12, 0.30), vec3(0.95, 0.42, 0.15), t);
           } else if (sunAlt > -18.0) {
-            // Astronomical Twilight (Midnight Blue)
+            // Astronomical Twilight (Deep Midnight Blue)
             float t = (sunAlt + 18.0) / 6.0;
-            zenithColor = mix(vec3(0.01, 0.02, 0.05), vec3(0.02, 0.04, 0.12), t);
-            horizonColor = mix(vec3(0.03, 0.05, 0.10), vec3(0.25, 0.15, 0.35), t);
+            zenithColor = mix(vec3(0.005, 0.008, 0.020), vec3(0.015, 0.030, 0.090), t);
+            horizonColor = mix(vec3(0.020, 0.035, 0.080), vec3(0.25, 0.12, 0.30), t);
           }
 
           // Vertical height gradient
@@ -115,7 +115,7 @@ export class Atmosphere {
           vec3 skyColor = mix(horizonColor, zenithColor, elevation);
 
           // Subtle night airglow
-          vec3 nightGlow = vec3(0.008, 0.012, 0.025) * (1.0 + uAirglow);
+          vec3 nightGlow = vec3(0.005, 0.008, 0.018) * (1.0 + uAirglow);
           if (sunAlt < -18.0) {
             skyColor += nightGlow;
           }
@@ -123,11 +123,11 @@ export class Atmosphere {
           // Alpha transparency based on day/night phase
           float atmosphereAlpha = 0.0;
           if (sunAlt > 0.0) {
-            atmosphereAlpha = 0.92;
+            atmosphereAlpha = 0.90;
           } else if (sunAlt > -18.0) {
-            atmosphereAlpha = mix(0.08, 0.92, (sunAlt + 18.0) / 18.0);
+            atmosphereAlpha = mix(0.04, 0.90, (sunAlt + 18.0) / 18.0);
           } else {
-            atmosphereAlpha = 0.08;
+            atmosphereAlpha = 0.04;
           }
 
           gl_FragColor = vec4(skyColor, atmosphereAlpha * uOpacity);
@@ -152,14 +152,27 @@ export class Atmosphere {
     let sunAlt = -25.0;
     let sunAz = 180.0;
 
+    const d = (date instanceof Date && !isNaN(date)) ? date : new Date(date || Date.now());
+
     if (typeof window !== 'undefined' && window.Astronomy && typeof window.Astronomy.Equator === 'function') {
       try {
-        const time = window.Astronomy.MakeTime(date);
-        const obs = new window.Astronomy.Observer(observer.latitude || 0, observer.longitude || 0, 0);
-        const sunEquator = window.Astronomy.Equator("Sun", time, obs, true, true);
-        const refr = (window.Astronomy && window.Astronomy.Refraction && window.Astronomy.Refraction.Normal !== undefined)
-          ? window.Astronomy.Refraction.Normal
+        const time = window.Astronomy.MakeTime(d);
+        let obs = observer;
+        if (!(obs instanceof window.Astronomy.Observer)) {
+          const lat = (observer && observer.latitude !== undefined) ? observer.latitude : (observer && observer.lat !== undefined ? observer.lat : 0);
+          const lon = (observer && observer.longitude !== undefined) ? observer.longitude : (observer && observer.lon !== undefined ? observer.lon : 0);
+          obs = new window.Astronomy.Observer(lat, lon, 0);
+        }
+
+        const bodySun = (window.Astronomy.Body && window.Astronomy.Body.Sun !== undefined)
+          ? window.Astronomy.Body.Sun
+          : "Sun";
+
+        const sunEquator = window.Astronomy.Equator(bodySun, time, obs, true, true);
+        const refr = (window.Astronomy.Refraction && window.Astronomy.Refraction.None !== undefined)
+          ? window.Astronomy.Refraction.None
           : null;
+
         const sunHorizon = window.Astronomy.Horizon(time, obs, sunEquator.ra, sunEquator.dec, refr);
         sunAlt = sunHorizon.altitude;
         sunAz = sunHorizon.azimuth;
@@ -168,16 +181,21 @@ export class Atmosphere {
       }
     }
 
-    // Solar Math Fallback if Astronomy Engine is omitted
+    // Solar Local Math Fallback if Astronomy Engine is omitted
     if (sunAlt === -25.0) {
-      const yearDay = Math.floor((date - new Date(date.getFullYear(), 0, 0)) / 86400000);
+      const yearDay = Math.floor((d - new Date(d.getFullYear(), 0, 0)) / 86400000);
       const declination = -23.44 * Math.cos(THREE.MathUtils.degToRad((360 / 365) * (yearDay + 10)));
-      const hourAngle = ((date.getUTCHours() + date.getUTCMinutes() / 60) * 15 + (observer.longitude || 0)) - 180;
-      const latRad = THREE.MathUtils.degToRad(observer.latitude || 0);
+
+      // Use local solar hours for observer horizon calculation
+      const localHours = d.getHours() + d.getMinutes() / 60.0 + d.getSeconds() / 3600.0;
+      const hourAngle = (localHours - 12.0) * 15.0;
+
+      const latRad = THREE.MathUtils.degToRad((observer && observer.latitude !== undefined) ? observer.latitude : ((observer && observer.lat !== undefined) ? observer.lat : 0));
       const decRad = THREE.MathUtils.degToRad(declination);
       const haRad = THREE.MathUtils.degToRad(hourAngle);
+
       const sinAlt = Math.sin(latRad) * Math.sin(decRad) + Math.cos(latRad) * Math.cos(decRad) * Math.cos(haRad);
-      sunAlt = THREE.MathUtils.radToDeg(Math.asin(sinAlt));
+      sunAlt = THREE.MathUtils.radToDeg(Math.asin(Math.max(-1.0, Math.min(1.0, sinAlt))));
     }
 
     this.sunAltitude = sunAlt;
@@ -190,11 +208,11 @@ export class Atmosphere {
 
     // Compute star visibility factor (fades stars gracefully during day)
     if (sunAlt > 0.0) {
-      this.starVisibilityFactor = 0.0; // Day: stars hidden
+      this.starVisibilityFactor = 0.0;
     } else if (sunAlt > -6.0) {
-      this.starVisibilityFactor = Math.pow((sunAlt + 6.0) / -6.0, 2.0); // Fading during civil twilight
+      this.starVisibilityFactor = Math.pow((sunAlt + 6.0) / -6.0, 2.0);
     } else {
-      this.starVisibilityFactor = 1.0; // Night: stars 100% visible
+      this.starVisibilityFactor = 1.0;
     }
 
     return { altitude: sunAlt, azimuth: sunAz, starVisibility: this.starVisibilityFactor };
