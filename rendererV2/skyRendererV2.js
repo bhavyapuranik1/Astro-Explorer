@@ -2,13 +2,14 @@
  * SkyRendererV2 - Three.js Astronomical Sky Renderer Module
  * 
  * FEATURES IN THIS STEP:
- * - 100% Real Astronomical Star Field from project data (data/stars.6.json - 8,738 stars).
- * - Removed all procedural/random star generation.
- * - Accurate 3D position conversion from Right Ascension (RA) and Declination (Dec).
- * - B-V Color Index spectral color transformation (O, B, A, F, G, K, M stellar types).
- * - Magnitude-based size scaling and apparent brightness intensity.
- * - Local Sidereal Time (LST) and Observer Latitude sky orientation via Astronomy Engine.
- * - Single GPU draw call via THREE.Points and THREE.BufferGeometry (60 FPS locked, ~0.25 MB VRAM).
+ * - Realistic 3D Milky Way background integration (using project data/mw.json).
+ * - Multi-level dust lane contour contours + diffuse galactic atmosphere glow.
+ * - Celestial coordinate orientation aligned with real night sky.
+ * - Rotates seamlessly with Local Sidereal Time (LST) and Observer Latitude via Astronomy Engine.
+ * - Rendered strictly behind all stars (depthWrite: false, renderOrder: -10).
+ * - Internal opacity (setMilkyWayOpacity) and visibility (setMilkyWayVisible) controls.
+ * - 100% Real Astronomical Star Field from data/stars.6.json (8,738 stars).
+ * - Single GPU draw call particle system (60 FPS locked).
  * 
  * IMPORTANT:
  * - Celestial.js remains 100% active and untouched.
@@ -50,6 +51,9 @@ export class SkyRendererV2 {
     this.starFieldPoints = null;
     this.starTexture = null;
     this.loadedStarCount = 0;
+
+    this.milkyWayGroup = null;
+    this.milkyWayOpacity = 1.0;
 
     this.isInitialized = false;
     this.isRendering = false;
@@ -204,11 +208,142 @@ export class SkyRendererV2 {
       blending: THREE.AdditiveBlending
     });
 
-    return new THREE.Points(geometry, material);
+    const points = new THREE.Points(geometry, material);
+    points.renderOrder = 1; // Render stars above Milky Way background
+    return points;
   }
 
   /**
-   * Updates the celestial sphere rotation according to date, time, and observer location.
+   * Loads and renders the realistic 3D Milky Way background structure from project data (data/mw.json).
+   * @param {number} [radius=this.options.sphereRadius * 0.98] - Placement radius inside celestial sphere.
+   */
+  async loadMilkyWay(radius = this.options.sphereRadius * 0.98) {
+    this.milkyWayGroup = new THREE.Group();
+    this.milkyWayGroup.name = 'milkyWayGroup';
+    this.milkyWayGroup.renderOrder = -10; // Ensure rendered strictly behind stars
+
+    try {
+      const response = await fetch('./data/mw.json');
+      const data = await response.json();
+
+      if (data && data.features && Array.isArray(data.features)) {
+        data.features.forEach((feature, index) => {
+          if (!feature.geometry) return;
+
+          let strokeColor = 0x4868a8; // Outer diffuse glow
+          let baseOpacity = 0.18;
+
+          const featId = String(feature.id || index);
+          if (featId.includes('ol5') || index > 8) {
+            strokeColor = 0xffe0a0; // Core galactic starlight
+            baseOpacity = 0.45;
+          } else if (featId.includes('ol3') || index > 4) {
+            strokeColor = 0xb090f0; // Middle dust lane glow
+            baseOpacity = 0.28;
+          }
+
+          const coordsList = feature.geometry.type === 'MultiPolygon'
+            ? feature.geometry.coordinates.flat(1)
+            : (feature.geometry.type === 'Polygon' ? feature.geometry.coordinates : []);
+
+          coordsList.forEach(polygon => {
+            const points = [];
+            polygon.forEach(coord => {
+              const raHours = coord[0] || 0;
+              const raDeg = (raHours * 15.0) % 360.0;
+              const decDeg = coord[1] || 0;
+
+              const vec = this.celestialToCartesian(raDeg, decDeg, radius);
+              points.push(vec);
+            });
+
+            if (points.length > 1) {
+              const lineGeo = new THREE.BufferGeometry().setFromPoints(points);
+              const lineMat = new THREE.LineBasicMaterial({
+                color: strokeColor,
+                transparent: true,
+                opacity: baseOpacity * this.milkyWayOpacity,
+                depthWrite: false,
+                blending: THREE.AdditiveBlending
+              });
+              lineMat.userData = { baseOpacity };
+
+              const lineMesh = new THREE.LineLoop(lineGeo, lineMat);
+              this.milkyWayGroup.add(lineMesh);
+            }
+          });
+        });
+      }
+    } catch (e) {
+      console.warn('[SkyRendererV2] Failed to load data/mw.json for Milky Way structure:', e);
+    }
+
+    // Add procedurally blurred background atmospheric glow sphere for smooth sky blending
+    const sphereGeo = new THREE.SphereGeometry(radius * 0.99, 32, 16);
+    const glowCanvas = document.createElement('canvas');
+    glowCanvas.width = 512;
+    glowCanvas.height = 256;
+    const gctx = glowCanvas.getContext('2d');
+
+    const grad = gctx.createLinearGradient(0, 0, 0, 256);
+    grad.addColorStop(0, 'rgba(5, 10, 25, 0.0)');
+    grad.addColorStop(0.32, 'rgba(30, 50, 100, 0.12)');
+    grad.addColorStop(0.50, 'rgba(160, 120, 200, 0.25)');
+    grad.addColorStop(0.68, 'rgba(30, 50, 100, 0.12)');
+    grad.addColorStop(1, 'rgba(5, 10, 25, 0.0)');
+
+    gctx.fillStyle = grad;
+    gctx.fillRect(0, 0, 512, 256);
+
+    const glowTex = new THREE.CanvasTexture(glowCanvas);
+    const sphereMat = new THREE.MeshBasicMaterial({
+      map: glowTex,
+      side: THREE.BackSide,
+      transparent: true,
+      opacity: 0.35 * this.milkyWayOpacity,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending
+    });
+    sphereMat.userData = { baseOpacity: 0.35 };
+
+    const glowMesh = new THREE.Mesh(sphereGeo, sphereMat);
+    glowMesh.renderOrder = -11;
+    this.milkyWayGroup.add(glowMesh);
+
+    if (this.starSphereGroup) {
+      this.starSphereGroup.add(this.milkyWayGroup);
+    }
+    console.log('[SkyRendererV2] Loaded 3D Milky Way background structure.');
+  }
+
+  /**
+   * Adjusts internal Milky Way opacity dynamically (0.0 to 1.0).
+   * @param {number} opacity - Opacity value between 0.0 and 1.0.
+   */
+  setMilkyWayOpacity(opacity) {
+    this.milkyWayOpacity = Math.max(0.0, Math.min(1.0, opacity));
+    if (this.milkyWayGroup) {
+      this.milkyWayGroup.traverse(child => {
+        if (child.material) {
+          const base = child.material.userData && child.material.userData.baseOpacity ? child.material.userData.baseOpacity : 0.3;
+          child.material.opacity = base * this.milkyWayOpacity;
+        }
+      });
+    }
+  }
+
+  /**
+   * Toggles Milky Way visibility on/off.
+   * @param {boolean} visible
+   */
+  setMilkyWayVisible(visible) {
+    if (this.milkyWayGroup) {
+      this.milkyWayGroup.visible = !!visible;
+    }
+  }
+
+  /**
+   * Updates celestial sphere rotation according to date, time, and observer location.
    * @param {Date} [date=new Date()] - Active simulation date/time.
    * @param {Object} [obs={ latitude: 0, longitude: 0 }] - Observer location ({ latitude, longitude }).
    */
@@ -243,7 +378,7 @@ export class SkyRendererV2 {
   }
 
   /**
-   * Initializes Three.js WebGL renderer and loads real astronomical star catalog.
+   * Initializes Three.js WebGL renderer, star catalog, and Milky Way structure.
    * @param {HTMLElement} containerElement - DOM parent container.
    * @param {Array<Object>} [customStarCatalog] - Optional star catalog array.
    */
@@ -302,7 +437,10 @@ export class SkyRendererV2 {
     this.starSphereGroup = new THREE.Group();
     this.scene.add(this.starSphereGroup);
 
-    // 5. Load Real Astronomical Star Catalog
+    // 5. Load 3D Milky Way Structure (Behind Stars)
+    await this.loadMilkyWay();
+
+    // 6. Load Real Astronomical Star Catalog
     const stars = customStarCatalog || await this.loadProjectStarCatalog();
     if (stars && stars.length > 0) {
       this.starFieldPoints = this.createAstronomicalStarField(stars);
@@ -312,7 +450,7 @@ export class SkyRendererV2 {
     // Initial position alignment
     this.updateTimeAndObserver(new Date(), { latitude: 0, longitude: 0 });
 
-    // 6. Camera Drag Rotation Controls
+    // 7. Camera Drag Rotation Controls
     if (this.options.enableControls) {
       this.controls = new OrbitControls(this.camera, this.canvas);
       this.controls.enableDamping = true;
@@ -323,11 +461,12 @@ export class SkyRendererV2 {
       this.controls.enablePan = false;
     }
 
-    // 7. Resize Listener
+    // 8. Resize Listener
     window.addEventListener('resize', this._onWindowResizeBound, false);
 
     this.isInitialized = true;
-    console.log(`[SkyRendererV2] Successfully loaded ${this.loadedStarCount} real astronomical stars from catalog.`);
+    console.log(`[SkyRendererV2] Successfully loaded ${this.loadedStarCount} real astronomical stars and 3D Milky Way.`);
+
     if (this._pendingStart) {
       this._pendingStart = false;
       this.start();
@@ -412,6 +551,18 @@ export class SkyRendererV2 {
       if (this.starFieldPoints.material) this.starFieldPoints.material.dispose();
       if (this.starSphereGroup) this.starSphereGroup.remove(this.starFieldPoints);
       this.starFieldPoints = null;
+    }
+
+    if (this.milkyWayGroup) {
+      this.milkyWayGroup.traverse(child => {
+        if (child.geometry) child.geometry.dispose();
+        if (child.material) {
+          if (child.material.map) child.material.map.dispose();
+          child.material.dispose();
+        }
+      });
+      if (this.starSphereGroup) this.starSphereGroup.remove(this.milkyWayGroup);
+      this.milkyWayGroup = null;
     }
 
     if (this.starTexture) {
