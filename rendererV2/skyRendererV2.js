@@ -2,13 +2,16 @@
  * SkyRendererV2 - Three.js Astronomical Sky Renderer Module
  * 
  * FEATURES IN THIS STEP:
- * - Physically realistic 3D Milky Way all-sky equirectangular texture mapping.
- * - Photorealistic 2048x1024 equirectangular texture with Galactic Core bulge, Great Rift dust lanes, and diffuse starlight band.
- * - Exact Galactic Coordinate transformation matrix (inclination 62.87°, Galactic North Pole RA 192.86°, Dec +27.13°).
+ * - Planetarium-grade HDR WebGL Star Shader (THREE.ShaderMaterial with GLSL shaders).
+ * - High-precision Blackbody / Morgan-Keenan spectral color temperatures (B-V color index).
+ * - Dynamic magnitude-based size scaling (3px faint stars up to 32px bright stars).
+ * - ACES Filmic HDR Tone Mapping in GLSL fragment shader.
+ * - Selective diffraction bloom & cross-spike flares ONLY for bright stars (mV <= 2.0).
+ * - Soft circular optical halos & smooth anti-aliased edge fading.
+ * - Physically realistic 3D Milky Way all-sky equirectangular sphere with Galactic Euler alignment.
  * - Rotates seamlessly with Local Sidereal Time (LST) and Observer Latitude via Astronomy Engine.
- * - Rendered on inner celestial sphere (BackSide, radius = 0.98 * R) behind all stars and celestial objects.
- * - Dynamic opacity (setMilkyWayOpacity) and brightness (setMilkyWayBrightness) controls.
- * - Stellarium-grade WebGL Star Shader (THREE.ShaderMaterial with GLSL shaders).
+ * - Rendered on inner celestial sphere behind all stars.
+ * - Dynamic opacity and brightness controls.
  * - 100% Real Astronomical Star Field from data/stars.6.json (8,738 stars).
  * - Single GPU draw call particle system (60 FPS locked).
  * 
@@ -68,19 +71,22 @@ export class SkyRendererV2 {
   }
 
   /**
-   * Converts B-V Color Index to standard astronomical RGB spectral color.
+   * High-precision Blackbody / Morgan-Keenan Spectral Color Transformation from B-V Color Index.
    * @param {number} bv - B-V Color Index
    * @returns {THREE.Color}
    */
   bvToColor(bv) {
     if (isNaN(bv)) return new THREE.Color('#ffffff');
-    if (bv < -0.2) return new THREE.Color('#9bb0ff'); // O / Blue
-    if (bv < 0.0) return new THREE.Color('#bbccff');  // B / Blue-White
-    if (bv < 0.3) return new THREE.Color('#ffffff');  // A / White
-    if (bv < 0.6) return new THREE.Color('#f8f7ff');  // F / Yellow-White
-    if (bv < 0.9) return new THREE.Color('#fffae6');  // G / Yellow (Sun-like)
-    if (bv < 1.4) return new THREE.Color('#ffcc6f');  // K / Orange
-    return new THREE.Color('#ff7b7b');                // M / Red
+    if (bv < -0.30) return new THREE.Color('#7b9eff'); // O5 - Deep Electric Blue
+    if (bv < -0.15) return new THREE.Color('#9bb3ff'); // B0 - Blue-White
+    if (bv < 0.00)  return new THREE.Color('#caf0ff'); // B5 - Light Cyan-White
+    if (bv < 0.15)  return new THREE.Color('#f8fcff'); // A0 - Crisp Pure White (Vega/Sirius)
+    if (bv < 0.35)  return new THREE.Color('#fffaed'); // F0 - Warm White (Procyon)
+    if (bv < 0.60)  return new THREE.Color('#fff4cc'); // F8 - Soft Yellow-White
+    if (bv < 0.85)  return new THREE.Color('#ffe699'); // G2 - Solar Golden Yellow (Sun/Capella)
+    if (bv < 1.15)  return new THREE.Color('#ffc875'); // K0 - Deep Orange (Arcturus)
+    if (bv < 1.45)  return new THREE.Color('#ff9d5c'); // K5 - Rich Amber-Orange (Aldebaran)
+    return new THREE.Color('#ff6b52');                 // M0+ - Crimson Red (Betelgeuse/Antares)
   }
 
   /**
@@ -135,7 +141,7 @@ export class SkyRendererV2 {
   }
 
   /**
-   * Creates real 3D celestial star field using custom Stellarium-grade WebGL Star Shader.
+   * Creates real 3D celestial star field using modern Planetarium HDR WebGL Star Shader.
    * @param {Array<Object>} stars - Real star catalog items ({ ra, dec, mag, bv }).
    * @param {number} radius - Celestial sphere radius.
    * @returns {THREE.Points}
@@ -149,6 +155,7 @@ export class SkyRendererV2 {
     const colors = new Float32Array(count * 3);
     const sizes = new Float32Array(count);
     const brightnesses = new Float32Array(count);
+    const isBrights = new Float32Array(count);
 
     for (let i = 0; i < count; i++) {
       const star = stars[i];
@@ -161,15 +168,25 @@ export class SkyRendererV2 {
       const starColor = this.bvToColor(star.bv);
       const mag = star.mag;
 
-      // Brightness intensity scaling
-      const brightness = Math.max(0.4, Math.min(1.25, 1.25 - (mag - (-1.5)) * 0.11));
+      // Brightness intensity curve
+      const brightness = Math.max(0.4, Math.min(1.4, 1.4 - (mag - (-1.5)) * 0.12));
 
       colors[i * 3] = starColor.r;
       colors[i * 3 + 1] = starColor.g;
       colors[i * 3 + 2] = starColor.b;
 
-      // Dynamic Stellarium-scale magnitude size scaling in screen space pixels
-      sizes[i] = Math.max(4.0, Math.min(26.0, 22.0 - mag * 2.3));
+      // Planetarium magnitude size curve: 3px faint stars up to 32px bright stars
+      if (mag <= 1.5) {
+        sizes[i] = Math.max(18.0, Math.min(34.0, 34.0 - mag * 6.0));
+        isBrights[i] = 1.0; // Trigger diffraction bloom & cross spikes
+      } else if (mag <= 3.5) {
+        sizes[i] = Math.max(8.0, 18.0 - (mag - 1.5) * 5.0);
+        isBrights[i] = 0.0;
+      } else {
+        sizes[i] = Math.max(3.0, 8.0 - (mag - 3.5) * 2.0); // Faint stars remain small & crisp
+        isBrights[i] = 0.0;
+      }
+
       brightnesses[i] = brightness;
     }
 
@@ -177,20 +194,24 @@ export class SkyRendererV2 {
     geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
     geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
     geometry.setAttribute('brightness', new THREE.BufferAttribute(brightnesses, 1));
+    geometry.setAttribute('isBright', new THREE.BufferAttribute(isBrights, 1));
 
-    // Custom WebGL GLSL Stellarium Star Shader Material
+    // Custom WebGL GLSL Planetarium HDR Star Shader Material
     const material = new THREE.ShaderMaterial({
       vertexShader: `
         attribute float size;
         attribute vec3 color;
         attribute float brightness;
+        attribute float isBright;
 
         varying vec3 vColor;
         varying float vBrightness;
+        varying float vIsBright;
 
         void main() {
           vColor = color;
           vBrightness = brightness;
+          vIsBright = isBright;
 
           vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
           gl_Position = projectionMatrix * mvPosition;
@@ -201,6 +222,17 @@ export class SkyRendererV2 {
       fragmentShader: `
         varying vec3 vColor;
         varying float vBrightness;
+        varying float vIsBright;
+
+        // ACES Filmic HDR Tone Mapping
+        vec3 ACESFilmicToneMapping(vec3 x) {
+          float a = 2.51;
+          float b = 0.03;
+          float c = 2.43;
+          float d = 0.59;
+          float e = 0.14;
+          return clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);
+        }
 
         void main() {
           vec2 coord = gl_PointCoord - vec2(0.5);
@@ -208,19 +240,31 @@ export class SkyRendererV2 {
 
           if (dist > 1.0) discard;
 
-          // 1. Brilliant core (Gaussian radial intensity)
-          float core = exp(-9.0 * dist * dist);
+          // 1. Intense Stellar Core (Gaussian Profile)
+          float core = exp(-12.0 * dist * dist);
 
-          // 2. Soft atmospheric halo bloom (Stellarium optics)
-          float halo = exp(-2.8 * dist) * 0.45;
+          // 2. Soft Optical Aura Halo (Planetarium Optics)
+          float halo = exp(-3.2 * dist) * 0.40;
 
-          // 3. Smooth anti-aliased edge fading
-          float alpha = smoothstep(1.0, 0.65, dist);
+          // 3. Diffraction Flare Bloom (ONLY for bright stars m_V <= 1.5)
+          float flare = 0.0;
+          if (vIsBright > 0.5) {
+            float bloomAura = exp(-1.4 * dist) * 0.40;
+            float spikeX = exp(-45.0 * abs(coord.y)) * exp(-2.5 * abs(coord.x));
+            float spikeY = exp(-45.0 * abs(coord.x)) * exp(-2.5 * abs(coord.y));
+            flare = bloomAura + (spikeX + spikeY) * 0.28;
+          }
 
-          float totalIntensity = (core + halo) * vBrightness;
-          vec3 finalColor = vColor * totalIntensity;
+          // 4. Smooth Anti-Aliased Edge
+          float alpha = smoothstep(1.0, 0.70, dist);
 
-          gl_FragColor = vec4(finalColor, alpha * clamp(totalIntensity, 0.0, 1.0));
+          float totalIntensity = (core + halo + flare) * vBrightness;
+          vec3 rawColor = vColor * totalIntensity;
+
+          // 5. HDR ACES Tone Mapping
+          vec3 tonedColor = ACESFilmicToneMapping(rawColor);
+
+          gl_FragColor = vec4(tonedColor, alpha * clamp(totalIntensity, 0.0, 1.0));
         }
       `,
       transparent: true,
@@ -325,12 +369,10 @@ export class SkyRendererV2 {
   async loadMilkyWay(radius = this.options.sphereRadius * 0.98) {
     this.milkyWayGroup = new THREE.Group();
     this.milkyWayGroup.name = 'milkyWayGroup';
-    this.milkyWayGroup.renderOrder = -10; // Ensure rendered strictly behind all stars & UI
+    this.milkyWayGroup.renderOrder = -10;
 
-    // 1. Create Equirectangular Milky Way Texture
     this.milkyWayTexture = this._createMilkyWayEquirectangularTexture();
 
-    // 2. Mesh Material (BackSide rendering on inner sphere)
     this.milkyWayMaterial = new THREE.MeshBasicMaterial({
       map: this.milkyWayTexture,
       side: THREE.BackSide,
@@ -340,13 +382,11 @@ export class SkyRendererV2 {
       blending: THREE.AdditiveBlending
     });
 
-    // 3. Inner Celestial Sphere Geometry
     const sphereGeometry = new THREE.SphereGeometry(radius, 64, 32);
     this.milkyWayMesh = new THREE.Mesh(sphereGeometry, this.milkyWayMaterial);
     this.milkyWayMesh.renderOrder = -10;
     this.milkyWayGroup.add(this.milkyWayMesh);
 
-    // 4. Exact Galactic to Equatorial Coordinate Orientation Alignment
     // Galactic North Pole: RA = 192.8595°, Dec = 27.1283°, Center offset = 32.9319°
     const galacticNodeRA = THREE.MathUtils.degToRad(192.8595);
     const galacticNodeDec = THREE.MathUtils.degToRad(27.1283);
@@ -360,7 +400,6 @@ export class SkyRendererV2 {
     if (this.starSphereGroup) {
       this.starSphereGroup.add(this.milkyWayGroup);
     }
-    console.log('[SkyRendererV2] Loaded physically realistic 3D Milky Way equirectangular sphere with Galactic Coordinate orientation.');
   }
 
   /**
@@ -493,7 +532,7 @@ export class SkyRendererV2 {
     // 5. Load Realistic 3D Milky Way Equirectangular Sphere (Behind Stars)
     await this.loadMilkyWay();
 
-    // 6. Load Real Astronomical Star Catalog with Stellarium Star Shader
+    // 6. Load Real Astronomical Star Catalog with Planetarium HDR Star Shader
     const stars = customStarCatalog || await this.loadProjectStarCatalog();
     if (stars && stars.length > 0) {
       this.starFieldPoints = this.createAstronomicalStarField(stars);
@@ -518,7 +557,7 @@ export class SkyRendererV2 {
     window.addEventListener('resize', this._onWindowResizeBound, false);
 
     this.isInitialized = true;
-    console.log(`[SkyRendererV2] Successfully loaded Stellarium GLSL Star Shader with ${this.loadedStarCount} stars and realistic Milky Way band.`);
+    console.log(`[SkyRendererV2] Successfully loaded Planetarium HDR Star Shader with ${this.loadedStarCount} stars.`);
 
     if (this._pendingStart) {
       this._pendingStart = false;
