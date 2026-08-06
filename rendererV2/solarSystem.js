@@ -134,10 +134,10 @@ export class SolarSystem {
         sizes[i] = 0.0; // Handled by sunMesh
         opacities[i] = 0.0;
       } else if (p.isMoon) {
-        sizes[i] = 36.0;
+        sizes[i] = 48.0;
         opacities[i] = 1.0;
       } else {
-        sizes[i] = Math.max(10.0, Math.min(30.0, 24.0 - p.baseMag * 2.5));
+        sizes[i] = Math.max(16.0, Math.min(42.0, 36.0 - p.baseMag * 3.0));
         opacities[i] = 1.0;
       }
     }

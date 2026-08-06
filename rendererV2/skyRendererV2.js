@@ -491,7 +491,8 @@ export class SkyRendererV2 {
       const env = this.atmosphere.updateSunPosition(date, obs);
       if (this.starFieldPoints && this.starFieldPoints.material && this.starFieldPoints.material.uniforms) {
         if (this.starFieldPoints.material.uniforms.uDaytimeOpacity) {
-          this.starFieldPoints.material.uniforms.uDaytimeOpacity.value = env.starVisibility;
+          const isAtmoVisible = (this.atmosphere.mesh && this.atmosphere.mesh.visible !== false) && (this.atmosphere.opacity > 0.05);
+          this.starFieldPoints.material.uniforms.uDaytimeOpacity.value = isAtmoVisible ? env.starVisibility : 1.0;
         }
       }
     }
