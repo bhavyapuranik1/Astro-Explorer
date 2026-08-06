@@ -21,7 +21,7 @@
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { Atmosphere } from './atmosphere.js';
+import { Atmosphere } from './atmosphere/atmosphere.js';
 import { SolarSystem } from './solarSystem.js';
 
 export class SkyRendererV2 {
