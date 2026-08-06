@@ -433,6 +433,26 @@ export class SkyRendererV2 {
   }
 
   /**
+   * Adjusts atmosphere opacity dynamically (0.0 to 1.0).
+   * @param {number} opacity
+   */
+  setAtmosphereOpacity(opacity) {
+    if (this.atmosphere) {
+      this.atmosphere.setOpacity(opacity);
+    }
+  }
+
+  /**
+   * Toggles Atmosphere visibility on/off.
+   * @param {boolean} visible
+   */
+  setAtmosphereVisible(visible) {
+    if (this.atmosphere && this.atmosphere.mesh) {
+      this.atmosphere.mesh.visible = !!visible;
+    }
+  }
+
+  /**
    * Updates celestial sphere rotation, atmosphere solar position, and Solar System positions.
    * @param {Date} [date=new Date()] - Active simulation date/time.
    * @param {Object} [obs={ latitude: 0, longitude: 0 }] - Observer location ({ latitude, longitude }).
