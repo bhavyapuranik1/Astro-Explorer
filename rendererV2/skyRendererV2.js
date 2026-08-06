@@ -156,13 +156,25 @@ export class SkyRendererV2 {
    * @returns {THREE.Points}
    */
   createRealStarField(starCatalog = MAJOR_STARS_CATALOG, radius = this.options.sphereRadius) {
-    const count = starCatalog.length;
+    const totalCount = 3500;
     const geometry = new THREE.BufferGeometry();
-    const positions = new Float32Array(count * 3);
-    const colors = new Float32Array(count * 3);
-    const sizes = new Float32Array(count);
+    const positions = new Float32Array(totalCount * 3);
+    const colors = new Float32Array(totalCount * 3);
+    const sizes = new Float32Array(totalCount);
 
-    for (let i = 0; i < count; i++) {
+    const spectralPalette = [
+      new THREE.Color('#9bb0ff'),
+      new THREE.Color('#bbccff'),
+      new THREE.Color('#ffffff'),
+      new THREE.Color('#f8f7ff'),
+      new THREE.Color('#fffae6'),
+      new THREE.Color('#ffcc6f'),
+      new THREE.Color('#ff7b7b')
+    ];
+
+    // 1. Real major naked-eye stars
+    const realCount = starCatalog.length;
+    for (let i = 0; i < realCount; i++) {
       const star = starCatalog[i];
       const vec = this.celestialToCartesian(star.ra, star.dec, radius);
 
@@ -171,17 +183,39 @@ export class SkyRendererV2 {
       positions[i * 3 + 2] = vec.z;
 
       const starColor = new THREE.Color(star.color || '#ffffff');
-      // Brightness scaling by magnitude
-      const mag = star.mag !== undefined ? star.mag : 3.0;
-      const brightness = Math.max(0.35, Math.min(1.0, 1.0 - (mag - (-1.5)) * 0.12));
+      const mag = star.mag !== undefined ? star.mag : 1.0;
+      const brightness = Math.max(0.65, Math.min(1.0, 1.0 - (mag - (-1.5)) * 0.1));
 
       colors[i * 3] = starColor.r * brightness;
       colors[i * 3 + 1] = starColor.g * brightness;
       colors[i * 3 + 2] = starColor.b * brightness;
 
-      // Size scaling by apparent magnitude
-      const apparentSize = Math.max(2.0, Math.min(8.0, 6.0 - mag * 0.8));
-      sizes[i] = apparentSize;
+      sizes[i] = Math.max(3.5, Math.min(9.0, 7.0 - mag * 0.8));
+    }
+
+    // 2. Uniform background celestial sphere stars
+    for (let i = realCount; i < totalCount; i++) {
+      const u = Math.random();
+      const v = Math.random();
+      const theta = 2 * Math.PI * u;
+      const phi = Math.acos(2 * v - 1);
+      const r = radius * (0.98 + Math.random() * 0.04);
+
+      const x = r * Math.sin(phi) * Math.cos(theta);
+      const y = r * Math.cos(phi);
+      const z = r * Math.sin(phi) * Math.sin(theta);
+
+      positions[i * 3] = x;
+      positions[i * 3 + 1] = y;
+      positions[i * 3 + 2] = z;
+
+      const baseColor = spectralPalette[Math.floor(Math.random() * spectralPalette.length)];
+      const brightness = 0.4 + Math.random() * 0.5;
+      colors[i * 3] = baseColor.r * brightness;
+      colors[i * 3 + 1] = baseColor.g * brightness;
+      colors[i * 3 + 2] = baseColor.b * brightness;
+
+      sizes[i] = 2.0 + Math.random() * 2.5;
     }
 
     geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
@@ -193,7 +227,8 @@ export class SkyRendererV2 {
     }
 
     const material = new THREE.PointsMaterial({
-      size: 4.5,
+      size: 4.0,
+      sizeAttenuation: false, // 🔥 Screen pixel size rendering for bright star visibility!
       vertexColors: true,
       map: this.starTexture,
       transparent: true,
@@ -291,8 +326,12 @@ export class SkyRendererV2 {
     this.canvas = this.renderer.domElement;
     this.canvas.className = 'sky-renderer-v2-canvas';
     this.canvas.style.display = 'block';
+    this.canvas.style.position = 'absolute';
+    this.canvas.style.top = '0';
+    this.canvas.style.left = '0';
     this.canvas.style.width = '100%';
     this.canvas.style.height = '100%';
+    this.canvas.style.zIndex = '1';
     this.canvas.style.pointerEvents = this.options.enableControls ? 'auto' : 'none';
 
     this.container.appendChild(this.canvas);
