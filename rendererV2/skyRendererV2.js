@@ -492,7 +492,7 @@ export class SkyRendererV2 {
       if (this.starFieldPoints && this.starFieldPoints.material && this.starFieldPoints.material.uniforms) {
         if (this.starFieldPoints.material.uniforms.uDaytimeOpacity) {
           const isAtmoVisible = (this.atmosphere.mesh && this.atmosphere.mesh.visible !== false) && (this.atmosphere.opacity > 0.05);
-          this.starFieldPoints.material.uniforms.uDaytimeOpacity.value = isAtmoVisible ? env.starVisibility : 1.0;
+          this.starFieldPoints.material.uniforms.uDaytimeOpacity.value = isAtmoVisible ? Math.max(0.40, env.starVisibility) : 1.0;
         }
       }
     }
@@ -588,15 +588,22 @@ export class SkyRendererV2 {
     // Initial position alignment
     this.updateTimeAndObserver(new Date(), { latitude: 0, longitude: 0 });
 
-    // 9. Camera Drag Rotation Controls
+    // 9. Camera Drag Rotation Controls & Smooth Wheel FOV Zoom
     if (this.options.enableControls) {
       this.controls = new OrbitControls(this.camera, this.canvas);
       this.controls.enableDamping = true;
       this.controls.dampingFactor = 0.05;
-      this.controls.enableZoom = true;
-      this.controls.zoomSpeed = 0.8;
+      this.controls.enableZoom = false; // Wheel event handles FOV zoom
       this.controls.rotateSpeed = -0.4;
       this.controls.enablePan = false;
+
+      this.canvas.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const factor = e.deltaY > 0 ? 1.08 : 0.92;
+        this.camera.fov = Math.max(10.0, Math.min(100.0, this.camera.fov * factor));
+        this.camera.updateProjectionMatrix();
+      }, { passive: false });
     }
 
     // 10. Resize Listener
