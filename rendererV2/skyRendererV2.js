@@ -2,8 +2,11 @@
  * SkyRendererV2 - Three.js Astronomical Sky Renderer Module
  * 
  * FEATURES IN THIS STEP:
+ * - Stellarium-grade WebGL Star Shader (THREE.ShaderMaterial with GLSL shaders).
+ * - Circular star sprites with brilliant cores, soft atmospheric halo bloom, and anti-aliased edges.
+ * - Dynamic magnitude-based size scaling (4px to 24px) & brightness falloff.
+ * - Additive blending for natural cosmic light accumulation.
  * - Realistic 3D Milky Way background integration (using project data/mw.json).
- * - Multi-level dust lane contour contours + diffuse galactic atmosphere glow.
  * - Celestial coordinate orientation aligned with real night sky.
  * - Rotates seamlessly with Local Sidereal Time (LST) and Observer Latitude via Astronomy Engine.
  * - Rendered strictly behind all stars (depthWrite: false, renderOrder: -10).
@@ -49,7 +52,6 @@ export class SkyRendererV2 {
 
     this.starSphereGroup = null;
     this.starFieldPoints = null;
-    this.starTexture = null;
     this.loadedStarCount = 0;
 
     this.milkyWayGroup = null;
@@ -99,30 +101,6 @@ export class SkyRendererV2 {
   }
 
   /**
-   * Generates circular soft radial glow texture for realistic star points.
-   * @returns {THREE.CanvasTexture}
-   */
-  _createStarTexture() {
-    const canvas = document.createElement('canvas');
-    canvas.width = 64;
-    canvas.height = 64;
-    const ctx = canvas.getContext('2d');
-
-    const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
-    gradient.addColorStop(0, 'rgba(255, 255, 255, 1.0)');
-    gradient.addColorStop(0.2, 'rgba(255, 255, 255, 0.85)');
-    gradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.35)');
-    gradient.addColorStop(1.0, 'rgba(255, 255, 255, 0.0)');
-
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, 64, 64);
-
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.needsUpdate = true;
-    return texture;
-  }
-
-  /**
    * Loads the real project astronomical star catalog (data/stars.6.json).
    * @returns {Promise<Array<Object>>}
    */
@@ -154,7 +132,7 @@ export class SkyRendererV2 {
   }
 
   /**
-   * Creates real 3D celestial star field from astronomical star data array.
+   * Creates real 3D celestial star field using custom Stellarium-grade WebGL Star Shader.
    * @param {Array<Object>} stars - Real star catalog items ({ ra, dec, mag, bv }).
    * @param {number} radius - Celestial sphere radius.
    * @returns {THREE.Points}
@@ -167,6 +145,7 @@ export class SkyRendererV2 {
     const positions = new Float32Array(count * 3);
     const colors = new Float32Array(count * 3);
     const sizes = new Float32Array(count);
+    const brightnesses = new Float32Array(count);
 
     for (let i = 0; i < count; i++) {
       const star = stars[i];
@@ -179,30 +158,69 @@ export class SkyRendererV2 {
       const starColor = this.bvToColor(star.bv);
       const mag = star.mag;
 
-      // Brightness scaling: brighter stars (low/negative magnitude) have higher intensity
-      const brightness = Math.max(0.35, Math.min(1.0, 1.0 - (mag - (-1.5)) * 0.09));
+      // Brightness intensity scaling
+      const brightness = Math.max(0.4, Math.min(1.25, 1.25 - (mag - (-1.5)) * 0.11));
 
-      colors[i * 3] = starColor.r * brightness;
-      colors[i * 3 + 1] = starColor.g * brightness;
-      colors[i * 3 + 2] = starColor.b * brightness;
+      colors[i * 3] = starColor.r;
+      colors[i * 3 + 1] = starColor.g;
+      colors[i * 3 + 2] = starColor.b;
 
-      // Size scaling naturally by magnitude
-      sizes[i] = Math.max(1.5, Math.min(9.0, 7.5 - mag * 0.85));
+      // Dynamic Stellarium-scale magnitude size scaling in screen space pixels
+      sizes[i] = Math.max(4.0, Math.min(26.0, 22.0 - mag * 2.3));
+      brightnesses[i] = brightness;
     }
 
     geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
     geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+    geometry.setAttribute('brightness', new THREE.BufferAttribute(brightnesses, 1));
 
-    if (!this.starTexture) {
-      this.starTexture = this._createStarTexture();
-    }
+    // Custom WebGL GLSL Stellarium Star Shader Material
+    const material = new THREE.ShaderMaterial({
+      vertexShader: `
+        attribute float size;
+        attribute vec3 color;
+        attribute float brightness;
 
-    const material = new THREE.PointsMaterial({
-      size: 4.0,
-      sizeAttenuation: false, // Crisp screen-pixel star point rendering
-      vertexColors: true,
-      map: this.starTexture,
+        varying vec3 vColor;
+        varying float vBrightness;
+
+        void main() {
+          vColor = color;
+          vBrightness = brightness;
+
+          vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+          gl_Position = projectionMatrix * mvPosition;
+
+          // Dynamic screen space point size
+          gl_PointSize = size;
+        }
+      `,
+      fragmentShader: `
+        varying vec3 vColor;
+        varying float vBrightness;
+
+        void main() {
+          vec2 coord = gl_PointCoord - vec2(0.5);
+          float dist = length(coord) * 2.0;
+
+          if (dist > 1.0) discard;
+
+          // 1. Brilliant core (Gaussian radial intensity)
+          float core = exp(-9.0 * dist * dist);
+
+          // 2. Soft atmospheric halo bloom (Stellarium optics)
+          float halo = exp(-2.8 * dist) * 0.45;
+
+          // 3. Smooth anti-aliased edge fading
+          float alpha = smoothstep(1.0, 0.65, dist);
+
+          float totalIntensity = (core + halo) * vBrightness;
+          vec3 finalColor = vColor * totalIntensity;
+
+          gl_FragColor = vec4(finalColor, alpha * clamp(totalIntensity, 0.0, 1.0));
+        }
+      `,
       transparent: true,
       depthWrite: false,
       blending: THREE.AdditiveBlending
@@ -313,7 +331,6 @@ export class SkyRendererV2 {
     if (this.starSphereGroup) {
       this.starSphereGroup.add(this.milkyWayGroup);
     }
-    console.log('[SkyRendererV2] Loaded 3D Milky Way background structure.');
   }
 
   /**
@@ -440,7 +457,7 @@ export class SkyRendererV2 {
     // 5. Load 3D Milky Way Structure (Behind Stars)
     await this.loadMilkyWay();
 
-    // 6. Load Real Astronomical Star Catalog
+    // 6. Load Real Astronomical Star Catalog with Stellarium Star Shader
     const stars = customStarCatalog || await this.loadProjectStarCatalog();
     if (stars && stars.length > 0) {
       this.starFieldPoints = this.createAstronomicalStarField(stars);
@@ -465,7 +482,7 @@ export class SkyRendererV2 {
     window.addEventListener('resize', this._onWindowResizeBound, false);
 
     this.isInitialized = true;
-    console.log(`[SkyRendererV2] Successfully loaded ${this.loadedStarCount} real astronomical stars and 3D Milky Way.`);
+    console.log(`[SkyRendererV2] Successfully loaded Stellarium GLSL Star Shader with ${this.loadedStarCount} stars.`);
 
     if (this._pendingStart) {
       this._pendingStart = false;
@@ -563,11 +580,6 @@ export class SkyRendererV2 {
       });
       if (this.starSphereGroup) this.starSphereGroup.remove(this.milkyWayGroup);
       this.milkyWayGroup = null;
-    }
-
-    if (this.starTexture) {
-      this.starTexture.dispose();
-      this.starTexture = null;
     }
 
     if (this.starSphereGroup) {
