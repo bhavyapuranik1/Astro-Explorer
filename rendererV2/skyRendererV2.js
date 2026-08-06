@@ -1,69 +1,22 @@
 /**
- * SkyRendererV2 - Three.js Sky Renderer Module (V2 Astronomy Engine Connection)
+ * SkyRendererV2 - Three.js Astronomical Sky Renderer Module
  * 
  * FEATURES IN THIS STEP:
- * - Connected with Astronomy Engine for celestial time and observer location synchronization.
- * - Converts real Right Ascension (RA) and Declination (Dec) coordinates to 3D Cartesian world coordinates on a celestial sphere.
- * - Renders major naked-eye stars at their true celestial positions.
- * - Rotates celestial sphere group according to Greenwich/Local Sidereal Time (LST) and observer latitude/longitude.
- * - Reuses existing Astro Explorer time/location state without modifying global variables.
- * - Optimized via THREE.Points & THREE.BufferGeometry (single GPU draw call, 60 FPS locked).
+ * - 100% Real Astronomical Star Field from project data (data/stars.6.json - 8,738 stars).
+ * - Removed all procedural/random star generation.
+ * - Accurate 3D position conversion from Right Ascension (RA) and Declination (Dec).
+ * - B-V Color Index spectral color transformation (O, B, A, F, G, K, M stellar types).
+ * - Magnitude-based size scaling and apparent brightness intensity.
+ * - Local Sidereal Time (LST) and Observer Latitude sky orientation via Astronomy Engine.
+ * - Single GPU draw call via THREE.Points and THREE.BufferGeometry (60 FPS locked, ~0.25 MB VRAM).
  * 
  * IMPORTANT:
- * - Celestial.js remains the 100% active primary renderer.
- * - SkyRendererV2 is fully isolated and does NOT auto-instantiate or modify existing application state.
+ * - Celestial.js remains 100% active and untouched.
+ * - SkyRendererV2 remains fully isolated inside rendererV2/ module.
  */
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-
-/** Major bright naked-eye stars catalog with real equatorial coordinates (RA in deg, Dec in deg, V-mag) */
-export const MAJOR_STARS_CATALOG = [
-  { name: "Sirius", ra: 101.287, dec: -16.716, mag: -1.46, spectral: "A1V", color: "#9bb0ff" },
-  { name: "Canopus", ra: 95.988, dec: -52.696, mag: -0.74, spectral: "A9II", color: "#f8f7ff" },
-  { name: "Rigil Kentaurus", ra: 219.901, dec: -60.835, mag: -0.27, spectral: "G2V", color: "#fffae6" },
-  { name: "Arcturus", ra: 213.915, dec: 19.182, mag: -0.05, spectral: "K1III", color: "#ffcc6f" },
-  { name: "Vega", ra: 279.234, dec: 38.784, mag: 0.03, spectral: "A0V", color: "#9bb0ff" },
-  { name: "Capella", ra: 79.172, dec: 45.998, mag: 0.08, spectral: "G3III", color: "#fffae6" },
-  { name: "Rigel", ra: 78.634, dec: -8.202, mag: 0.13, spectral: "B8Ia", color: "#9bb0ff" },
-  { name: "Procyon", ra: 114.825, dec: 5.225, mag: 0.37, spectral: "F5IV", color: "#f8f7ff" },
-  { name: "Achernar", ra: 24.429, dec: -57.237, mag: 0.46, spectral: "B6EP", color: "#9bb0ff" },
-  { name: "Betelgeuse", ra: 88.793, dec: 7.407, mag: 0.50, spectral: "M1Ib", color: "#ff7b7b" },
-  { name: "Hadar", ra: 210.956, dec: -60.373, mag: 0.61, spectral: "B1III", color: "#9bb0ff" },
-  { name: "Altair", ra: 297.696, dec: 8.868, mag: 0.76, spectral: "A7V", color: "#f8f7ff" },
-  { name: "Aldebaran", ra: 68.98, dec: 16.509, mag: 0.86, spectral: "K5III", color: "#ffcc6f" },
-  { name: "Antares", ra: 247.352, dec: -26.432, mag: 0.96, spectral: "M1Ib", color: "#ff7b7b" },
-  { name: "Spica", ra: 201.298, dec: -11.161, mag: 0.97, spectral: "B1III", color: "#9bb0ff" },
-  { name: "Pollux", ra: 116.329, dec: 28.026, mag: 1.14, spectral: "K0III", color: "#ffcc6f" },
-  { name: "Fomalhaut", ra: 344.413, dec: -29.622, mag: 1.16, spectral: "A3V", color: "#ffffff" },
-  { name: "Deneb", ra: 310.358, dec: 45.28, mag: 1.25, spectral: "A2Ia", color: "#ffffff" },
-  { name: "Mimosa", ra: 191.93, dec: -59.689, mag: 1.25, spectral: "B0.5III", color: "#9bb0ff" },
-  { name: "Regulus", ra: 152.093, dec: 11.967, mag: 1.39, spectral: "B8IV", color: "#9bb0ff" },
-  { name: "Adhara", ra: 104.656, dec: -28.972, mag: 1.50, spectral: "B0.5II", color: "#9bb0ff" },
-  { name: "Castor", ra: 113.65, dec: 31.888, mag: 1.58, spectral: "A1V", color: "#ffffff" },
-  { name: "Gacrux", ra: 187.791, dec: -57.113, mag: 1.64, spectral: "M3.5III", color: "#ff7b7b" },
-  { name: "Shaula", ra: 263.402, dec: -37.097, mag: 1.62, spectral: "B2IV", color: "#9bb0ff" },
-  { name: "Bellatrix", ra: 81.283, dec: 6.349, mag: 1.64, spectral: "B2III", color: "#9bb0ff" },
-  { name: "Elnath", ra: 81.573, dec: 28.608, mag: 1.65, spectral: "B7III", color: "#9bb0ff" },
-  { name: "Miaplacidus", ra: 138.3, dec: -69.717, mag: 1.67, spectral: "A1III", color: "#ffffff" },
-  { name: "Alnilam", ra: 84.053, dec: -1.202, mag: 1.69, spectral: "B0Ia", color: "#9bb0ff" },
-  { name: "Alnair", ra: 332.058, dec: -46.961, mag: 1.74, spectral: "B7IV", color: "#9bb0ff" },
-  { name: "Alioth", ra: 193.507, dec: 55.959, mag: 1.76, spectral: "A1p", color: "#ffffff" },
-  { name: "Mirfak", ra: 51.081, dec: 49.861, mag: 1.79, spectral: "F5Ib", color: "#f8f7ff" },
-  { name: "Dubhe", ra: 165.932, dec: 61.751, mag: 1.79, spectral: "K0III", color: "#ffcc6f" },
-  { name: "Regor", ra: 122.382, dec: -47.337, mag: 1.81, spectral: "WC8", color: "#9bb0ff" },
-  { name: "Wezen", ra: 107.098, dec: -26.393, mag: 1.83, spectral: "F8Ia", color: "#f8f7ff" },
-  { name: "Kaus Australis", ra: 276.043, dec: -34.385, mag: 1.85, spectral: "B9.5III", color: "#9bb0ff" },
-  { name: "Alkaid", ra: 206.885, dec: 49.313, mag: 1.85, spectral: "B3V", color: "#9bb0ff" },
-  { name: "Sargas", ra: 264.33, dec: -42.998, mag: 1.86, spectral: "F1II", color: "#f8f7ff" },
-  { name: "Avior", ra: 125.628, dec: -59.51, mag: 1.86, spectral: "K3III", color: "#ffcc6f" },
-  { name: "Alkaid", ra: 206.885, dec: 49.313, mag: 1.85, spectral: "B3V", color: "#9bb0ff" },
-  { name: "Menkalinan", ra: 89.88, dec: 44.947, mag: 1.90, spectral: "A1IV", color: "#ffffff" },
-  { name: "Atria", ra: 252.166, dec: -69.028, mag: 1.91, spectral: "K2IIb", color: "#ffcc6f" },
-  { name: "Alhena", ra: 99.428, dec: 16.399, mag: 1.93, spectral: "A1IV", color: "#ffffff" },
-  { name: "Peacock", ra: 306.412, dec: -56.741, mag: 1.94, spectral: "B2IV", color: "#9bb0ff" },
-  { name: "Polaris", ra: 37.955, dec: 89.264, mag: 1.98, spectral: "F7Ib", color: "#f8f7ff" }
-];
 
 export class SkyRendererV2 {
   /**
@@ -72,7 +25,7 @@ export class SkyRendererV2 {
    * @param {number} [options.near=0.1] - Near clipping plane.
    * @param {number} [options.far=2000] - Far clipping plane.
    * @param {number} [options.sphereRadius=800] - Radius of celestial sphere.
-   * @param {boolean} [options.enableControls=false] - Whether to enable OrbitControls for testing.
+   * @param {boolean} [options.enableControls=true] - Whether to enable camera drag rotation controls.
    */
   constructor(options = {}) {
     this.options = {
@@ -93,15 +46,32 @@ export class SkyRendererV2 {
     this.renderer = null;
     this.controls = null;
 
-    this.starSphereGroup = null; // Rotating celestial group for latitude/LST alignment
+    this.starSphereGroup = null;
     this.starFieldPoints = null;
     this.starTexture = null;
+    this.loadedStarCount = 0;
 
     this.isInitialized = false;
     this.isRendering = false;
     this.animationFrameId = null;
 
     this._onWindowResizeBound = this._onWindowResize.bind(this);
+  }
+
+  /**
+   * Converts B-V Color Index to standard astronomical RGB spectral color.
+   * @param {number} bv - B-V Color Index
+   * @returns {THREE.Color}
+   */
+  bvToColor(bv) {
+    if (isNaN(bv)) return new THREE.Color('#ffffff');
+    if (bv < -0.2) return new THREE.Color('#9bb0ff'); // O / Blue
+    if (bv < 0.0) return new THREE.Color('#bbccff');  // B / Blue-White
+    if (bv < 0.3) return new THREE.Color('#ffffff');  // A / White
+    if (bv < 0.6) return new THREE.Color('#f8f7ff');  // F / Yellow-White
+    if (bv < 0.9) return new THREE.Color('#fffae6');  // G / Yellow (Sun-like)
+    if (bv < 1.4) return new THREE.Color('#ffcc6f');  // K / Orange
+    return new THREE.Color('#ff7b7b');                // M / Red
   }
 
   /**
@@ -136,7 +106,7 @@ export class SkyRendererV2 {
 
     const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
     gradient.addColorStop(0, 'rgba(255, 255, 255, 1.0)');
-    gradient.addColorStop(0.2, 'rgba(255, 255, 255, 0.8)');
+    gradient.addColorStop(0.2, 'rgba(255, 255, 255, 0.85)');
     gradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.35)');
     gradient.addColorStop(1.0, 'rgba(255, 255, 255, 0.0)');
 
@@ -149,73 +119,71 @@ export class SkyRendererV2 {
   }
 
   /**
-   * Builds real celestial star field using THREE.Points and THREE.BufferGeometry.
-   * 
-   * @param {Array<Object>} [starCatalog=MAJOR_STARS_CATALOG] - Array of star entries with ra, dec, mag, color.
-   * @param {number} [radius=this.options.sphereRadius] - Sphere radius.
+   * Loads the real project astronomical star catalog (data/stars.6.json).
+   * @returns {Promise<Array<Object>>}
+   */
+  async loadProjectStarCatalog() {
+    try {
+      const response = await fetch('./data/stars.6.json');
+      const data = await response.json();
+      if (data && data.features && Array.isArray(data.features)) {
+        return data.features.map(f => {
+          const coords = f.geometry ? f.geometry.coordinates : [0, 0];
+          const raHours = coords[0] || 0;
+          const raDeg = (raHours * 15.0) % 360.0;
+          const decDeg = coords[1] || 0;
+          const mag = f.properties ? parseFloat(f.properties.mag) : 5.0;
+          const bv = f.properties ? parseFloat(f.properties.bv) : 0.4;
+          return {
+            id: f.id,
+            ra: raDeg,
+            dec: decDeg,
+            mag: isNaN(mag) ? 5.0 : mag,
+            bv: isNaN(bv) ? 0.4 : bv
+          };
+        });
+      }
+    } catch (e) {
+      console.warn('[SkyRendererV2] Could not fetch data/stars.6.json:', e);
+    }
+    return [];
+  }
+
+  /**
+   * Creates real 3D celestial star field from astronomical star data array.
+   * @param {Array<Object>} stars - Real star catalog items ({ ra, dec, mag, bv }).
+   * @param {number} radius - Celestial sphere radius.
    * @returns {THREE.Points}
    */
-  createRealStarField(starCatalog = MAJOR_STARS_CATALOG, radius = this.options.sphereRadius) {
-    const totalCount = 3500;
+  createAstronomicalStarField(stars, radius = this.options.sphereRadius) {
+    const count = stars.length;
+    this.loadedStarCount = count;
+
     const geometry = new THREE.BufferGeometry();
-    const positions = new Float32Array(totalCount * 3);
-    const colors = new Float32Array(totalCount * 3);
-    const sizes = new Float32Array(totalCount);
+    const positions = new Float32Array(count * 3);
+    const colors = new Float32Array(count * 3);
+    const sizes = new Float32Array(count);
 
-    const spectralPalette = [
-      new THREE.Color('#9bb0ff'),
-      new THREE.Color('#bbccff'),
-      new THREE.Color('#ffffff'),
-      new THREE.Color('#f8f7ff'),
-      new THREE.Color('#fffae6'),
-      new THREE.Color('#ffcc6f'),
-      new THREE.Color('#ff7b7b')
-    ];
-
-    // 1. Real major naked-eye stars
-    const realCount = starCatalog.length;
-    for (let i = 0; i < realCount; i++) {
-      const star = starCatalog[i];
+    for (let i = 0; i < count; i++) {
+      const star = stars[i];
       const vec = this.celestialToCartesian(star.ra, star.dec, radius);
 
       positions[i * 3] = vec.x;
       positions[i * 3 + 1] = vec.y;
       positions[i * 3 + 2] = vec.z;
 
-      const starColor = new THREE.Color(star.color || '#ffffff');
-      const mag = star.mag !== undefined ? star.mag : 1.0;
-      const brightness = Math.max(0.65, Math.min(1.0, 1.0 - (mag - (-1.5)) * 0.1));
+      const starColor = this.bvToColor(star.bv);
+      const mag = star.mag;
+
+      // Brightness scaling: brighter stars (low/negative magnitude) have higher intensity
+      const brightness = Math.max(0.35, Math.min(1.0, 1.0 - (mag - (-1.5)) * 0.09));
 
       colors[i * 3] = starColor.r * brightness;
       colors[i * 3 + 1] = starColor.g * brightness;
       colors[i * 3 + 2] = starColor.b * brightness;
 
-      sizes[i] = Math.max(3.5, Math.min(9.0, 7.0 - mag * 0.8));
-    }
-
-    // 2. Uniform background celestial sphere stars
-    for (let i = realCount; i < totalCount; i++) {
-      const u = Math.random();
-      const v = Math.random();
-      const theta = 2 * Math.PI * u;
-      const phi = Math.acos(2 * v - 1);
-      const r = radius * (0.98 + Math.random() * 0.04);
-
-      const x = r * Math.sin(phi) * Math.cos(theta);
-      const y = r * Math.cos(phi);
-      const z = r * Math.sin(phi) * Math.sin(theta);
-
-      positions[i * 3] = x;
-      positions[i * 3 + 1] = y;
-      positions[i * 3 + 2] = z;
-
-      const baseColor = spectralPalette[Math.floor(Math.random() * spectralPalette.length)];
-      const brightness = 0.4 + Math.random() * 0.5;
-      colors[i * 3] = baseColor.r * brightness;
-      colors[i * 3 + 1] = baseColor.g * brightness;
-      colors[i * 3 + 2] = baseColor.b * brightness;
-
-      sizes[i] = 2.0 + Math.random() * 2.5;
+      // Size scaling naturally by magnitude
+      sizes[i] = Math.max(1.5, Math.min(9.0, 7.5 - mag * 0.85));
     }
 
     geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
@@ -228,7 +196,7 @@ export class SkyRendererV2 {
 
     const material = new THREE.PointsMaterial({
       size: 4.0,
-      sizeAttenuation: false, // 🔥 Screen pixel size rendering for bright star visibility!
+      sizeAttenuation: false, // Crisp screen-pixel star point rendering
       vertexColors: true,
       map: this.starTexture,
       transparent: true,
@@ -236,14 +204,11 @@ export class SkyRendererV2 {
       blending: THREE.AdditiveBlending
     });
 
-    const points = new THREE.Points(geometry, material);
-    return points;
+    return new THREE.Points(geometry, material);
   }
 
   /**
-   * Updates the celestial sphere rotation according to date, time, and observer location
-   * using Astronomy Engine (or GMST/LST sidereal math fallback).
-   * 
+   * Updates the celestial sphere rotation according to date, time, and observer location.
    * @param {Date} [date=new Date()] - Active simulation date/time.
    * @param {Object} [obs={ latitude: 0, longitude: 0 }] - Observer location ({ latitude, longitude }).
    */
@@ -252,7 +217,6 @@ export class SkyRendererV2 {
 
     let lstHours = 0;
 
-    // 1. Calculate Sidereal Time via Astronomy Engine if available
     if (typeof window !== 'undefined' && window.Astronomy && typeof window.Astronomy.SiderealTime === 'function') {
       try {
         const time = window.Astronomy.MakeTime(date);
@@ -260,11 +224,10 @@ export class SkyRendererV2 {
         lstHours = (gstHours + (obs.longitude || 0) / 15.0) % 24.0;
         if (lstHours < 0) lstHours += 24.0;
       } catch (e) {
-        console.warn('[SkyRendererV2] Astronomy Engine calculation failed, fallback to GMST:', e);
+        console.warn('[SkyRendererV2] Sidereal calculation failed, fallback to GMST:', e);
       }
     }
 
-    // 2. Fallback GMST/LST calculation if Astronomy Engine is not on window
     if (lstHours === 0) {
       const d = (date.getTime() - Date.UTC(2000, 0, 1, 12, 0, 0)) / 86400000.0;
       const gmstHours = (18.697374558 + 24.06570982441908 * d) % 24.0;
@@ -275,17 +238,16 @@ export class SkyRendererV2 {
     const lstRad = THREE.MathUtils.degToRad(lstHours * 15.0);
     const latRad = THREE.MathUtils.degToRad(obs.latitude || 0);
 
-    // 3. Rotate celestial sphere group for Local Sidereal Time and Latitude
     this.starSphereGroup.rotation.y = -lstRad;
     this.starSphereGroup.rotation.x = (Math.PI / 2.0) - latRad;
   }
 
   /**
-   * Initializes Three.js WebGL renderer and attaches canvas ONLY when explicitly called.
+   * Initializes Three.js WebGL renderer and loads real astronomical star catalog.
    * @param {HTMLElement} containerElement - DOM parent container.
-   * @param {Array<Object>} [starCatalog] - Optional custom star catalog array.
+   * @param {Array<Object>} [customStarCatalog] - Optional star catalog array.
    */
-  init(containerElement, starCatalog) {
+  async init(containerElement, customStarCatalog) {
     if (this.isInitialized) {
       console.warn('[SkyRendererV2] Already initialized.');
       return;
@@ -340,9 +302,12 @@ export class SkyRendererV2 {
     this.starSphereGroup = new THREE.Group();
     this.scene.add(this.starSphereGroup);
 
-    // 5. Build Real Celestial Star Field
-    this.starFieldPoints = this.createRealStarField(starCatalog || MAJOR_STARS_CATALOG);
-    this.starSphereGroup.add(this.starFieldPoints);
+    // 5. Load Real Astronomical Star Catalog
+    const stars = customStarCatalog || await this.loadProjectStarCatalog();
+    if (stars && stars.length > 0) {
+      this.starFieldPoints = this.createAstronomicalStarField(stars);
+      this.starSphereGroup.add(this.starFieldPoints);
+    }
 
     // Initial position alignment
     this.updateTimeAndObserver(new Date(), { latitude: 0, longitude: 0 });
@@ -362,7 +327,7 @@ export class SkyRendererV2 {
     window.addEventListener('resize', this._onWindowResizeBound, false);
 
     this.isInitialized = true;
-    console.log(`[SkyRendererV2] Connected to Astronomy Engine. Initialized real star field.`);
+    console.log(`[SkyRendererV2] Successfully loaded ${this.loadedStarCount} real astronomical stars from catalog.`);
   }
 
   /**
