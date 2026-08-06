@@ -3710,17 +3710,21 @@ async function loadObjects() {
   const constEntries = constData.features;
   CONSTELLATION_FEATURES = constEntries;
 
-  searchObjects.push(...constEntries.map(c => ({
-    name: c.id.toLowerCase(),                 // "umi"
-    id: c.id.toLowerCase(),
-
-    fullName: c.properties.name.toLowerCase(), // "ursa minor"
-
-    ra: c.geometry.coordinates[0],
-    dec: c.geometry.coordinates[1],
-
-    type: "constellation"
-  })));
+  searchObjects.push(...constEntries.map(c => {
+    const center = (typeof getFeatureCenter === "function") ? (getFeatureCenter(c.geometry?.coordinates) || [0, 0]) : [0, 0];
+    const constId = String(c.id || c.properties?.id || c.properties?.name || "").toLowerCase();
+    const constName = String(c.properties?.name || c.id || "").toLowerCase();
+    return {
+      name: constId,
+      id: constId,
+      fullName: constName,
+      displayName: c.properties?.name || c.id || "",
+      ra: center[0],
+      dec: center[1],
+      type: "constellation",
+      feature: c
+    };
+  }));
 
   console.log("Constellations added:", constEntries.length);
 
@@ -5266,8 +5270,10 @@ function measureTextBoundingBox(text, x, y, font, align = "start", baseline = "a
 }
 
 function getConstellationFeatureById(obj) {
-  if (!obj || !obj.id) return null;
-  return CONSTELLATION_FEATURES.find(feature => String(feature.id).toLowerCase() === String(obj.id).toLowerCase()) || null;
+  if (!obj) return null;
+  if (obj.feature) return obj.feature;
+  const idStr = String(obj.id || obj.name || "").toLowerCase();
+  return CONSTELLATION_FEATURES.find(f => String(f.id || f.properties?.id || f.properties?.name || "").toLowerCase() === idStr) || null;
 }
 
 function getAsterismFeatureById(obj) {
@@ -5502,11 +5508,24 @@ function isSkyObjectRendered(obj) {
 function findSkyObjectUnderCursor(x, y) {
   if (!searchObjects || !Array.isArray(searchObjects) || searchObjects.length === 0) return null;
 
+  const clickCoords = (Celestial.mapProjection && typeof Celestial.mapProjection.invert === "function") ? Celestial.mapProjection.invert([x, y]) : null;
+  const clickRa = (clickCoords && !isNaN(clickCoords[0])) ? ((clickCoords[0] % 360) + 360) % 360 : null;
+  const clickDec = (clickCoords && !isNaN(clickCoords[1])) ? clickCoords[1] : null;
+
   const order = getSkyObjectHitOrder();
   for (const type of order) {
     for (const obj of searchObjects) {
       if (!obj || obj.type !== type) continue;
-      // Object MUST be currently rendered on screen to be clickable!
+
+      // Fast coordinate spatial bounding filter
+      if (clickRa !== null && clickDec !== null && typeof obj.ra === "number" && typeof obj.dec === "number") {
+        const dDec = Math.abs(obj.dec - clickDec);
+        if (dDec > 25) continue;
+        let dRa = Math.abs(obj.ra - clickRa);
+        if (dRa > 180) dRa = 360 - dRa;
+        if (dRa > 25) continue;
+      }
+
       if (!isSkyObjectRendered(obj)) continue;
       if (hitTestSkyObject(obj, x, y)) return obj;
     }
