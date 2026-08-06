@@ -5382,6 +5382,18 @@ function isPointOnFeatureLines(obj, x, y, threshold = 5) {
   return segments.some(([p1, p2]) => pointToLineDistance(x, y, p1[0], p1[1], p2[0], p2[1]) <= threshold);
 }
 
+function getRenderedObjectRadius(obj) {
+  if (!obj) return 12;
+  if (obj.type === "planet") return 16;
+  if (obj.type === "star") {
+    const mag = parseFloat(obj.mag || (obj.properties ? obj.properties.mag : 5));
+    if (isNaN(mag)) return 10;
+    return Math.max(6, Math.min(18, 16 - mag * 1.5));
+  }
+  if (obj.type === "dso") return 14;
+  return 12;
+}
+
 function getLabelBoundingBoxForObject(obj, pt) {
   if (!pt) return null;
   let text;
