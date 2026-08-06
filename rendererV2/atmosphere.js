@@ -157,7 +157,10 @@ export class Atmosphere {
         const time = window.Astronomy.MakeTime(date);
         const obs = new window.Astronomy.Observer(observer.latitude || 0, observer.longitude || 0, 0);
         const sunEquator = window.Astronomy.Equator("Sun", time, obs, true, true);
-        const sunHorizon = window.Astronomy.Horizon(time, obs, sunEquator.ra, sunEquator.dec, "refracted");
+        const refr = (window.Astronomy && window.Astronomy.Refraction && window.Astronomy.Refraction.Normal !== undefined)
+          ? window.Astronomy.Refraction.Normal
+          : null;
+        const sunHorizon = window.Astronomy.Horizon(time, obs, sunEquator.ra, sunEquator.dec, refr);
         sunAlt = sunHorizon.altitude;
         sunAz = sunHorizon.azimuth;
       } catch (e) {
