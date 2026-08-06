@@ -1,17 +1,15 @@
 /**
  * SkyRendererV2 - Three.js Astronomical Sky Renderer Module
  * 
- * FEATURES IN THIS STEP:
- * - Planetarium-grade HDR WebGL Star Shader (THREE.ShaderMaterial with GLSL shaders).
+ * FEATURES:
+ * - Integrated Physically-Inspired GPU WebGL Atmosphere System (rendererV2/atmosphere.js).
+ * - Smooth solar altitude transitions: Day Sky, Sunset/Sunrise, Civil, Nautical & Astronomical Twilight, and Night Sky.
+ * - Automatic star daytime fading & atmosphere blending.
+ * - Extensible atmosphere architecture (prepared for extinction, airglow, light pollution, moonlight, weather).
+ * - Planetarium-grade HDR WebGL Star Shader with ACES tone mapping & selective diffraction bloom.
  * - High-precision Blackbody / Morgan-Keenan spectral color temperatures (B-V color index).
- * - Dynamic magnitude-based size scaling (3px faint stars up to 32px bright stars).
- * - ACES Filmic HDR Tone Mapping in GLSL fragment shader.
- * - Selective diffraction bloom & cross-spike flares ONLY for bright stars (mV <= 2.0).
- * - Soft circular optical halos & smooth anti-aliased edge fading.
  * - Physically realistic 3D Milky Way all-sky equirectangular sphere with Galactic Euler alignment.
  * - Rotates seamlessly with Local Sidereal Time (LST) and Observer Latitude via Astronomy Engine.
- * - Rendered on inner celestial sphere behind all stars.
- * - Dynamic opacity and brightness controls.
  * - 100% Real Astronomical Star Field from data/stars.6.json (8,738 stars).
  * - Single GPU draw call particle system (60 FPS locked).
  * 
@@ -22,6 +20,7 @@
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { Atmosphere } from './atmosphere.js';
 
 export class SkyRendererV2 {
   /**
@@ -62,6 +61,8 @@ export class SkyRendererV2 {
 
     this.milkyWayOpacity = 0.85;
     this.milkyWayBrightness = 1.0;
+
+    this.atmosphere = null;
 
     this.isInitialized = false;
     this.isRendering = false;
@@ -175,15 +176,15 @@ export class SkyRendererV2 {
       colors[i * 3 + 1] = starColor.g;
       colors[i * 3 + 2] = starColor.b;
 
-      // Planetarium magnitude size curve: 3px faint stars up to 32px bright stars
+      // Planetarium magnitude size curve: 3px faint stars up to 34px bright stars
       if (mag <= 1.5) {
         sizes[i] = Math.max(18.0, Math.min(34.0, 34.0 - mag * 6.0));
-        isBrights[i] = 1.0; // Trigger diffraction bloom & cross spikes
+        isBrights[i] = 1.0;
       } else if (mag <= 3.5) {
         sizes[i] = Math.max(8.0, 18.0 - (mag - 1.5) * 5.0);
         isBrights[i] = 0.0;
       } else {
-        sizes[i] = Math.max(3.0, 8.0 - (mag - 3.5) * 2.0); // Faint stars remain small & crisp
+        sizes[i] = Math.max(3.0, 8.0 - (mag - 3.5) * 2.0);
         isBrights[i] = 0.0;
       }
 
@@ -198,6 +199,9 @@ export class SkyRendererV2 {
 
     // Custom WebGL GLSL Planetarium HDR Star Shader Material
     const material = new THREE.ShaderMaterial({
+      uniforms: {
+        uDaytimeOpacity: { value: 1.0 }
+      },
       vertexShader: `
         attribute float size;
         attribute vec3 color;
@@ -220,6 +224,8 @@ export class SkyRendererV2 {
         }
       `,
       fragmentShader: `
+        uniform float uDaytimeOpacity;
+
         varying vec3 vColor;
         varying float vBrightness;
         varying float vIsBright;
@@ -264,7 +270,7 @@ export class SkyRendererV2 {
           // 5. HDR ACES Tone Mapping
           vec3 tonedColor = ACESFilmicToneMapping(rawColor);
 
-          gl_FragColor = vec4(tonedColor, alpha * clamp(totalIntensity, 0.0, 1.0));
+          gl_FragColor = vec4(tonedColor, alpha * clamp(totalIntensity, 0.0, 1.0) * uDaytimeOpacity);
         }
       `,
       transparent: true,
@@ -273,15 +279,12 @@ export class SkyRendererV2 {
     });
 
     const points = new THREE.Points(geometry, material);
-    points.renderOrder = 1; // Render stars above Milky Way background
+    points.renderOrder = 1; // Render stars above Milky Way background & atmosphere
     return points;
   }
 
   /**
    * Generates a 2048x1024 high-definition equirectangular Milky Way texture.
-   * Features the Galactic Core bulge (Sagittarius/Scorpius), Great Rift dust absorption lanes,
-   * and diffuse starlight band spanning the galactic plane.
-   * 
    * @returns {THREE.CanvasTexture}
    */
   _createMilkyWayEquirectangularTexture() {
@@ -294,11 +297,9 @@ export class SkyRendererV2 {
     const h = canvas.height;
     const centerY = h / 2;
 
-    // 1. Deep Space Cosmic Background
     ctx.fillStyle = '#02040a';
     ctx.fillRect(0, 0, w, h);
 
-    // 2. Wide Diffuse Galactic Plane Glow Band (b = -25° to +25°)
     const bandGrad = ctx.createLinearGradient(0, centerY - 280, 0, centerY + 280);
     bandGrad.addColorStop(0.0, 'rgba(2, 4, 10, 0.0)');
     bandGrad.addColorStop(0.2, 'rgba(15, 30, 70, 0.22)');
@@ -311,7 +312,6 @@ export class SkyRendererV2 {
     ctx.fillStyle = bandGrad;
     ctx.fillRect(0, 0, w, h);
 
-    // 3. Galactic Core Bulge (Center at l = 0 / x = w/2, Sagittarius A*)
     const coreGrad = ctx.createRadialGradient(w / 2, centerY, 15, w / 2, centerY, 420);
     coreGrad.addColorStop(0.0, 'rgba(255, 235, 185, 0.98)');
     coreGrad.addColorStop(0.18, 'rgba(255, 195, 135, 0.80)');
@@ -324,7 +324,6 @@ export class SkyRendererV2 {
     ctx.ellipse(w / 2, centerY, 420, 200, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // 4. Secondary Galactic Star Density Clouds (Cygnus, Carina, Centaurus, Scutum)
     const starClouds = [
       { x: w * 0.22, y: centerY - 15, rx: 240, ry: 95, c: 'rgba(215, 185, 255, 0.40)' },
       { x: w * 0.35, y: centerY + 10, rx: 290, ry: 115, c: 'rgba(185, 205, 255, 0.42)' },
@@ -343,7 +342,6 @@ export class SkyRendererV2 {
       ctx.fill();
     });
 
-    // 5. Great Dark Rift Dust Absorption Lanes
     ctx.fillStyle = 'rgba(3, 5, 12, 0.65)';
     ctx.beginPath();
     ctx.moveTo(w * 0.42, centerY - 30);
@@ -362,9 +360,7 @@ export class SkyRendererV2 {
 
   /**
    * Loads and renders the physically realistic 3D Milky Way celestial sphere.
-   * Maps an equirectangular texture on the inside of a large sphere aligned with Galactic Coordinates.
-   * 
-   * @param {number} [radius=this.options.sphereRadius * 0.98] - Celestial placement radius.
+   * @param {number} [radius=this.options.sphereRadius * 0.98]
    */
   async loadMilkyWay(radius = this.options.sphereRadius * 0.98) {
     this.milkyWayGroup = new THREE.Group();
@@ -387,7 +383,6 @@ export class SkyRendererV2 {
     this.milkyWayMesh.renderOrder = -10;
     this.milkyWayGroup.add(this.milkyWayMesh);
 
-    // Galactic North Pole: RA = 192.8595°, Dec = 27.1283°, Center offset = 32.9319°
     const galacticNodeRA = THREE.MathUtils.degToRad(192.8595);
     const galacticNodeDec = THREE.MathUtils.degToRad(27.1283);
     const galacticZeroLon = THREE.MathUtils.degToRad(32.9319);
@@ -404,7 +399,7 @@ export class SkyRendererV2 {
 
   /**
    * Adjusts internal Milky Way opacity dynamically (0.0 to 1.0).
-   * @param {number} opacity - Opacity value between 0.0 and 1.0.
+   * @param {number} opacity
    */
   setMilkyWayOpacity(opacity) {
     this.milkyWayOpacity = Math.max(0.0, Math.min(1.0, opacity));
@@ -415,7 +410,7 @@ export class SkyRendererV2 {
 
   /**
    * Adjusts internal Milky Way brightness dynamically (0.0 to 2.0).
-   * @param {number} brightness - Brightness multiplier.
+   * @param {number} brightness
    */
   setMilkyWayBrightness(brightness) {
     this.milkyWayBrightness = Math.max(0.0, Math.min(2.0, brightness));
@@ -435,42 +430,52 @@ export class SkyRendererV2 {
   }
 
   /**
-   * Updates celestial sphere rotation according to date, time, and observer location.
+   * Updates celestial sphere rotation & atmosphere solar position according to date, time, and observer location.
    * @param {Date} [date=new Date()] - Active simulation date/time.
    * @param {Object} [obs={ latitude: 0, longitude: 0 }] - Observer location ({ latitude, longitude }).
    */
   updateTimeAndObserver(date = new Date(), obs = { latitude: 0, longitude: 0 }) {
-    if (!this.starSphereGroup) return;
+    if (this.starSphereGroup) {
+      let lstHours = 0;
 
-    let lstHours = 0;
+      if (typeof window !== 'undefined' && window.Astronomy && typeof window.Astronomy.SiderealTime === 'function') {
+        try {
+          const time = window.Astronomy.MakeTime(date);
+          const gstHours = window.Astronomy.SiderealTime(time);
+          lstHours = (gstHours + (obs.longitude || 0) / 15.0) % 24.0;
+          if (lstHours < 0) lstHours += 24.0;
+        } catch (e) {
+          console.warn('[SkyRendererV2] Sidereal calculation failed, fallback to GMST:', e);
+        }
+      }
 
-    if (typeof window !== 'undefined' && window.Astronomy && typeof window.Astronomy.SiderealTime === 'function') {
-      try {
-        const time = window.Astronomy.MakeTime(date);
-        const gstHours = window.Astronomy.SiderealTime(time);
-        lstHours = (gstHours + (obs.longitude || 0) / 15.0) % 24.0;
+      if (lstHours === 0) {
+        const d = (date.getTime() - Date.UTC(2000, 0, 1, 12, 0, 0)) / 86400000.0;
+        const gmstHours = (18.697374558 + 24.06570982441908 * d) % 24.0;
+        lstHours = (gmstHours + (obs.longitude || 0) / 15.0) % 24.0;
         if (lstHours < 0) lstHours += 24.0;
-      } catch (e) {
-        console.warn('[SkyRendererV2] Sidereal calculation failed, fallback to GMST:', e);
+      }
+
+      const lstRad = THREE.MathUtils.degToRad(lstHours * 15.0);
+      const latRad = THREE.MathUtils.degToRad(obs.latitude || 0);
+
+      this.starSphereGroup.rotation.y = -lstRad;
+      this.starSphereGroup.rotation.x = (Math.PI / 2.0) - latRad;
+    }
+
+    // Update Atmosphere Solar Position & Star Daytime Fading
+    if (this.atmosphere) {
+      const env = this.atmosphere.updateSunPosition(date, obs);
+      if (this.starFieldPoints && this.starFieldPoints.material && this.starFieldPoints.material.uniforms) {
+        if (this.starFieldPoints.material.uniforms.uDaytimeOpacity) {
+          this.starFieldPoints.material.uniforms.uDaytimeOpacity.value = env.starVisibility;
+        }
       }
     }
-
-    if (lstHours === 0) {
-      const d = (date.getTime() - Date.UTC(2000, 0, 1, 12, 0, 0)) / 86400000.0;
-      const gmstHours = (18.697374558 + 24.06570982441908 * d) % 24.0;
-      lstHours = (gmstHours + (obs.longitude || 0) / 15.0) % 24.0;
-      if (lstHours < 0) lstHours += 24.0;
-    }
-
-    const lstRad = THREE.MathUtils.degToRad(lstHours * 15.0);
-    const latRad = THREE.MathUtils.degToRad(obs.latitude || 0);
-
-    this.starSphereGroup.rotation.y = -lstRad;
-    this.starSphereGroup.rotation.x = (Math.PI / 2.0) - latRad;
   }
 
   /**
-   * Initializes Three.js WebGL renderer, star catalog, and Milky Way structure.
+   * Initializes Three.js WebGL renderer, star catalog, Milky Way, and Atmosphere.
    * @param {HTMLElement} containerElement - DOM parent container.
    * @param {Array<Object>} [customStarCatalog] - Optional star catalog array.
    */
@@ -532,7 +537,13 @@ export class SkyRendererV2 {
     // 5. Load Realistic 3D Milky Way Equirectangular Sphere (Behind Stars)
     await this.loadMilkyWay();
 
-    // 6. Load Real Astronomical Star Catalog with Planetarium HDR Star Shader
+    // 6. Load Atmosphere System
+    this.atmosphere = new Atmosphere({ radius: this.options.sphereRadius * 0.99 });
+    if (this.atmosphere && this.atmosphere.mesh) {
+      this.scene.add(this.atmosphere.mesh);
+    }
+
+    // 7. Load Real Astronomical Star Catalog with Planetarium HDR Star Shader
     const stars = customStarCatalog || await this.loadProjectStarCatalog();
     if (stars && stars.length > 0) {
       this.starFieldPoints = this.createAstronomicalStarField(stars);
@@ -542,7 +553,7 @@ export class SkyRendererV2 {
     // Initial position alignment
     this.updateTimeAndObserver(new Date(), { latitude: 0, longitude: 0 });
 
-    // 7. Camera Drag Rotation Controls
+    // 8. Camera Drag Rotation Controls
     if (this.options.enableControls) {
       this.controls = new OrbitControls(this.camera, this.canvas);
       this.controls.enableDamping = true;
@@ -553,11 +564,11 @@ export class SkyRendererV2 {
       this.controls.enablePan = false;
     }
 
-    // 8. Resize Listener
+    // 9. Resize Listener
     window.addEventListener('resize', this._onWindowResizeBound, false);
 
     this.isInitialized = true;
-    console.log(`[SkyRendererV2] Successfully loaded Planetarium HDR Star Shader with ${this.loadedStarCount} stars.`);
+    console.log(`[SkyRendererV2] Successfully loaded Planetarium HDR Star Shader, Atmosphere, and 3D Milky Way.`);
 
     if (this._pendingStart) {
       this._pendingStart = false;
@@ -636,6 +647,11 @@ export class SkyRendererV2 {
     if (this.controls) {
       this.controls.dispose();
       this.controls = null;
+    }
+
+    if (this.atmosphere) {
+      this.atmosphere.dispose();
+      this.atmosphere = null;
     }
 
     if (this.starFieldPoints) {
