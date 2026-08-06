@@ -80,7 +80,7 @@ export class SkyRendererV2 {
       near: options.near || 0.1,
       far: options.far || 2000,
       sphereRadius: options.sphereRadius || 800,
-      enableControls: options.enableControls || false,
+      enableControls: options.enableControls !== undefined ? options.enableControls : true,
       clearColor: 0x000000,
       clearAlpha: 1.0,
       ...options
@@ -332,7 +332,7 @@ export class SkyRendererV2 {
     this.canvas.style.width = '100%';
     this.canvas.style.height = '100%';
     this.canvas.style.zIndex = '1';
-    this.canvas.style.pointerEvents = this.options.enableControls ? 'auto' : 'none';
+    this.canvas.style.pointerEvents = 'auto';
 
     this.container.appendChild(this.canvas);
 
@@ -347,13 +347,15 @@ export class SkyRendererV2 {
     // Initial position alignment
     this.updateTimeAndObserver(new Date(), { latitude: 0, longitude: 0 });
 
-    // 6. Optional OrbitControls for testing
+    // 6. Camera Drag Rotation Controls
     if (this.options.enableControls) {
       this.controls = new OrbitControls(this.camera, this.canvas);
       this.controls.enableDamping = true;
       this.controls.dampingFactor = 0.05;
       this.controls.enableZoom = true;
-      this.controls.rotateSpeed = 0.5;
+      this.controls.zoomSpeed = 0.8;
+      this.controls.rotateSpeed = -0.4;
+      this.controls.enablePan = false;
     }
 
     // 7. Resize Listener

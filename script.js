@@ -3167,7 +3167,7 @@ async function setRendererMode(mode) {
       try {
         const { SkyRendererV2 } = await import("./rendererV2/skyRendererV2.js");
         skyRendererV2Instance = new SkyRendererV2({
-          enableControls: false,
+          enableControls: true,
           clearColor: 0x000000,
           clearAlpha: 1.0
         });
