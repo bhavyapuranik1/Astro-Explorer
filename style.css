@@ -3369,7 +3369,40 @@ code {
  transform: translateY(-50%);
 }
 
+/* ─── V2 Mode Selection Marker ─────────────────────────────────────── */
+.sky-v2-selection-marker {
+  position: absolute;
+  width: 48px;
+  height: 48px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 35;
+  display: none;
+}
 
+.sky-v2-selection-marker .v2-ring {
+  position: absolute;
+  inset: 0;
+  border: 2px solid #00ffff;
+  border-radius: 50%;
+  box-shadow: 0 0 8px #00ffff88, inset 0 0 8px #00ffff22;
+  animation: v2-ring-pulse 1.6s ease-in-out infinite;
+}
+
+.sky-v2-selection-marker .v2-tick {
+  position: absolute;
+  background: #00ffff;
+  box-shadow: 0 0 4px #00ffff;
+}
+.sky-v2-selection-marker .v2-tick-top    { width: 2px; height: 8px;  left: 50%;   top: -10px;    transform: translateX(-50%); }
+.sky-v2-selection-marker .v2-tick-bottom { width: 2px; height: 8px;  left: 50%;   bottom: -10px; transform: translateX(-50%); }
+.sky-v2-selection-marker .v2-tick-left   { width: 8px; height: 2px;  top: 50%;    left: -10px;   transform: translateY(-50%); }
+.sky-v2-selection-marker .v2-tick-right  { width: 8px; height: 2px;  top: 50%;    right: -10px;  transform: translateY(-50%); }
+
+@keyframes v2-ring-pulse {
+  0%, 100% { opacity: 1;   box-shadow: 0 0 8px #00ffff88,  inset 0 0 8px #00ffff22; }
+  50%       { opacity: 0.7; box-shadow: 0 0 16px #00ffffcc, inset 0 0 12px #00ffff44; }
+}
 
 #planetOverlay {
 
@@ -5642,9 +5675,9 @@ body.night-vision-active #toggle-night-btn {
  ========================================================================== */
 
 #quick-sky-controls-toggle {
- position: absolute;
- top: 16px;
- right: 16px;
+ position: fixed;
+ top: 90px;
+ right: 25px;
  z-index: 10005;
  padding: 10px 16px;
  border-radius: 30px;
@@ -5676,10 +5709,10 @@ body.night-vision-active #toggle-night-btn {
 }
 
 #quick-sky-controls-panel {
- position: absolute;
- top: 62px;
+ position: fixed;
+ top: 140px;
  bottom: 85px;
- right: 16px;
+ right: 25px;
  width: 320px;
  z-index: 10010;
  background: rgba(10, 15, 28, 0.94);

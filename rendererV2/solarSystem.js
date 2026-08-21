@@ -193,6 +193,9 @@ export class SolarSystem {
     this.planetPoints = new THREE.Points(geometry, material);
     this.planetPoints.renderOrder = 5;
     this.group.add(this.planetPoints);
+
+    // Initial position calculation
+    this.updatePositions(new Date(), { latitude: 0, longitude: 0 });
   }
 
   /**
@@ -240,7 +243,9 @@ export class SolarSystem {
             const decDeg = eq.dec;
 
             const vec = this.celestialToCartesian(raDeg, decDeg, this.options.radius);
-
+            p.position = vec;
+            p.ra = raDeg;
+            p.dec = decDeg;
             positionsAttr.setXYZ(i, vec.x, vec.y, vec.z);
 
             // Update Sun Billboard placement & orientation
