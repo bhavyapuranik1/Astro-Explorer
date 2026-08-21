@@ -44,7 +44,8 @@ export class SkyRendererV2 {
       far: options.far || 2000,
       sphereRadius: options.sphereRadius || 800,
       enableControls: options.enableControls !== undefined ? options.enableControls : true,
-      clearColor: 0x02040a,
+      clearColor: 0x050917,
+
       clearAlpha: 1.0,
       ...options
     };
