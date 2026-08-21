@@ -47,15 +47,12 @@ export default async function handler(req, res) {
     });
   }
 
-  // Accept user-provided key from query param as fallback (client passes localStorage key)
-  const userQueryKey = req.query?.key || "";
-
   const geminiApiKey =
     process.env.GEMINI_API_KEY ||
     process.env.GOOGLE_AI_STUDIO_API_KEY ||
-    process.env.GOOGLE_GENAI_API_KEY ||
-    userQueryKey;
+    process.env.GOOGLE_GENAI_API_KEY;
   const groqApiKey = process.env.GROQ_API_KEY;
+
 
   try {
     if (queryProvider === "groq") {

@@ -13145,48 +13145,29 @@ async function refreshAIModels(providerKey = null, forceRefresh = false) {
       }
     }
 
-    // Attempt 1: Serverless Endpoint Discovery (/api/models) - Only if Vercel/Node backend is active
-    const isStaticDevServer = (window.location.hostname === "127.0.0.1" || window.location.hostname === "localhost") && window.location.port === "5502";
+    // Attempt 1: Serverless Endpoint Discovery (/api/models) - exact same backend routing as /api/chat
+    const isLocalHost = window.location.hostname === "127.0.0.1" || window.location.hostname === "localhost";
+    const modelsEndpoint = isLocalHost
+      ? `https://astro-exp-seven.vercel.app/api/models?provider=${prov}`
+      : `/api/models?provider=${prov}`;
 
-    // Build key param once (used by both Attempt 1 and 1B)
-    const storedGeminiKey = localStorage.getItem("user_api_key") || localStorage.getItem("gemini_api_key") || "";
-    const keyParam = storedGeminiKey ? `&key=${encodeURIComponent(storedGeminiKey)}` : "";
-
-    if (!isStaticDevServer) {
-      try {
-        // Pass user's stored API key so server can use it even if env var not set
-        const response = await fetch(`/api/models?provider=${prov}${keyParam}`);
-        if (response.ok) {
-          const data = await response.json();
-          if (data && Array.isArray(data.models) && data.models.length > 0) {
-            localStorage.setItem(cacheKey, JSON.stringify(data.models));
-            localStorage.setItem(timeKey, String(now));
-            updateProviderModels(prov, data.models);
-            return;
-          }
+    try {
+      const response = await fetch(modelsEndpoint);
+      if (response.ok) {
+        const data = await response.json();
+        if (data && Array.isArray(data.models) && data.models.length > 0) {
+          localStorage.setItem(cacheKey, JSON.stringify(data.models));
+          localStorage.setItem(timeKey, String(now));
+          updateProviderModels(prov, data.models);
+          return;
         }
-      } catch (_) {}
-    } else {
-      // Attempt 1B: On local dev server, query production Vercel backend directly
-      // This ensures live model discovery works even without a local server or user API key
-      try {
-        const prodUrl = `https://astro-exp-seven.vercel.app/api/models?provider=${prov}${keyParam}`;
-        const response = await fetch(prodUrl);
-        if (response.ok) {
-          const data = await response.json();
-          if (data && Array.isArray(data.models) && data.models.length > 0) {
-            localStorage.setItem(cacheKey, JSON.stringify(data.models));
-            localStorage.setItem(timeKey, String(now));
-            updateProviderModels(prov, data.models);
-            return;
-          }
-        }
-      } catch (_) {}
-    }
+      }
+    } catch (_) {}
 
 
-    // Attempt 2: Direct Client-Side Auto-Discovery (Runs automatically if /api/models backend is unavailable)
+    // Attempt 2: Direct Client-Side Auto-Discovery (Runs automatically if client has saved key)
     if (prov === "gemini" || prov === "google_ai_studio") {
+
 
       try {
         const userApiKey = localStorage.getItem("user_api_key") || localStorage.getItem("gemini_api_key") || "";
