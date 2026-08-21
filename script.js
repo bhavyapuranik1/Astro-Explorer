@@ -3011,11 +3011,12 @@ function buildSkyConfig() {
     zoomlevel: s.defaultZoom || 1,
 
     background: {
-      fill: "#091021",
+      fill: "#040814",
       opacity: 1.0,
-      stroke: "#13203c",
+      stroke: "#091024",
       width: 1.5
     },
+
 
 
     stars: {
@@ -3111,7 +3112,8 @@ function buildSkyConfig() {
       show: s.showHorizonLine !== undefined ? s.showHorizonLine : false,
       stroke: "#88aaff",
       width: 1.2,
-      fill: "#0d1a36",
+      fill: "#060b1b",
+
 
       opacity: 0.35
     }
