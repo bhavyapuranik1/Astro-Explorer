@@ -3111,7 +3111,8 @@ function buildSkyConfig() {
       show: s.showHorizonLine !== undefined ? s.showHorizonLine : false,
       stroke: "#88aaff",
       width: 1.2,
-      fill: "#000000",
+      fill: "#0d1a36",
+
       opacity: 0.35
     }
   };
