@@ -62,13 +62,13 @@ export const AtmosphereFragmentShader = `
     float zenithFactor = smoothstep(0.0, 0.85, heightPos);
     float horizonFactor = exp(-2.8 * heightPos);
 
-    // Sky Brightness Exposure Scaling (0.0 = dark night, 0.5 = natural observing sky, 1.0+ = strong skyglow)
-    float skyExposure = pow(clamp(uSkyBrightness, 0.0, 3.0), 1.25);
+    // Sky Brightness Exposure Scaling (0.0 = dark night, 0.5 = Stellarium blue, 1.0+ = intense bright skyglow)
+    float skyExposure = pow(clamp(uSkyBrightness * 2.0, 0.0, 4.0), 1.3);
 
-    // 2. SUN-ALTITUDE SKY MODEL & TRANSITIONS (Vibrant atmospheric blue dynamically bound to uSkyBrightness)
-    vec3 zenithColor = vec3(0.045, 0.090, 0.200) * (0.15 + 1.10 * skyExposure);
-    vec3 horizonColor = vec3(0.085, 0.150, 0.310) * (0.15 + 1.10 * skyExposure);
-    float baseAlpha = clamp(0.35 + (skyExposure * 0.40), 0.15, 0.95);
+    // 2. SUN-ALTITUDE SKY MODEL & TRANSITIONS (Huge dynamic contrast bound to uSkyBrightness)
+    vec3 zenithColor = vec3(0.060, 0.130, 0.280) * (0.05 + 0.95 * skyExposure);
+    vec3 horizonColor = vec3(0.120, 0.220, 0.440) * (0.05 + 0.95 * skyExposure);
+    float baseAlpha = clamp(0.20 + (skyExposure * 0.55), 0.10, 0.98);
 
     if (sunAlt > 0.0) {
       // Daylight (Sun above horizon): Natural subtle blue atmospheric scattering
@@ -79,22 +79,23 @@ export const AtmosphereFragmentShader = `
     } else if (sunAlt > -6.0) {
       // Civil Twilight (0° to -6°): Sunset/Sunrise crimson & golden glow to deep blue
       float t = (sunAlt + 6.0) / 6.0;
-      zenithColor = mix(vec3(0.045, 0.090, 0.200) * (0.15 + 1.10 * skyExposure), vec3(0.08, 0.24, 0.52), t);
+      zenithColor = mix(vec3(0.060, 0.130, 0.280) * (0.05 + 0.95 * skyExposure), vec3(0.08, 0.24, 0.52), t);
       horizonColor = mix(vec3(0.88, 0.35, 0.10), vec3(0.38, 0.56, 0.82), t);
       baseAlpha = mix(0.50, 0.85, t);
     } else if (sunAlt > -12.0) {
       // Nautical Twilight (-6° to -12°): Deep navy to golden sunset horizon
       float t = (sunAlt + 12.0) / 6.0;
-      zenithColor = mix(vec3(0.025, 0.050, 0.120) * (0.15 + 1.10 * skyExposure), vec3(0.045, 0.090, 0.200) * (0.15 + 1.10 * skyExposure), t);
-      horizonColor = mix(vec3(0.045, 0.080, 0.180) * (0.15 + 1.10 * skyExposure), vec3(0.88, 0.35, 0.10), t);
+      zenithColor = mix(vec3(0.035, 0.075, 0.160) * (0.05 + 0.95 * skyExposure), vec3(0.060, 0.130, 0.280) * (0.05 + 0.95 * skyExposure), t);
+      horizonColor = mix(vec3(0.065, 0.120, 0.250) * (0.05 + 0.95 * skyExposure), vec3(0.88, 0.35, 0.10), t);
       baseAlpha = mix(0.35, 0.50, t);
     } else if (sunAlt > -18.0) {
       // Astronomical Twilight (-12° to -18°): Faint midnight navy sky fading to rich blue
       float t = (sunAlt + 18.0) / 6.0;
-      zenithColor = mix(vec3(0.015, 0.030, 0.070) * (0.15 + 1.10 * skyExposure), vec3(0.025, 0.050, 0.120) * (0.15 + 1.10 * skyExposure), t);
-      horizonColor = mix(vec3(0.030, 0.055, 0.120) * (0.15 + 1.10 * skyExposure), vec3(0.045, 0.080, 0.180) * (0.15 + 1.10 * skyExposure), t);
+      zenithColor = mix(vec3(0.020, 0.045, 0.095) * (0.05 + 0.95 * skyExposure), vec3(0.035, 0.075, 0.160) * (0.05 + 0.95 * skyExposure), t);
+      horizonColor = mix(vec3(0.040, 0.080, 0.170) * (0.05 + 0.95 * skyExposure), vec3(0.065, 0.120, 0.250) * (0.05 + 0.95 * skyExposure), t);
       baseAlpha = mix(0.25, 0.35, t);
     }
+
 
 
 

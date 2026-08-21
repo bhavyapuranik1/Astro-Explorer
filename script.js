@@ -3003,10 +3003,11 @@ function buildSkyConfig() {
   const height = container ? container.clientHeight : 600;
 
     const bright = s.skyBrightness !== undefined ? Math.max(0.0, Math.min(2.0, parseFloat(s.skyBrightness))) : 0.5;
-    const rVal = Math.min(255, Math.round(4 + bright * 25));
-    const gVal = Math.min(255, Math.round(8 + bright * 45));
-    const bVal = Math.min(255, Math.round(20 + bright * 100));
+    const rVal = Math.min(255, Math.round(2 + bright * 45));
+    const gVal = Math.min(255, Math.round(6 + bright * 85));
+    const bVal = Math.min(255, Math.round(16 + bright * 170));
     const dynBgFill = `#${rVal.toString(16).padStart(2,'0')}${gVal.toString(16).padStart(2,'0')}${bVal.toString(16).padStart(2,'0')}`;
+
 
     return {
       container: "skyContainer",
