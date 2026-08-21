@@ -150,7 +150,7 @@ function sanitizeMessagesForModel(messages, modelId) {
  */
 async function handleGroqRequest(body, apiKey, res) {
   try {
-    const rawModel = body.model || "llama-3.3-70b-versatile";
+    const rawModel = body.model || "llama-3.3-70b-specdec";
     const modelName = rawModel.replace(/^groq\//, "");
     const sanitizedMessages = sanitizeMessagesForModel(body.messages, rawModel);
 
@@ -195,8 +195,10 @@ async function handleGeminiRequest(body, apiKey, res) {
   try {
     const ai = new GoogleGenAI({ apiKey });
 
-    const rawModel = body.model || "gemini-3.6-flash";
+    const rawModel = body.model || "gemini-3.7-flash";
     const modelName = rawModel.replace(/^google\//, "");
+
+
 
     const messages = Array.isArray(body.messages) ? body.messages : [];
     let systemInstruction = "";

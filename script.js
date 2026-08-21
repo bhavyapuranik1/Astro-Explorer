@@ -78,10 +78,10 @@ const AstroSettings = {
       showPlanets: true,
       showHorizon: true,
       showHorizonLine: true,
-      showAtmosphere: false,
-      showTwilight: false,
-      horizonGlow: false,
-      showHorizonGlow: false,
+      showAtmosphere: true,
+      showTwilight: true,
+      horizonGlow: true,
+      showHorizonGlow: true,
       showAsterisms: true,
       showConstellationLines: true,
       showConstellationNames: false,
@@ -122,10 +122,11 @@ const AstroSettings = {
       enableTwinkling: true,
       twinklingSpeed: 0.5,
       twinklingIntensity: 0.5,
-      starColorSaturation: 1.0,
+      starColorSaturation: 1.4,
       enableDeepSkyGlow: true,
       deepSkyGlowIntensity: 0.5,
       mwBrightness: 1.0,
+      mwOpacity: 1.0,
       showAsterismNames: true,
       asterismColor: "#ffaa00",
       asterismWidth: 1.2,
@@ -143,6 +144,11 @@ const AstroSettings = {
     }
     if (saved && typeof saved === "object") {
       this.merge(this.data, saved);
+      // Migration: old saves may have starColorSaturation=0 (slider had no default)
+      // This caused all stars to appear pure white. Reset to vivid default.
+      if (this.data.skySettings && (typeof this.data.skySettings.starColorSaturation !== 'number' || this.data.skySettings.starColorSaturation < 0.5)) {
+        this.data.skySettings.starColorSaturation = 1.4;
+      }
     } else {
       const legacyKeys = {
         fontSize: "fontSize",
@@ -168,6 +174,10 @@ const AstroSettings = {
         const savedSky = JSON.parse(localStorage.getItem("skySettings"));
         if (savedSky && typeof savedSky === "object") {
           this.merge(this.data.skySettings, savedSky);
+          // Migration: fix old saves with starColorSaturation=0
+          if (typeof this.data.skySettings.starColorSaturation !== 'number' || this.data.skySettings.starColorSaturation < 0.5) {
+            this.data.skySettings.starColorSaturation = 1.4;
+          }
         }
       } catch (e) { }
     }
@@ -257,6 +267,53 @@ const _initLat = _savedLoc ? _savedLoc.lat : 23;
 const _initLon = _savedLoc ? _savedLoc.lon : 77;
 const _initElev = _savedLoc ? _savedLoc.elev : 0;
 let observer = new Astronomy.Observer(_initLat, _initLon, _initElev);
+// ================= Astronomy Engine V2 Observer Compatibility =================
+// Normalize Observer arguments at the Astronomy API boundary so older/newer
+// V2 subsystem files can safely pass either Observer instances or coordinates.
+(function installAstronomyObserverCompat() {
+  if (typeof window === "undefined" || !window.Astronomy) return;
+  const A = window.Astronomy;
+  if (A.__astroExplorerObserverCompat) return;
+
+  const OriginalEquator = A.Equator;
+  const OriginalHorizon = A.Horizon;
+
+  function toCompatibleObserver(obs) {
+    if (obs && typeof A.Observer === "function" && obs instanceof A.Observer) {
+      return obs;
+    }
+
+    const lat = Number(obs?.latitude ?? obs?.lat ?? 0);
+    const lon = Number(obs?.longitude ?? obs?.lon ?? 0);
+    const elev = Number(obs?.elevation ?? obs?.height ?? 0);
+
+    return new A.Observer(
+      Number.isFinite(lat) ? lat : 0,
+      Number.isFinite(lon) ? lon : 0,
+      Number.isFinite(elev) ? elev : 0
+    );
+  }
+
+  if (typeof OriginalEquator === "function") {
+    A.Equator = function(body, time, obs, ofdate, aberration) {
+      return OriginalEquator.call(
+        A, body, time, toCompatibleObserver(obs), ofdate, aberration
+      );
+    };
+  }
+
+  if (typeof OriginalHorizon === "function") {
+    A.Horizon = function(time, obs, ra, dec, refract) {
+      return OriginalHorizon.call(
+        A, time, toCompatibleObserver(obs), ra, dec, refract
+      );
+    };
+  }
+
+  A.__astroExplorerObserverCompat = true;
+  console.log("[AstronomyCompat] Observer compatibility layer installed.");
+})();
+
 
 // ================= 📍 OBSERVER LOCATION MANAGER =================
 
@@ -378,14 +435,6 @@ const planetMap = {
   neptune: "nep",
   pluto: "plu",
 
-  ceres: "cer",
-  vesta: "ves",
-  pallas: "pal",
-
-  eris: "eri",
-  makemake: "mak",
-  haumea: "hau",
-
   sun: "sol",
   moon: "lun"
 };
@@ -496,6 +545,11 @@ let lastProjY = null;
 let lastSkyTime = null;
 
 function updatePlanetMarkers(projChanged) {
+  if (typeof activeRendererMode !== 'undefined' && activeRendererMode === "v2") {
+    if (planetMarkers) Object.values(planetMarkers).forEach(div => { if (div) div.style.display = "none"; });
+    if (planetLabels) planetLabels.forEach(p => { if (p && p.el) p.el.style.display = "none"; });
+    return;
+  }
 
   if (!skySettings.showPlanets) {
     Object.values(planetMarkers).forEach(div => { div.style.display = "none"; });
@@ -3060,7 +3114,7 @@ function refreshSky() {
   if (typeof updateAtmosphereState === "function") {
     updateAtmosphereState();
   }
-  if (typeof Celestial !== "undefined") {
+  if (typeof activeRendererMode !== 'undefined' && activeRendererMode === "celestial" && typeof Celestial !== "undefined") {
     if (typeof Celestial.apply === "function") {
       Celestial.apply(buildSkyConfig());
     }
@@ -3072,8 +3126,18 @@ function refreshSky() {
 
 
 function initSky() {
-  Celestial.display(buildSkyConfig());
-  celestialSettings = Celestial.settings();
+  if (typeof Celestial !== "undefined" && typeof activeRendererMode !== 'undefined' && activeRendererMode === "celestial") {
+    try { Celestial.display(buildSkyConfig()); } catch (_) { }
+    celestialSettings = typeof Celestial.settings === "function" ? Celestial.settings() : {};
+  }
+  if (typeof activeRendererMode !== 'undefined' && activeRendererMode === "v2") {
+    const container = document.getElementById("skyContainer");
+    if (container) {
+      container.querySelectorAll("canvas:not(.sky-renderer-v2-canvas):not(.sky-v2-label-overlay), svg").forEach(el => {
+        el.style.display = "none";
+      });
+    }
+  }
 
   Celestial.add({
     type: "raw",
@@ -3106,10 +3170,20 @@ function initSky() {
       isSkyMouseDown = false;
     };
 
+    const handlePointerHover = (e) => {
+      handleDragMove(e);
+      if (e.clientX !== undefined && e.clientY !== undefined) {
+        const v2 = window.skyRendererV2 || skyRendererV2Instance;
+        if (v2 && typeof v2.checkLabelHover === 'function') {
+          v2.checkLabelHover(e.clientX, e.clientY);
+        }
+      }
+    };
+
     skyContainer.addEventListener("mousedown", handleDragStart);
-    skyContainer.addEventListener("mousemove", handleDragMove);
+    skyContainer.addEventListener("mousemove", handlePointerHover);
     skyContainer.addEventListener("pointerdown", handleDragStart);
-    skyContainer.addEventListener("pointermove", handleDragMove);
+    skyContainer.addEventListener("pointermove", handlePointerHover);
     window.addEventListener("mouseup", handleDragEnd);
     window.addEventListener("pointerup", handleDragEnd);
     skyContainer.addEventListener("click", handleSkyClick);
@@ -3121,20 +3195,50 @@ function initSky() {
 
 
 
-// 🌌 DEVELOPER RENDERER SWITCHER (Celestial.js Default vs SkyRendererV2 Experimental)
-let activeRendererMode = "celestial";
+// 🌌 DEVELOPER RENDERER SWITCHER (SkyRendererV2 Default)
+let activeRendererMode = "v2";
 let skyRendererV2Instance = null;
 
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", () => {
+    setTimeout(() => { setRendererMode("v2"); }, 50);
+  });
+} else {
+  setTimeout(() => { setRendererMode("v2"); }, 50);
+}
+
+let skyContainerObserver = null;
+
+function setupSkyContainerObserver() {
+  const container = document.getElementById("skyContainer");
+  if (!container || skyContainerObserver) return;
+
+  skyContainerObserver = new MutationObserver(() => {
+    if (activeRendererMode === "v2") {
+      const nonV2Elements = container.querySelectorAll("canvas:not(.sky-renderer-v2-canvas):not(.sky-v2-label-overlay), svg");
+      nonV2Elements.forEach(el => {
+        if (el.style.display !== "none") el.style.display = "none";
+      });
+    }
+  });
+
+  skyContainerObserver.observe(container, { childList: true, subtree: true });
+}
+
 async function setRendererMode(mode) {
-  if (mode !== "celestial" && mode !== "v2") return;
-  activeRendererMode = mode;
+  // Enforce SkyRendererV2 as the sole active rendering engine
+  mode = "v2";
+  activeRendererMode = "v2";
+  setupSkyContainerObserver();
+  // ── Normalize Observer for current Astronomy Engine instance ──
+
 
   const container = document.getElementById("skyContainer");
   const badge = document.getElementById("sky-renderer-v2-badge");
   const selectDropdown = document.getElementById("rendererEngineSelect");
   if (selectDropdown) selectDropdown.value = mode;
 
-  const celestialCanvases = container ? container.querySelectorAll("canvas:not(.sky-renderer-v2-canvas)") : [];
+  const celestialCanvases = document.querySelectorAll("canvas:not(.sky-renderer-v2-canvas):not(.sky-v2-label-overlay)");
   const celestialSvg = container ? container.querySelectorAll("svg") : [];
 
   if (mode === "celestial") {
@@ -3156,8 +3260,14 @@ async function setRendererMode(mode) {
     }
     console.log("[RendererSwitch] Restored Celestial.js (Default).");
   } else if (mode === "v2") {
-    // Hide Celestial.js 2D map canvas
-    celestialCanvases.forEach(c => c.style.display = "none");
+    // Hide Celestial.js 2D map canvas completely
+    celestialCanvases.forEach(c => {
+      c.style.display = "none";
+      try {
+        const ctx = c.getContext("2d");
+        if (ctx) ctx.clearRect(0, 0, c.width, c.height);
+      } catch (_) { }
+    });
     celestialSvg.forEach(s => s.style.display = "none");
 
     // Show V2 Badge
@@ -3174,7 +3284,88 @@ async function setRendererMode(mode) {
         });
         await skyRendererV2Instance.init(container);
         skyRendererV2Instance.start();
-        skyRendererV2Instance.updateTimeAndObserver(skyTime, observer);
+        // Normalize observer to the SAME Astronomy Engine instance used by V2
+// Use an Observer created by the global Astronomy Engine instance.
+// The compatibility layer above also normalizes coordinate objects passed
+// by older V2 subsystem files.
+const v2Observer = (
+  observer &&
+  typeof window !== "undefined" &&
+  window.Astronomy &&
+  typeof window.Astronomy.Observer === "function" &&
+  observer instanceof window.Astronomy.Observer
+)
+  ? observer
+  : new window.Astronomy.Observer(
+      Number(observer?.latitude ?? observer?.lat ?? 23),
+      Number(observer?.longitude ?? observer?.lon ?? 77),
+      Number(observer?.elevation ?? observer?.height ?? 0)
+    );
+
+window.observer = v2Observer;
+
+skyRendererV2Instance.updateTimeAndObserver(
+  skyTime,
+  v2Observer
+);
+        window.skyRendererV2Instance = skyRendererV2Instance;
+        window.skyRendererV2 = skyRendererV2Instance;
+        if (typeof skySettings !== 'undefined') {
+          if (skySettings.starMagnitude !== undefined) skyRendererV2Instance.setStarMagnitudeLimit(parseFloat(skySettings.starMagnitude) || 6.5);
+          skyRendererV2Instance.setStarsVisible(skySettings.showStars !== false);
+          skyRendererV2Instance.setConstellationsVisible(!!skySettings.showConstellations);
+          skyRendererV2Instance.setConstellationArtVisible(skySettings.showConstellationArt !== false);
+          skyRendererV2Instance.setAsterismsVisible(!!skySettings.showAsterisms);
+          skyRendererV2Instance.setDSOsVisible(skySettings.showDSOs !== false);
+          skyRendererV2Instance.setPlanetsVisible(skySettings.showPlanets !== false);
+          skyRendererV2Instance.setSatellitesVisible(!!skySettings.showSatellites);
+          skyRendererV2Instance.setSpacecraftVisible(!!skySettings.showSpacecraft);
+          skyRendererV2Instance.setAsteroidsVisible(!!skySettings.showAsteroids);
+          skyRendererV2Instance.setCometsVisible(!!skySettings.showComets);
+          skyRendererV2Instance.setMilkyWayVisible(skySettings.showMilkyWay !== false);
+          skyRendererV2Instance.setMilkyWayBrightness(
+    Number.isFinite(Number(skySettings.mwBrightness))
+        ? Number(skySettings.mwBrightness)
+        : 1.0
+);
+
+skyRendererV2Instance.setMilkyWayOpacity(
+    Number.isFinite(Number(skySettings.mwOpacity))
+        ? Number(skySettings.mwOpacity)
+        : 1.0
+);
+          skyRendererV2Instance.setAtmosphereVisible(!!skySettings.showAtmosphere);
+          if (typeof skyRendererV2Instance.setLandscapeVisible === 'function') {
+            skyRendererV2Instance.setLandscapeVisible(skySettings.showHorizon !== false && skySettings.showGround !== false);
+          }
+          skyRendererV2Instance.setBortleScale(skySettings.lightPollution || 3);
+          skyRendererV2Instance.setSkyBrightness(skySettings.skyBrightness !== undefined ? skySettings.skyBrightness : 0.5);
+          skyRendererV2Instance.setAirTransparency(skySettings.airTransparency !== undefined ? skySettings.airTransparency : 0.8);
+          skyRendererV2Instance.setMoonlightBrightness(skySettings.moonlightBrightness !== undefined ? skySettings.moonlightBrightness : 0.5);
+          skyRendererV2Instance.setHorizonGlow(!!skySettings.horizonGlow);
+          skyRendererV2Instance.setEquatorialGridVisible(!!skySettings.showEquatorialGrid);
+          skyRendererV2Instance.setCelestialEquatorVisible(!!skySettings.showCelestialEquator);
+          skyRendererV2Instance.setEclipticVisible(!!skySettings.showEcliptic);
+          skyRendererV2Instance.setGalacticPlaneVisible(!!skySettings.showGalacticPlane);
+          skyRendererV2Instance.setHorizonLineVisible(!!skySettings.showHorizonLine);
+          // Star Color Saturation: default to 1.4 (vivid spectral colors)
+          // Guard against saved value of 0.0 which makes all stars grey/white
+          const savedSaturation = skySettings.starColorSaturation !== undefined
+            ? parseFloat(skySettings.starColorSaturation)
+            : 1.4;
+          skyRendererV2Instance.setStarColorSaturation(
+            isNaN(savedSaturation) || savedSaturation < 0.3 ? 1.4 : savedSaturation
+          );
+          if (skySettings.enableTwinkling !== undefined) {
+            skyRendererV2Instance.setStarTwinklingEnabled(!!skySettings.enableTwinkling);
+          }
+          if (skySettings.twinklingSpeed !== undefined) {
+            skyRendererV2Instance.setStarTwinklingSpeed(parseFloat(skySettings.twinklingSpeed) || 0.5);
+          }
+          if (skySettings.twinklingIntensity !== undefined) {
+            skyRendererV2Instance.setStarTwinklingIntensity(parseFloat(skySettings.twinklingIntensity) || 0.0);
+          }
+        }
       } catch (e) {
         console.error("[RendererSwitch] Failed to initialize SkyRendererV2:", e);
       }
@@ -3187,10 +3378,31 @@ window.setRendererMode = setRendererMode;
 function syncV2RendererState() {
   if (typeof window !== 'undefined') {
     window.skyTime = skyTime;
-    window.observer = observer;
   }
-  if (typeof activeRendererMode !== 'undefined' && activeRendererMode === "v2" && skyRendererV2Instance) {
-    skyRendererV2Instance.updateTimeAndObserver(skyTime, observer);
+
+  if (
+    typeof activeRendererMode !== 'undefined' &&
+    activeRendererMode === "v2" &&
+    skyRendererV2Instance
+  ) {
+    const v2Observer = (
+      observer &&
+      typeof window !== "undefined" &&
+      window.Astronomy &&
+      typeof window.Astronomy.Observer === "function" &&
+      observer instanceof window.Astronomy.Observer
+    )
+      ? observer
+      : new window.Astronomy.Observer(
+          Number(observer?.latitude ?? observer?.lat ?? 23),
+          Number(observer?.longitude ?? observer?.lon ?? 77),
+          Number(observer?.elevation ?? observer?.height ?? 0)
+        );
+
+    window.observer = v2Observer;
+    skyRendererV2Instance.updateTimeAndObserver(skyTime, v2Observer);
+  } else if (typeof window !== 'undefined') {
+    window.observer = observer;
   }
 }
 window.syncV2RendererState = syncV2RendererState;
@@ -3200,6 +3412,33 @@ let searchHighlight = null;
 let currentTarget = null;
 
 function createMarker() {
+  // V2 mode: create a dedicated V2 selection ring (not the legacy DOM crosshair)
+  if (typeof activeRendererMode !== 'undefined' && activeRendererMode === "v2") {
+    // Remove any old legacy crosshairs
+    document.querySelectorAll(".sky-crosshair, .star-search-label, .dso-search-label, #highlight-marker").forEach(el => el.remove());
+    if (marker) { marker.remove(); marker = null; }
+
+    const container = document.getElementById("skyContainer");
+    if (!container) return;
+
+    // Reuse or create the V2 selection ring element
+    let v2Marker = container.querySelector(".sky-v2-selection-marker");
+    if (!v2Marker) {
+      v2Marker = document.createElement("div");
+      v2Marker.className = "sky-v2-selection-marker";
+      v2Marker.innerHTML = `
+        <div class="v2-ring"></div>
+        <div class="v2-tick v2-tick-top"></div>
+        <div class="v2-tick v2-tick-bottom"></div>
+        <div class="v2-tick v2-tick-left"></div>
+        <div class="v2-tick v2-tick-right"></div>
+      `;
+      container.appendChild(v2Marker);
+    }
+    v2Marker.style.display = "none"; // Hidden until positioned
+    return;
+  }
+
   if (typeof isCelestialSearchEnabled === "function" && !isCelestialSearchEnabled()) {
     if (marker) {
       marker.remove();
@@ -3209,38 +3448,76 @@ function createMarker() {
   }
 
   const container = document.getElementById("skyContainer");
+  if (!container) return;
 
   if (!marker) {
-
     marker = document.createElement("div");
-
     marker.className = "sky-crosshair";
-
     marker.innerHTML = `
     <div class="cross-top"></div>
     <div class="cross-right"></div>
     <div class="cross-bottom"></div>
     <div class="cross-left"></div>
 `;
-
+    // Start hidden — positioning happens each frame
+    marker.style.display = "none";
     container.appendChild(marker);
-
   }
 
-  if (currentTarget) {
-
-    const pt = Celestial.mapProjection(currentTarget);
-
-    if (pt) {
-
-      marker.style.left = pt[0] + "px";
-      marker.style.top = pt[1] + "px";
-
+  // Legacy mode: set initial position via D3 projection
+  if (typeof activeRendererMode === 'undefined' || activeRendererMode !== "v2") {
+    if (currentTarget) {
+      try {
+        const pt = Celestial.mapProjection(currentTarget);
+        if (pt) {
+          marker.style.left = pt[0] + "px";
+          marker.style.top = pt[1] + "px";
+          marker.style.display = "";
+        }
+      } catch (e) { }
     }
+  }
+  // V2 mode: position is set by globalSkyAnimationLoop each frame
+}
 
+window.ensureV2SelectionMarker = function () {
+  if (
+    typeof activeRendererMode === 'undefined' ||
+    activeRendererMode !== "v2"
+  ) return;
+
+  const v2 = window.skyRendererV2 || skyRendererV2Instance;
+  const container = document.getElementById("skyContainer");
+
+  if (!v2 || !container || !selectedObject) return;
+
+  let v2Marker = container.querySelector(".sky-v2-selection-marker");
+
+  if (!v2Marker) {
+    v2Marker = document.createElement("div");
+    v2Marker.className = "sky-v2-selection-marker";
+    v2Marker.innerHTML = `
+            <div class="v2-ring"></div>
+            <div class="v2-tick v2-tick-top"></div>
+            <div class="v2-tick v2-tick-bottom"></div>
+            <div class="v2-tick v2-tick-left"></div>
+            <div class="v2-tick v2-tick-right"></div>
+        `;
+    container.appendChild(v2Marker);
   }
 
-}
+  const pos = v2.getScreenPosition(
+    v2.selectedTargetObject || selectedObject
+  );
+
+  if (pos) {
+    v2Marker.style.display = "";
+    v2Marker.style.left = `${pos.x}px`;
+    v2Marker.style.top = `${pos.y}px`;
+  } else {
+    v2Marker.style.display = "none";
+  }
+};
 
 
 
@@ -3260,6 +3537,18 @@ function updateSkyContainerRect() {
 window.addEventListener("resize", updateSkyContainerRect);
 
 function trackMarker() {
+  // V2 mode: bypass marker requirement entirely, delegate directly to SkyRendererV2
+  if (typeof activeRendererMode !== 'undefined' && activeRendererMode === "v2") {
+    const v2 = window.skyRendererV2 || skyRendererV2Instance;
+    if (v2 && selectedObject) {
+      v2.focusOnObject(selectedObject, 800);
+    }
+    tracking = true;
+    if (typeof _syncNavButtons === "function") _syncNavButtons();
+    return;
+  }
+
+  // Legacy Celestial.js mode: requires marker and currentTarget
   if (!marker || !currentTarget) return;
   smoothX = null;
   smoothY = null;
@@ -3318,11 +3607,88 @@ function globalSkyAnimationLoop() {
       updateDynamicInfo();
     }
 
-    // 2. Update Planet Markers & Labels
-    updatePlanetMarkers(projChanged);
-    updatePlanetLabelPositions(projChanged);
+    if (typeof activeRendererMode !== 'undefined' && activeRendererMode === "v2") {
+      // V2 mode: Remove all legacy DOM crosshairs, but do NOT touch the V2 selection ring
+      document.querySelectorAll(".sky-crosshair, .star-search-label, .dso-search-label, #highlight-marker").forEach(el => el.remove());
+      if (marker) { marker.remove(); marker = null; }
 
-    if (skySettings.enableTwinkling) {
+      // Position the V2 selection ring over the selected object every frame
+      const v2 = window.skyRendererV2 || skyRendererV2Instance;
+      const container = document.getElementById("skyContainer");
+      if (container && v2 && selectedObject) {
+        let v2Marker = container.querySelector(".sky-v2-selection-marker");
+        if (!v2Marker && typeof createMarker === "function") {
+          createMarker();
+          v2Marker = container.querySelector(".sky-v2-selection-marker");
+        }
+
+        if (v2Marker) {
+
+          const markerTarget =
+            v2.selectedTargetObject || selectedObject;
+
+          let pos = v2.getScreenPosition(markerTarget);
+
+          /*console.log(
+              "V2 MARKER POSITION:",
+              pos,
+              "TARGET:",
+              markerTarget?.name,
+              markerTarget?.ra,
+              markerTarget?.dec
+          );
+          
+          console.log(
+            "V2 MARKER TARGET:",
+            markerTarget?.name,
+            markerTarget?.ra,
+            markerTarget?.dec
+          );*/
+
+          // NGC/IC/DSO search objects: use their own RA/Dec directly
+          // if V2 cannot resolve the search object through its renderer catalog.
+          if (!pos && markerTarget && String(markerTarget.type || "").toLowerCase() === "dso") {
+            const ra = Number(markerTarget.ra);
+            const dec = Number(markerTarget.dec);
+
+            if (Number.isFinite(ra) && Number.isFinite(dec)) {
+              pos = v2.getScreenPosition({
+                type: "dso",
+                id: markerTarget.id,
+                name: markerTarget.name,
+                displayName: markerTarget.displayName,
+                ra: ra,
+                dec: dec
+              });
+            }
+          }
+
+          if (!pos && currentTarget && Array.isArray(currentTarget)) {
+            const fallbackObj = {
+              type: markerTarget?.type || 'dso',
+              ra: currentTarget[0],
+              dec: currentTarget[1]
+            };
+
+            pos = v2.getScreenPosition(fallbackObj);
+          }
+
+          if (pos) {
+            v2Marker.style.display = "block";
+            v2Marker.style.left = pos.x + "px";
+            v2Marker.style.top = pos.y + "px";
+          } else {
+            v2Marker.style.display = "none";
+          }
+        }
+      }
+    } else {
+      // 2. Update Planet Markers & Labels for legacy mode
+      updatePlanetMarkers(projChanged);
+      updatePlanetLabelPositions(projChanged);
+    }
+
+    if (skySettings.enableTwinkling && (typeof activeRendererMode === 'undefined' || activeRendererMode !== "v2") && typeof Celestial !== 'undefined' && typeof Celestial.redraw === 'function') {
       Celestial.redraw();
     }
 
@@ -3330,8 +3696,8 @@ function globalSkyAnimationLoop() {
       TelescopeManager.updateRings();
     }
 
-    // 3. Update Tracking Marker if target selected
-    if (marker && currentTarget) {
+    // Legacy marker tracking via D3 projection — only runs in Celestial.js mode
+    if ((typeof activeRendererMode === 'undefined' || activeRendererMode !== "v2") && marker && currentTarget) {
       let pt = null;
       if (Array.isArray(currentTarget)) {
         try {
@@ -3349,6 +3715,7 @@ function globalSkyAnimationLoop() {
           smoothX += (pt[0] - smoothX) * 0.2;
           smoothY += (pt[1] - smoothY) * 0.2;
 
+          marker.style.display = "";
           marker.style.left = smoothX + "px";
           marker.style.top = smoothY + "px";
 
@@ -3377,7 +3744,7 @@ function globalSkyAnimationLoop() {
           }
         }
       }
-    } else {
+    } else if (typeof activeRendererMode === 'undefined' || activeRendererMode !== "v2") {
       smoothX = null;
       smoothY = null;
     }
@@ -3536,7 +3903,97 @@ function getCometPosition(cometData, date, obs) {
 }
 
 function getAsteroidPosition(asteroidData, date, obs) {
-  return getKeplerianPosition(asteroidData, date, obs);
+
+  if (!asteroidData) return null;
+
+  // Primary: real orbital-elements solution
+  if (asteroidData.orbitalElements) {
+    const result = getKeplerianPosition(
+      asteroidData,
+      date,
+      obs
+    );
+
+    if (result && result.every(Number.isFinite)) {
+      return result;
+    }
+  }
+
+  // Fallback: use already available RA/Dec if dataset provides them.
+  const raRaw =
+    asteroidData.ra ??
+    asteroidData.rightAscension ??
+    asteroidData.RA;
+
+  const decRaw =
+    asteroidData.dec ??
+    asteroidData.declination ??
+    asteroidData.Dec;
+
+  if (
+    Number.isFinite(Number(raRaw)) &&
+    Number.isFinite(Number(decRaw))
+  ) {
+    const raDeg = Number(raRaw);
+    const decDeg = Number(decRaw);
+
+    let alt = 0;
+    let az = 0;
+
+    if (
+      typeof Astronomy !== "undefined" &&
+      obs
+    ) {
+      try {
+        const time = Astronomy.MakeTime(
+          date || new Date()
+        );
+
+        const hor = Astronomy.Horizon(
+          time,
+          obs,
+          raDeg / 15,
+          decDeg,
+          Astronomy.Refraction.None
+        );
+
+        if (hor) {
+          alt = hor.altitude;
+          az = hor.azimuth;
+        }
+      } catch (e) {
+        console.warn(
+          "[Asteroid] RA/Dec fallback failed:",
+          e
+        );
+      }
+    }
+
+    return [
+      raDeg / 15,
+      decDeg,
+      1,
+      alt,
+      az,
+      Number(
+        asteroidData.mag ??
+        asteroidData.magnitude ??
+        10
+      )
+    ];
+  }
+
+  return null;
+}
+// 🔧 V2 FIX: SkyRendererV2's MinorBodiesSystem is an ES module.
+// Explicitly expose the orbital helpers so the module can call them.
+if (typeof window !== "undefined") {
+  window.getCometPosition = getCometPosition;
+  window.getAsteroidPosition = getAsteroidPosition;
+}
+if (typeof globalThis !== "undefined") {
+  globalThis.getCometPosition = getCometPosition;
+  globalThis.getAsteroidPosition = getAsteroidPosition;
 }
 
 async function loadObjects() {
@@ -3553,32 +4010,29 @@ async function loadObjects() {
   const ngcData = await fetch("data/ngc-ic-messier-catalog.json").then(r => r.json());
 
   const cleanCatalog = ngcData.map(o => {
+    if (!o || !o.ra || !o.dec || !o.name) return null;
 
-    if (!o.ra || !o.dec) return null;
+    const ngcName = String(o.name).trim();
+    const cleanId = ngcName.toLowerCase().replace(/\s+/g, "");
 
     return {
-      name: (o.m?.[0] || o.name || "").toLowerCase().replace(/\s+/g, ""),
-
-      id: (o.m?.[0] || o.name || "").toLowerCase().replace(/\s+/g, ""),
-
-      fullName: o.name || "",
+      name: cleanId,
+      id: cleanId,
+      displayName: ngcName,
+      fullName: o.common_names || ngcName,
       commonName: o.common_names || "",
-
       messier: o.m?.[0] || "",
-      ngc: o.name || "",
+      ngc: ngcName,
       identifiers: o.identifiers || "",
-
       ra: raToDeg(o.ra),
       dec: decToDeg(o.dec),
-
       type: "dso",
-
       mag: o.v_mag || o.b_mag || "N/A",
       constellation: o.const || "N/A",
       size: o.majax || "N/A",
-      morph: o.object_definition || "N/A"
+      morph: o.object_definition || "N/A",
+      rawObj: o
     };
-
   }).filter(Boolean);
 
   const cleanMessier = m.features.map(o => {
@@ -3765,17 +4219,25 @@ async function loadObjects() {
 
   const planetData = await fetch("data/planets.json").then(r => r.json());
 
-  const cleanPlanets = Object.entries(planetData).map(([key, p]) => {
+  const minorBodyKeys = ["ves", "cer", "pal", "eri", "mak", "hau", "vesta", "ceres", "pallas"];
 
-    const fullName = p.name.toLowerCase(); // venus
-    const shortId = p.id.toLowerCase();   // ven
+  const cleanPlanets = Object.entries(planetData)
+    .filter(([key, p]) => {
+      const k = (key || "").toLowerCase();
+      const id = (p.id || "").toLowerCase();
+      const name = (p.name || "").toLowerCase();
+      return !minorBodyKeys.includes(k) && !minorBodyKeys.includes(id) && !minorBodyKeys.includes(name);
+    })
+    .map(([key, p]) => {
+      const fullName = p.name.toLowerCase(); // venus
+      const shortId = p.id.toLowerCase();   // ven
 
-    return {
-      name: fullName,   // 🔥 for search + calc
-      id: shortId,      // 🔥 for Celestial
-      type: "planet"
-    };
-  });
+      return {
+        name: fullName,   // 🔥 for search + calc
+        id: shortId,      // 🔥 for Celestial
+        type: "planet"
+      };
+    });
   searchObjects.push(...cleanPlanets);
 
   console.log("Planets added:", cleanPlanets.length);
@@ -3803,52 +4265,46 @@ async function loadObjects() {
 
   console.log("Constellations added:", constEntries.length);
 
+  try {
+    const starData = await fetch("data/stars.6.json").then(r => r.json());
+    const starNamesMap = await fetch("data/starnames.json").then(r => r.json()).catch(() => ({}));
 
-
-  const starData = await fetch("data/stars.json").then(r => r.json());
-
-  const cleanStars = starData.features
-    .filter(s => s.properties.mag < 5)
-
-    .map(s => {
-
+    const cleanStars = [];
+    (starData.features || []).forEach(s => {
       const hip = s.id;
+      const nameData = (hip && starNamesMap[hip]) ? starNamesMap[hip] : {};
+      const properName = nameData.name && nameData.name.trim() !== "" ? nameData.name.trim() : null;
+      const bayerName = nameData.bayer && nameData.c ? `${nameData.bayer} ${nameData.c}` : (nameData.flam && nameData.c ? `${nameData.flam} ${nameData.c}` : null);
+      const mainName = properName || bayerName || (hip ? `HIP ${hip}` : `Star ${s.id}`);
 
-      return {
-
-        id: hip,
-
-        name:
-          starNames[hip]?.name?.toLowerCase()
-
-          || ("star-" + hip),
-
-        ra:
-          s.geometry.coordinates[0],
-
-        dec:
-          s.geometry.coordinates[1],
-
+      const starObj = {
+        id: hip ? `HIP ${hip}` : `star-${s.id}`,
+        hip: hip || null,
+        name: mainName.toLowerCase(),
+        displayName: mainName,
+        properName: properName,
+        bayerName: bayerName,
+        ra: s.geometry.coordinates[0],
+        dec: s.geometry.coordinates[1],
         type: "star",
-
-        mag:
-          s.properties?.mag ||
-
-          "N/A",
-
-        constellation:
-          s.properties?.con ||
-
-          "N/A",
-
-        bv:
-          s.properties?.bv ||
-
-          null
+        mag: (s.properties && s.properties.mag !== undefined) ? s.properties.mag : "N/A"
       };
+
+      cleanStars.push(starObj);
+
+      if (properName && bayerName && properName.toLowerCase() !== bayerName.toLowerCase()) {
+        cleanStars.push({
+          ...starObj,
+          name: bayerName.toLowerCase()
+        });
+      }
     });
 
-  searchObjects.push(...cleanStars);
+    searchObjects.push(...cleanStars);
+    console.log(`[Script] Added ${cleanStars.length} star search entries to searchObjects.`);
+  } catch (e) {
+    console.warn("[Script] Failed to load star search index:", e);
+  }
 
   // 🛰️ Add Satellites to searchObjects
   // 🛰️ Load Satellites
@@ -3971,6 +4427,11 @@ async function loadObjects() {
 
   searchObjects.push(...cleanAsteroids);
   console.log("Asteroids added:", cleanAsteroids.length);
+  console.log(
+    "[Astro Explorer] Minor-body orbital helpers:",
+    "comet=", typeof window?.getCometPosition,
+    "asteroid=", typeof window?.getAsteroidPosition
+  );
 
   // 🌌 Add Asterisms to searchObjects index
   let ASTERISMS_DATA = [];
@@ -3987,6 +4448,7 @@ async function loadObjects() {
 
   const cleanAsterisms = ASTERISMS_DATA.map(ast => {
     const props = ast.properties || {};
+    const astName = props.name || props.id || ast.id || '';
     let raDeg = 0;
     let decDeg = 0;
 
@@ -3994,7 +4456,6 @@ async function loadObjects() {
       raDeg = props.loc[0];
       decDeg = props.loc[1];
     } else if (ast.geometry && ast.geometry.coordinates) {
-      // Centroid calculation from GeoJSON coordinates
       const coords = ast.geometry.coordinates.flat(2);
       let sumRa = 0, sumDec = 0, count = 0;
       for (let i = 0; i < coords.length; i += 2) {
@@ -4011,22 +4472,39 @@ async function loadObjects() {
     const normalizedRaDeg = (raDeg < 0 ? raDeg + 360 : raDeg);
 
     return {
-      name: String(name).toLowerCase(),
-      displayName: String(name),
-      id: String(ast.id || name),
+      name: String(astName).toLowerCase(),
+      displayName: String(astName),
+      id: String(ast.id || astName),
       type: "asterism",
-      ra: normalizedRaDeg,   // <-- degrees
+      ra: normalizedRaDeg,
       dec: decDeg,
       asterismData: ast
     };
+  }).filter(a => a.name && a.name !== 'undefined');
+
+  // Also add Stellarium top 5 iconic asterisms with aliases (Big Dipper / Saptarishi, Orion's Belt, Summer Triangle, Pegasus Square, Teapot)
+  const stellariumAsterisms = [
+    { name: "big dipper", displayName: "Big Dipper (Saptarishi)", id: "big_dipper", type: "asterism", ra: 165.0, dec: 55.0 },
+    { name: "orion's belt", displayName: "Orion's Belt", id: "orions_belt", type: "asterism", ra: 84.0, dec: -1.2 },
+    { name: "summer triangle", displayName: "Summer Triangle", id: "summer_triangle", type: "asterism", ra: 295.0, dec: 35.0 },
+    { name: "great square of pegasus", displayName: "Great Square of Pegasus", id: "pegasus_square", type: "asterism", ra: 345.0, dec: 20.0 },
+    { name: "teapot", displayName: "Teapot of Sagittarius", id: "teapot", type: "asterism", ra: 280.0, dec: -28.0 }
+  ];
+
+  stellariumAsterisms.forEach(sa => {
+    if (!cleanAsterisms.some(a => a.name.includes(sa.name))) {
+      cleanAsterisms.push(sa);
+    }
   });
 
   searchObjects.push(...cleanAsterisms);
-  console.log("Asterisms added:", cleanAsterisms.length);
+  console.log("Asterisms added to search index:", cleanAsterisms.length);
+
+  window.searchObjects = searchObjects;
 
   console.log(
-    "Stars added:",
-    cleanStars.length
+    "Stars added to search:",
+    searchObjects.filter(o => o.type === "star").length
   );
 }
 function detectLocation() {
@@ -4171,13 +4649,7 @@ function getPlanetPosition(name, date) {
     saturn: Astronomy.Body.Saturn,
     uranus: Astronomy.Body.Uranus,
     neptune: Astronomy.Body.Neptune,
-    pluto: Astronomy.Body.Pluto,
-    ceres: Astronomy.Body.Ceres,
-    vesta: Astronomy.Body.Vesta,
-    pallas: Astronomy.Body.Pallas,
-    eris: Astronomy.Body.Eris,
-    makemake: Astronomy.Body.Makemake,
-    haumea: Astronomy.Body.Humea
+    pluto: Astronomy.Body.Pluto
   };
 
   const body = bodyMap[name.toLowerCase()];
@@ -4256,19 +4728,12 @@ function toggleStellariumTimePanel() {
 function _updateSimTimeUI() {
   const pad = (n) => String(n).padStart(2, '0');
 
-  const spinY = document.getElementById("spin-year");
-  const spinM = document.getElementById("spin-month");
-  const spinD = document.getElementById("spin-day");
-  const spinH = document.getElementById("spin-hour");
-  const spinMin = document.getElementById("spin-minute");
-  const spinS = document.getElementById("spin-second");
-
-  if (spinY) spinY.innerText = skyTime.getFullYear();
-  if (spinM) spinM.innerText = pad(skyTime.getMonth() + 1);
-  if (spinD) spinD.innerText = pad(skyTime.getDate());
-  if (spinH) spinH.innerText = pad(skyTime.getHours());
-  if (spinMin) spinMin.innerText = pad(skyTime.getMinutes());
-  if (spinS) spinS.innerText = pad(skyTime.getSeconds());
+  document.querySelectorAll('.spin-year, #spin-year').forEach(el => el.innerText = skyTime.getFullYear());
+  document.querySelectorAll('.spin-month, #spin-month').forEach(el => el.innerText = pad(skyTime.getMonth() + 1));
+  document.querySelectorAll('.spin-day, #spin-day').forEach(el => el.innerText = pad(skyTime.getDate()));
+  document.querySelectorAll('.spin-hour, #spin-hour').forEach(el => el.innerText = pad(skyTime.getHours()));
+  document.querySelectorAll('.spin-minute, #spin-minute').forEach(el => el.innerText = pad(skyTime.getMinutes()));
+  document.querySelectorAll('.spin-second, #spin-second').forEach(el => el.innerText = pad(skyTime.getSeconds()));
 
   const badgeT = document.getElementById("badge-time");
   const badgeD = document.getElementById("badge-date");
@@ -4282,17 +4747,19 @@ function _updateSimTimeUI() {
     badgeD.innerText = `${yyyy}-${mm}-${dd}`;
   }
 
-  // Update Settings Page readout and input
+  // Update Settings Page readout and all datetime-local inputs
   const simDisplay = document.getElementById("sim-time-display");
   if (simDisplay) {
     simDisplay.innerText = skyTime.toLocaleString();
   }
-  const skyDt = document.getElementById("sky-datetime");
-  if (skyDt && document.activeElement !== skyDt) {
-    const tzOffset = skyTime.getTimezoneOffset() * 60000;
-    const localISOTime = (new Date(skyTime.getTime() - tzOffset)).toISOString().slice(0, 16);
-    skyDt.value = localISOTime;
-  }
+  const allSkyDtInputs = document.querySelectorAll("input[type='datetime-local'], #sky-datetime, .stellarium-datetime-input");
+  allSkyDtInputs.forEach(skyDtEl => {
+    if (skyDtEl && document.activeElement !== skyDtEl) {
+      const tzOffset = skyTime.getTimezoneOffset() * 60000;
+      const localISOTime = (new Date(skyTime.getTime() - tzOffset)).toISOString().slice(0, 16);
+      skyDtEl.value = localISOTime;
+    }
+  });
 
   // Sync V2 Renderer state for all time travel UI controls
   syncV2RendererState();
@@ -4302,11 +4769,11 @@ function _updateSimTimeUI() {
 
   // Update starmap visual projection
   try {
-    if (typeof Celestial !== "undefined") {
+    if ((typeof activeRendererMode === 'undefined' || activeRendererMode !== "v2") && typeof Celestial !== "undefined" && typeof Celestial.skyview === "function") {
       Celestial.skyview({ date: skyTime });
     }
   } catch (e) {
-    console.error("Celestial.skyview error:", e);
+    // Legacy fallback
   }
 }
 
@@ -4741,6 +5208,8 @@ function resetSelectionState() {
   tracking = false;
   _syncNavButtons();
   currentTarget = null;
+  selectedObject = null;
+  lastSelectedPlanet = null;
 
   if (starLabel) {
     starLabel.remove();
@@ -4753,6 +5222,18 @@ function resetSelectionState() {
   }
 
   searchedObjectName = "";
+
+  // Clear V2 selection reticle and ring
+  if (typeof activeRendererMode !== 'undefined' && activeRendererMode === "v2") {
+    const v2 = window.skyRendererV2 || skyRendererV2Instance;
+    if (v2 && typeof v2.setSelectedObject === "function") {
+      v2.setSelectedObject(null);
+    }
+    // Hide the V2 DOM selection ring immediately
+    const container = document.getElementById("skyContainer");
+    const v2Marker = container ? container.querySelector(".sky-v2-selection-marker") : null;
+    if (v2Marker) v2Marker.style.display = "none";
+  }
 }
 
 function searchObject() {
@@ -4800,13 +5281,24 @@ function searchObject() {
 
   let obj = null;
 
+  // Prioritize exact name / ID / designation match
+  const searchClean = searchTerm.toLowerCase().replace(/\s+/g, "");
+  const exactMatch = candidates.find(o => {
+    if (!o) return false;
+    const n1 = String(o.name || "").toLowerCase().replace(/\s+/g, "");
+    const n2 = String(o.id || "").toLowerCase().replace(/\s+/g, "");
+    const n3 = String(o.displayName || "").toLowerCase().replace(/\s+/g, "");
+    return n1 === searchClean || n2 === searchClean || n3 === searchClean;
+  });
 
   const exactAsteroid = scored.find(
     x => x.obj.type === "asteroid" &&
       (x.obj.name || "").toLowerCase() === searchTerm.toLowerCase()
   );
 
-  if (exactAsteroid) {
+  if (exactMatch) {
+    obj = exactMatch;
+  } else if (exactAsteroid) {
     obj = exactAsteroid.obj;
   } else if (scored.length > 0) {
     obj = scored[0].obj;
@@ -4878,26 +5370,60 @@ function selectObject(obj) {
     asteroid: "showAsteroids",
     comet: "showComets",
     satellite: "showSatellites",
-    spacecraft: "showSpacecraft"
+    spacecraft: "showSpacecraft",
+    constellation: "showConstellations",
+    asterism: "showAsterisms"
   };
 
   const setting = visibilityMap[obj.type];
   if (setting && !skySettings[setting]) {
-    return;
+    skySettings[setting] = true;
+    const checkbox = document.getElementById(`toggle-${obj.type}s`) || document.getElementById(`toggle-${obj.type}`);
+    if (checkbox) checkbox.checked = true;
+    const v2Engine = window.skyRendererV2 || skyRendererV2Instance;
+    if (v2Engine && typeof v2Engine.updateVisibilitySettings === 'function') {
+      v2Engine.updateVisibilitySettings(skySettings);
+    }
   }
 
   console.log("Found:", obj);
   selectedObject = obj;
+
+  // Resolve coordinates for selection marker
+  const v2Engine = window.skyRendererV2 || skyRendererV2Instance;
+  let resRa = obj.ra !== undefined ? obj.ra : (obj.rawObj && obj.rawObj.ra !== undefined ? obj.rawObj.ra : (obj.item && obj.item.ra !== undefined ? obj.item.ra : null));
+  let resDec = obj.dec !== undefined ? obj.dec : (obj.rawObj && obj.rawObj.dec !== undefined ? obj.rawObj.dec : (obj.item && obj.item.dec !== undefined ? obj.item.dec : null));
+
+  if (resRa !== null && resDec !== null) {
+    obj.ra = resRa;
+    obj.dec = resDec;
+    currentTarget = [resRa, resDec];
+  }
 
   updateObjectInfo(obj);
   document.getElementById("object-info-panel").style.display = isCelestialSearchEnabled() ? "block" : "none";
   updateDynamicInfo();
   if (typeof SearchManager !== "undefined") SearchManager.addHistory(obj);
 
+  if (
+    typeof activeRendererMode !== "undefined" &&
+    activeRendererMode === "v2" &&
+    typeof skyRendererV2Instance !== "undefined" &&
+    skyRendererV2Instance
+  ) {
+    skyRendererV2Instance.focusOnObject(obj);
+    return;
+  }
+
+  createMarker();
+  trackMarker();
+
   if (obj.type === "dso") {
     lastSelectedPlanet = null;
-    currentTarget = [obj.ra, obj.dec];
     searchedObjectName = obj.name;
+
+    // Legacy Celestial renderer
+    currentTarget = [obj.ra, obj.dec];
     createMarker();
     trackMarker();
     return;
@@ -4914,14 +5440,29 @@ function selectObject(obj) {
     currentTarget = [raDeg, decDeg];
     searchedObjectName = obj.displayName || obj.name;
     updateObjectInfo(obj);
+
     if (isCelestialSearchEnabled()) {
       document.getElementById("object-info-panel").style.display = "block";
     } else {
       document.getElementById("object-info-panel").style.display = "none";
     }
+
     updateDynamicInfo();
-    createMarker();
-    trackMarker();
+
+    // V2: the object whose info panel is open is the exact marker target
+    if (
+      typeof activeRendererMode !== "undefined" &&
+      activeRendererMode === "v2" &&
+      typeof skyRendererV2Instance !== "undefined" &&
+      skyRendererV2Instance
+    ) {
+      skyRendererV2Instance.setSelectedObject(obj);
+    } else {
+      // Legacy Celestial renderer
+      createMarker();
+      trackMarker();
+    }
+
     return;
   }
 
@@ -4988,6 +5529,9 @@ function selectObject(obj) {
     }
     const raDeg = pos[0] * 15;
     const dec = pos[1];
+    // Write computed position back so getScreenPosition can project it
+    selectedObject.ra = raDeg;
+    selectedObject.dec = dec;
     currentTarget = [raDeg, dec];
     createMarker();
     trackMarker();
@@ -5015,9 +5559,13 @@ function selectObject(obj) {
     currentTarget = [obj.ra, obj.dec];
     createMarker();
     trackMarker();
-    const pt = Celestial.mapProjection(currentTarget);
-    if (pt && isSkyObjectRendered(obj)) {
-      createStarSearchLabel(obj.name, pt[0], pt[1]);
+    if (typeof activeRendererMode === 'undefined' || activeRendererMode !== "v2") {
+      try {
+        const pt = Celestial.mapProjection(currentTarget);
+        if (pt && isSkyObjectRendered(obj)) {
+          createStarSearchLabel(obj.name, pt[0], pt[1]);
+        }
+      } catch (e) { }
     }
     return;
   }
@@ -5296,58 +5844,6 @@ function getCelestialRenderSettings() {
     : {};
 }
 
-function getHitTestContext() {
-  if (typeof Celestial !== "undefined" && Celestial.context) return Celestial.context;
-  const canvas = document.createElement("canvas");
-  return canvas.getContext("2d");
-}
-
-function pointInCircle(x, y, cx, cy, r) {
-  const dx = x - cx;
-  const dy = y - cy;
-  return dx * dx + dy * dy <= r * r;
-}
-
-function pointInRect(x, y, rect) {
-  return rect && x >= rect.left && x <= rect.left + rect.width && y >= rect.top && y <= rect.top + rect.height;
-}
-
-function pointToLineDistance(x, y, x1, y1, x2, y2) {
-  const A = x - x1;
-  const B = y - y1;
-  const C = x2 - x1;
-  const D = y2 - y1;
-  const dot = A * C + B * D;
-  const lenSq = C * C + D * D;
-  let t = lenSq > 0 ? dot / lenSq : -1;
-  t = Math.max(0, Math.min(1, t));
-  const projX = x1 + C * t;
-  const projY = y1 + D * t;
-  const dx = x - projX;
-  const dy = y - projY;
-  return Math.sqrt(dx * dx + dy * dy);
-}
-
-function measureTextBoundingBox(text, x, y, font, align = "start", baseline = "alphabetic") {
-  const ctx = getHitTestContext();
-  if (!ctx || !text) return null;
-  ctx.save();
-  ctx.font = font;
-  ctx.textAlign = align;
-  ctx.textBaseline = baseline;
-  const metrics = ctx.measureText(text);
-  const width = metrics.width;
-  const lineHeight = Math.max(12, Math.round(parseInt(font, 10) || 12));
-  let left = x;
-  if (align === "center") left = x - width / 2;
-  else if (align === "right" || align === "end") left = x - width;
-  let top = y - lineHeight;
-  if (baseline === "middle") top = y - lineHeight / 2;
-  else if (baseline === "top" || baseline === "hanging") top = y;
-  ctx.restore();
-  return { left, top, width, height: lineHeight };
-}
-
 function getConstellationFeatureById(obj) {
   if (!obj) return null;
   if (obj.feature) return obj.feature;
@@ -5359,202 +5855,6 @@ function getAsterismFeatureById(obj) {
   if (!obj) return null;
   if (obj.asterismData) return obj.asterismData;
   return ASTERISM_FEATURES.find(feature => String(feature.id || "").toLowerCase() === String(obj.id || "").toLowerCase()) || null;
-}
-
-function projectGeometryLineSegments(coords) {
-  if (!Array.isArray(coords) || coords.length === 0) return [];
-  const segments = [];
-  const addSegment = (a, b) => {
-    if (!a || !b) return;
-    const p1 = Celestial.mapProjection(a);
-    const p2 = Celestial.mapProjection(b);
-    if (p1 && p2 && isFinite(p1[0]) && isFinite(p1[1]) && isFinite(p2[0]) && isFinite(p2[1])) {
-      segments.push([p1, p2]);
-    }
-  };
-
-  const processLine = line => {
-    if (!Array.isArray(line) || line.length < 2) return;
-    for (let i = 1; i < line.length; i++) {
-      addSegment(line[i - 1], line[i]);
-    }
-  };
-
-  if (!Array.isArray(coords[0][0])) {
-    processLine(coords);
-  } else {
-    for (const line of coords) {
-      processLine(line);
-    }
-  }
-
-  return segments;
-}
-
-function isPointOnFeatureLines(obj, x, y, threshold = 5) {
-  const feature = obj.type === "constellation" ? getConstellationFeatureById(obj) : getAsterismFeatureById(obj);
-  if (!feature || !feature.geometry || !feature.geometry.coordinates) return false;
-  const segments = projectGeometryLineSegments(feature.geometry.coordinates);
-  return segments.some(([p1, p2]) => pointToLineDistance(x, y, p1[0], p1[1], p2[0], p2[1]) <= threshold);
-}
-
-function getRenderedObjectRadius(obj) {
-  if (!obj) return 12;
-  if (obj.type === "planet") return 16;
-  if (obj.type === "star") {
-    const mag = parseFloat(obj.mag || (obj.properties ? obj.properties.mag : 5));
-    if (isNaN(mag)) return 10;
-    return Math.max(6, Math.min(18, 16 - mag * 1.5));
-  }
-  if (obj.type === "dso") return 14;
-  return 12;
-}
-
-function getLabelBoundingBoxForObject(obj, pt) {
-  if (!pt) return null;
-  let text;
-  let font = "11px sans-serif";
-  let align = "start";
-  let baseline = "alphabetic";
-  let x = pt[0];
-  let y = pt[1];
-
-  switch (obj.type) {
-    case "dso":
-      text = obj.displayName || obj.name || "";
-      if (!text) return null;
-      const dsoRadius = getRenderedObjectRadius(obj) - 6;
-      x += dsoRadius;
-      y -= dsoRadius;
-      font = "11px 'Space Grotesk', sans-serif";
-      align = "start";
-      baseline = "alphabetic";
-      break;
-    case "comet":
-      text = obj.displayName || obj.name || "";
-      if (!text) return null;
-      x += 10;
-      y -= 2;
-      font = "bold italic 10px sans-serif";
-      align = "start";
-      baseline = "alphabetic";
-      break;
-    case "asteroid":
-      text = obj.displayName || obj.name || "";
-      if (!text) return null;
-      x += 8;
-      y -= 3;
-      font = "9px sans-serif";
-      align = "start";
-      baseline = "alphabetic";
-      break;
-    case "satellite":
-      text = obj.displayName || obj.name || "";
-      if (!text) return null;
-      x += 0;
-      y += 16;
-      font = "bold 10px sans-serif";
-      align = "center";
-      baseline = "alphabetic";
-      break;
-    case "spacecraft":
-      text = obj.displayName || obj.name || "";
-      if (!text) return null;
-      x += 0;
-      y += 16;
-      font = "bold 11px sans-serif";
-      align = "center";
-      baseline = "alphabetic";
-      break;
-    case "constellation":
-      if (typeof skySettings !== "undefined" && skySettings.showConstellations === false) return null;
-      text = obj.displayName || obj.fullName || obj.name || obj.id || "";
-      if (!text) return null;
-      font = "11px 'Space Grotesk', sans-serif";
-      align = "start";
-      baseline = "alphabetic";
-      break;
-    case "asterism":
-      if (typeof skySettings !== "undefined" && skySettings.showAsterisms === false) return null;
-      text = obj.displayName || obj.name || obj.id || "";
-      if (!text) return null;
-      font = "11px 'Space Grotesk', sans-serif";
-      align = "center";
-      baseline = "middle";
-      break;
-    default:
-      return null;
-  }
-
-  return measureTextBoundingBox(text, x, y, font, align, baseline);
-}
-
-function hitTestSkyObject(obj, x, y) {
-  const pt = getSkyObjectScreenPoint(obj);
-  if (!pt) return false;
-
-  switch (obj.type) {
-    case "star":
-      return pointInCircle(x, y, pt[0], pt[1], Math.max(getRenderedObjectRadius(obj), 14));
-    case "planet":
-      return pointInCircle(x, y, pt[0], pt[1], Math.max(getRenderedObjectRadius(obj), 18));
-    case "dso": {
-      const radius = Math.max(getRenderedObjectRadius(obj), 18);
-      if (pointInCircle(x, y, pt[0], pt[1], radius)) return true;
-      const labelBox = getLabelBoundingBoxForObject(obj, pt);
-      return pointInRect(x, y, labelBox);
-    }
-    case "comet": {
-      if (pointInCircle(x, y, pt[0], pt[1], 16)) return true;
-      const labelBox = getLabelBoundingBoxForObject(obj, pt);
-      return pointInRect(x, y, labelBox);
-    }
-    case "asteroid": {
-      if (pointInCircle(x, y, pt[0], pt[1], 14)) return true;
-      const labelBox = getLabelBoundingBoxForObject(obj, pt);
-      return pointInRect(x, y, labelBox);
-    }
-    case "satellite": {
-      if (pointInCircle(x, y, pt[0], pt[1], 16)) return true;
-      const labelBox = getLabelBoundingBoxForObject(obj, pt);
-      return pointInRect(x, y, labelBox);
-    }
-    case "spacecraft": {
-      if (pointInCircle(x, y, pt[0], pt[1], 16)) return true;
-      const labelBox = getLabelBoundingBoxForObject(obj, pt);
-      return pointInRect(x, y, labelBox);
-    }
-    case "constellation":
-    case "asterism": {
-      if (pointInCircle(x, y, pt[0], pt[1], 24)) return true;
-      if (isPointOnFeatureLines(obj, x, y, 10)) return true;
-      const labelBox = getLabelBoundingBoxForObject(obj, pt);
-      return pointInRect(x, y, labelBox);
-    }
-    default:
-      return false;
-  }
-}
-
-function pointInTriangle(px, py, x1, y1, x2, y2, x3, y3) {
-  const area = 0.5 * (-y2 * x3 + y1 * (-x2 + x3) + x1 * (y2 - y3) + x2 * y3);
-  const s = (1 / (2 * area)) * (y1 * x3 - x1 * y3 + (y3 - y1) * px + (x1 - x3) * py);
-  const t = (1 / (2 * area)) * (x1 * y2 - y1 * x2 + (y1 - y2) * px + (x2 - x1) * py);
-  return s >= 0 && t >= 0 && (s + t) <= 1;
-}
-
-function getSkyObjectHitOrder() {
-  return [
-    "spacecraft",
-    "satellite",
-    "comet",
-    "asteroid",
-    "planet",
-    "dso",
-    "star",
-    "constellation",
-    "asterism"
-  ];
 }
 
 let isSkyMouseDown = false;
@@ -5596,85 +5896,21 @@ function isSkyObjectRendered(obj) {
   return true;
 }
 
-function findSkyObjectUnderCursor(x, y) {
-  if (!searchObjects || !Array.isArray(searchObjects) || searchObjects.length === 0) return null;
-
-  const clickCoords = (Celestial.mapProjection && typeof Celestial.mapProjection.invert === "function") ? Celestial.mapProjection.invert([x, y]) : null;
-  const clickRa = (clickCoords && !isNaN(clickCoords[0])) ? ((clickCoords[0] % 360) + 360) % 360 : null;
-  const clickDec = (clickCoords && !isNaN(clickCoords[1])) ? clickCoords[1] : null;
-
-  const order = getSkyObjectHitOrder();
-  for (const type of order) {
-    for (const obj of searchObjects) {
-      if (!obj || obj.type !== type) continue;
-
-      // Fast coordinate spatial bounding filter
-      if (clickRa !== null && clickDec !== null && typeof obj.ra === "number" && typeof obj.dec === "number") {
-        const dDec = Math.abs(obj.dec - clickDec);
-        if (dDec > 25) continue;
-        let dRa = Math.abs(obj.ra - clickRa);
-        if (dRa > 180) dRa = 360 - dRa;
-        if (dRa > 25) continue;
-      }
-
-      if (!isSkyObjectRendered(obj)) continue;
-      if (hitTestSkyObject(obj, x, y)) return obj;
-    }
-  }
-
-  return null;
-}
-
-function getSkyObjectFromLabelTarget(target) {
-  if (!target) return null;
-
-  const label = target.closest?.(".planet-label, .star-search-label, .dso-search-label");
-  if (label) {
-    const text = (label.textContent || "").trim().toLowerCase();
-    if (!text) return null;
-    let found = null;
-    if (label.classList.contains("planet-label")) {
-      found = searchObjects.find(o => o.type === "planet" && ((o.name || "").toLowerCase() === text || (o.id || "").toLowerCase() === text));
-    } else if (label.classList.contains("star-search-label")) {
-      found = searchObjects.find(o => o.type === "star" && ((o.name || "").toLowerCase() === text || (o.displayName || "").toLowerCase() === text));
-    } else if (label.classList.contains("dso-search-label")) {
-      found = searchObjects.find(o => o.type === "dso" && ((o.name || "").toLowerCase() === text || (o.displayName || "").toLowerCase() === text));
-    }
-    if (found && isSkyObjectRendered(found)) return found;
-  }
-
-  const tagName = target.tagName?.toLowerCase();
-  if (tagName === "text" || tagName === "tspan") {
-    const text = (target.textContent || "").trim().toLowerCase();
-    if (!text) return null;
-    const found = searchObjects.find(o => {
-      const lowerName = (o.name || "").toLowerCase();
-      const lowerDisplay = (o.displayName || "").toLowerCase();
-      const lowerFull = (o.fullName || "").toLowerCase();
-      return lowerName === text || lowerDisplay === text || lowerFull === text;
-    }) || null;
-    if (found && isSkyObjectRendered(found)) return found;
-  }
-
-  return null;
-}
-
-function getSkyObjectFromEvent(event) {
-  const labelTarget = getSkyObjectFromLabelTarget(event.target);
-  if (labelTarget) return labelTarget;
-  const coords = getSkyCoordinatesFromEvent(event);
-  if (!coords) return null;
-  return findSkyObjectUnderCursor(coords.x, coords.y);
-}
-
 function handleSkyClick(event) {
   if (isSkyDragging) {
     isSkyDragging = false;
     return;
   }
   if (!isCelestialSearchEnabled()) return;
-  const target = getSkyObjectFromEvent(event);
-  if (!target) return;
+
+  const v2 = window.skyRendererV2 || skyRendererV2Instance;
+  const target = v2 ? v2.pickObject(event.clientX, event.clientY) : null;
+
+  if (!target) {
+    resetSelectionState();
+    if (v2) v2.setSelectedObject(null);
+    return;
+  }
 
   event.stopPropagation();
 
@@ -5693,7 +5929,10 @@ function handleSkyRightClick(event) {
     return;
   }
   if (!isCelestialSearchEnabled()) return;
-  const target = getSkyObjectFromEvent(event);
+
+  const v2 = window.skyRendererV2 || skyRendererV2Instance;
+  const target = v2 ? v2.pickObject(event.clientX, event.clientY) : null;
+
   if (!target) return;
 
   const searchBox = document.getElementById("searchBox");
@@ -5730,40 +5969,92 @@ function smoothRotate(target, duration = 1000) {
 
 
 
-function applySkyTime() {
+function applySkyTime(targetInput = null) {
+  let valueToUse = null;
 
-  const input =
-    document.getElementById("sky-datetime");
+  if (targetInput && targetInput.value) {
+    valueToUse = targetInput.value;
+  } else if (document.activeElement && (document.activeElement.type === 'datetime-local' || document.activeElement.classList.contains('stellarium-datetime-input')) && document.activeElement.value) {
+    valueToUse = document.activeElement.value;
+  } else {
+    const allInputs = document.querySelectorAll("input[type='datetime-local'], #sky-datetime, .stellarium-datetime-input");
+    for (let i = 0; i < allInputs.length; i++) {
+      if (allInputs[i].value) {
+        valueToUse = allInputs[i].value;
+        break;
+      }
+    }
+  }
 
-  if (!input.value) return;
+  if (!valueToUse) return;
 
-  skyTime = new Date(input.value);
+  const parsedDate = new Date(valueToUse);
+  if (isNaN(parsedDate.getTime())) return;
 
-  selectedObject = selectedObject;
+  skyTime = parsedDate;
 
   syncV2RendererState();
   updateDynamicInfo();
   _updateSimTimeUI();
 
-  // 🔥 CLEAR LABELS
+  // Clear obsolete label elements if any
   if (starLabel) {
     starLabel.remove();
     starLabel = null;
   }
-
   if (dsoSearchLabel) {
     dsoSearchLabel.remove();
     dsoSearchLabel = null;
   }
 
-  // 🔥 REAL SKY DATE
-  // 🔥 Update sky date only
-  Celestial.skyview({
-    date: skyTime
-  });
+  // Force SkyRendererV2 state update
+  if (typeof skyRendererV2Instance !== 'undefined' && skyRendererV2Instance) {
+    const v2Observer = (
+      observer &&
+      typeof window !== "undefined" &&
+      window.Astronomy &&
+      typeof window.Astronomy.Observer === "function" &&
+      observer instanceof window.Astronomy.Observer
+    )
+      ? observer
+      : new window.Astronomy.Observer(
+          Number(observer?.latitude ?? observer?.lat ?? 23),
+          Number(observer?.longitude ?? observer?.lon ?? 77),
+          Number(observer?.elevation ?? observer?.height ?? 0)
+        );
+    skyRendererV2Instance.updateTimeAndObserver(skyTime, v2Observer);
+  }
 
+  try {
+    if (typeof Celestial !== "undefined" && typeof Celestial.skyview === "function") {
+      Celestial.skyview({ date: skyTime });
+    }
+  } catch (e) {}
+}
+
+function resetSkyTimeNow() {
+  skyTime = new Date();
+  _updateSimTimeUI();
+  applySkyTime();
+}
+
+function toggleStellariumTimePopover() {
+  const pop = document.getElementById("stellarium-time-popover");
+  if (pop) {
+    pop.classList.toggle("hidden");
+  }
+}
+
+if (typeof window !== "undefined") {
+  window.resetSkyTimeNow = resetSkyTimeNow;
+  window.toggleStellariumTimePopover = toggleStellariumTimePopover;
+  window.applySkyTime = applySkyTime;
 }
 function createStarSearchLabel(name, x, y) {
+  if (typeof activeRendererMode !== 'undefined' && activeRendererMode === "v2") {
+    if (starLabel) { starLabel.remove(); starLabel = null; }
+    return;
+  }
   if (typeof isCelestialSearchEnabled === "function" && !isCelestialSearchEnabled()) {
     if (starLabel) { starLabel.remove(); starLabel = null; }
     return;
@@ -5812,6 +6103,10 @@ function createStarSearchLabel(name, x, y) {
 }
 
 function updatePlanetLabelPositions(projChanged) {
+  if (typeof activeRendererMode !== 'undefined' && activeRendererMode === "v2") {
+    if (planetLabels) planetLabels.forEach(p => { if (p && p.el) p.el.style.display = "none"; });
+    return;
+  }
   if (typeof skySettings !== "undefined" && skySettings.showPlanets === false) {
     planetLabels.forEach(p => { if (p.el) p.el.style.display = "none"; });
     return;
@@ -5849,6 +6144,10 @@ function updatePlanetLabelPositions(projChanged) {
 }
 
 function createPlanetLabel(name, pt) {
+  if (typeof activeRendererMode !== 'undefined' && activeRendererMode === "v2") {
+    if (planetLabel) { planetLabel.remove(); planetLabel = null; }
+    return;
+  }
   if (planetLabel) {
     planetLabel.remove();
     planetLabel = null;
@@ -5886,6 +6185,10 @@ function createPlanetLabel(name, pt) {
 }
 
 function createAllPlanetLabels() {
+  if (typeof activeRendererMode !== 'undefined' && activeRendererMode === "v2") {
+    if (planetLabels) planetLabels.forEach(p => { if (p && p.el) p.el.style.display = "none"; else if (p && p.remove) p.remove(); });
+    return;
+  }
 
   // remove old
   planetLabels.forEach(l => l.remove());
@@ -5963,8 +6266,11 @@ function createAllPlanetLabels() {
   });
 }
 
-
 function createDSOSearchLabel(name, x, y) {
+  if (typeof activeRendererMode !== 'undefined' && activeRendererMode === "v2") {
+    if (dsoSearchLabel) { dsoSearchLabel.remove(); dsoSearchLabel = null; }
+    return;
+  }
   if (typeof isCelestialSearchEnabled === "function" && !isCelestialSearchEnabled()) {
     if (dsoSearchLabel) { dsoSearchLabel.remove(); dsoSearchLabel = null; }
     return;
@@ -6593,9 +6899,6 @@ const SearchManager = {
         spacecraft: "showSpacecraft"
       };
 
-      const setting = visibilityMap[h.type];
-      if (setting && !skySettings[setting]) return false;
-
       if (!query) return false;
 
       return SearchManager.getRank(query, h) < 100;
@@ -7141,7 +7444,8 @@ function updateDynamicInfo() {
 
   // 🛰️ SATELLITES
   else if (selectedObject.type === "satellite" && typeof satellite !== "undefined") {
-    const sat = selectedObject.satData || SATELLITES_DATA.find(s => s && ((s.name && s.name.toLowerCase().includes(selectedObject.id.toLowerCase())) || (s.OBJECT_NAME && s.OBJECT_NAME.toLowerCase().includes(selectedObject.id.toLowerCase())) || (s.NORAD_CAT_ID && String(s.NORAD_CAT_ID) === String(selectedObject.id))));
+    const targetIdStr = String(selectedObject.id || selectedObject.name || selectedObject.displayName || '').toLowerCase();
+    const sat = selectedObject.satData || (typeof SATELLITES_DATA !== "undefined" && Array.isArray(SATELLITES_DATA) ? SATELLITES_DATA.find(s => s && ((s.name && String(s.name).toLowerCase().includes(targetIdStr)) || (s.OBJECT_NAME && String(s.OBJECT_NAME).toLowerCase().includes(targetIdStr)) || (s.NORAD_CAT_ID && String(s.NORAD_CAT_ID).toLowerCase() === targetIdStr))) : null);
     if (sat) {
       try {
         const satrec = getSatRec(sat);
@@ -9034,7 +9338,7 @@ ${attachmentMandate}
 
         let reply = "No response.";
 
-        // 🔄 Free model unavailability / rate limit fallback handler
+        // 🔄 Free model unavailability / rate limit fallback handler & Error Lifecycle
         if (data && data.error) {
           const errMsg = typeof data.error === "string"
             ? data.error
@@ -9043,7 +9347,6 @@ ${attachmentMandate}
           const isUnavailableForFree = /unavailable for free|free model|no free endpoint|free tier|free limit/i.test(errMsg);
 
           if (isUnavailableForFree || selectedModel.endsWith(":free")) {
-            // Mark original free model as quota_exceeded/unavailable
             if (typeof modelStatuses !== "undefined") {
               modelStatuses[selectedModel] = "quota_exceeded";
             }
@@ -9052,8 +9355,6 @@ ${attachmentMandate}
             }
 
             const failedName = getModelDisplayName(selectedModel);
-
-            // Candidate free fallback models (do NOT use paid slug)
             const FREE_FALLBACK_CANDIDATES = [
               "deepseek/deepseek-r1:free",
               "deepseek/deepseek-v3.1:free",
@@ -9098,7 +9399,6 @@ ${attachmentMandate}
               console.error("Fallback retry fetch error:", retryErr);
             }
           } else if (/afford/i.test(errMsg)) {
-            // Extract X from "You can only afford X completion tokens, but you requested Y"
             const match = errMsg.match(/afford\s+(\d+)/i) || errMsg.match(/(\d+)\s+(?:completion\s+)?tokens/i);
             const affordTokens = match ? parseInt(match[1], 10) : null;
 
@@ -9107,43 +9407,16 @@ ${attachmentMandate}
                 ? AI_PROVIDERS[selectedProvider].name
                 : (selectedProvider === "google_ai_studio" ? "Google AI Studio" : selectedProvider === "groq" ? "Groq" : "AI Provider");
               reply = `Your ${currentProvName} account does not have enough remaining credits/quota to generate a response. Please select another model or provider.`;
-            } else {
-              const retryMaxTokens = (affordTokens !== null && affordTokens >= 32)
-                ? Math.max(128, affordTokens - 64)
-                : 512;
-              console.log(`⚠️ Silently retrying request once with max_tokens = ${retryMaxTokens}...`);
-
-              const retryRequestBody = {
-                ...requestBody,
-                max_tokens: retryMaxTokens
-              };
-
-              try {
-                const retryResponse = await fetch(endpoint, {
-                  method: "POST",
-                  headers,
-                  body: JSON.stringify(retryRequestBody)
-                });
-                data = await retryResponse.json();
-                console.log("RETRY RESPONSE:", data);
-              } catch (retryErr) {
-                console.error("Retry fetch error:", retryErr);
-              }
             }
           }
-        }
 
-        if (data && data.error) {
-          const httpStatus = response.status;
-          reply = formatApiErrorResponse(httpStatus, data.error, selectedProvider);
-
-          // Update model status tracking cleanly based on HTTP status
-          if (httpStatus === 401) {
-            modelStatuses[selectedModel] = "key_missing";
-          } else if (httpStatus === 429) {
-            modelStatuses[selectedModel] = "rate_limited";
-          } else if (httpStatus === 402 || httpStatus === 400 || httpStatus === 404) {
-            modelStatuses[selectedModel] = "quota_exceeded";
+          // Trigger model lifecycle & decommission purge engine
+          if (!reply || reply === "No response.") {
+            const httpStatus = response.status;
+            reply = handleModelQuotaExceeded(selectedModel, errMsg);
+            if (!reply || reply.includes("quota is exceeded")) {
+              reply = formatApiErrorResponse(httpStatus, data.error, selectedProvider);
+            }
           }
 
           if (typeof renderModelPopup === "function") {
@@ -11618,46 +11891,9 @@ function updateGeneralSettings() {
 }
 
 document.getElementById("close-info-panel").addEventListener("click", () => {
-
   document.getElementById("object-info-panel").style.display = "none";
-
-  if (marker) {
-    marker.remove();
-    marker = null;
-  }
-
-  if (searchHighlight) {
-
-    searchHighlight.remove();
-
-    searchHighlight = null;
-
-  }
-
-  tracking = false;
-  currentTarget = null;
-
-  if (starLabel) {
-    starLabel.remove();
-    starLabel = null;
-  }
-
-  if (planetLabel) {
-    planetLabel.remove();
-    planetLabel = null;
-  }
-
-  if (dsoSearchLabel) {
-    dsoSearchLabel.remove();
-    dsoSearchLabel = null;
-  }
-
-  searchedObjectName = "";
-  selectedObject = null;
-  lastSelectedPlanet = null;
-
   document.getElementById("searchBox").value = "";
-
+  resetSelectionState();
 });
 /* ==========================================
    ASTRO EXPLORER SETTINGS
@@ -12753,18 +12989,22 @@ const AI_PROVIDERS = {
       { id: "google/gemini-3.5-flash", name: "Gemini 3.5 Flash", badge: "Fast" }
     ]
   },
+
+
+
   groq: {
     id: "groq",
     name: "Groq",
     icon: "⚡",
-    defaultModel: "llama-3.3-70b-versatile",
+    defaultModel: "openai/gpt-oss-120b",
     models: [
-      { id: "llama-3.3-70b-versatile", name: "Llama 3.3 70B", desc: "Best Quality" },
+      { id: "openai/gpt-oss-120b", name: "GPT OSS 120B", desc: "Flagship 500 T/s" },
+      { id: "openai/gpt-oss-20b", name: "GPT OSS 20B", desc: "Ultra Fast 1000 T/s" },
       { id: "llama-3.1-8b-instant", name: "Llama 3.1 8B Instant", desc: "Fast" },
-      { id: "openai/gpt-oss-120b", name: "GPT OSS 120B", desc: "Strong Reasoning" },
-      { id: "qwen/qwen3.6-27b", name: "Qwen 3.6 27B", desc: "Good Balance" }
+      { id: "llama-3.3-70b-specdec", name: "Llama 3.3 70B SpecDec", desc: "High Performance" }
     ]
   },
+
   openrouter: {
     id: "openrouter",
     name: "OpenRouter",
@@ -12779,11 +13019,281 @@ const AI_PROVIDERS = {
   }
 };
 
+
+// Storage Migration: Clear legacy blacklists for valid active Groq models
+(function clearValidModelsFromBlacklist() {
+  try {
+    const validActiveModels = [
+      "openai/gpt-oss-120b",
+      "openai/gpt-oss-20b",
+      "llama-3.1-8b-instant",
+      "llama-3.3-70b-specdec",
+      "llama-3.3-70b-versatile",
+      "llama-3.2-11b-vision-preview",
+      "llama-3.2-90b-vision-preview",
+      "deepseek-r1-distill-llama-70b",
+      "deepseek-r1-distill-qwen-32b"
+    ];
+
+    let storedBlacklist = JSON.parse(localStorage.getItem("blacklisted_decommissioned_models") || "[]");
+    if (Array.isArray(storedBlacklist) && storedBlacklist.length > 0) {
+      storedBlacklist = storedBlacklist.filter(id => !validActiveModels.includes(id) && !validActiveModels.some(vm => id.includes(vm)));
+      localStorage.setItem("blacklisted_decommissioned_models", JSON.stringify(storedBlacklist));
+    }
+  } catch (_) {}
+})();
+
+
+// Storage Migration & Blacklist: Automatically purge decommissioned models permanently
+const rawBlacklist = JSON.parse(localStorage.getItem("blacklisted_decommissioned_models") || "[\"mixtral-8x7b-32768\", \"groq/mixtral-8x7b-32768\"]");
+const decommissionedBlacklist = new Set(
+  rawBlacklist.filter(id => !id.includes("llama-3.3") && !id.includes("llama-3.1") && !id.includes("llama-3.2") && !id.includes("deepseek-r1-distill"))
+);
+
+
+
+function purgeDecommissionedModel(modelId) {
+  if (!modelId) return;
+  decommissionedBlacklist.add(modelId);
+  localStorage.setItem("blacklisted_decommissioned_models", JSON.stringify(Array.from(decommissionedBlacklist)));
+
+  // 1. Remove completely from all AI_PROVIDERS registries
+  for (const pKey in AI_PROVIDERS) {
+    const prov = AI_PROVIDERS[pKey];
+    prov.models = prov.models.filter(m => m.id !== modelId && !decommissionedBlacklist.has(m.id));
+  }
+
+  // 2. Remove from cached models in localStorage
+  ["gemini", "groq"].forEach(prov => {
+    const cacheKey = `cached_${prov}_models`;
+    try {
+      const cached = JSON.parse(localStorage.getItem(cacheKey) || "[]");
+      const filtered = cached.filter(m => m.id !== modelId && !decommissionedBlacklist.has(m.id));
+      localStorage.setItem(cacheKey, JSON.stringify(filtered));
+    } catch (_) {}
+  });
+
+  // 3. Auto-switch user if currently selected
+  const currentModel = localStorage.getItem("aiModel");
+  if (currentModel === modelId || (currentModel && currentModel.includes(modelId))) {
+    const currentProvider = getSelectedAIProvider();
+    const provConfig = AI_PROVIDERS[currentProvider] || AI_PROVIDERS.google_ai_studio;
+    const replacementModel = (provConfig.models && provConfig.models[0])
+      ? provConfig.models[0].id
+      : "google/gemini-3.6-flash";
+
+    console.warn(`[ModelLifecycle] Model ${modelId} fully decommissioned and removed. Switched to ${replacementModel}`);
+    localStorage.setItem("aiModel", replacementModel);
+    if (typeof AstroSettings !== "undefined") {
+      AstroSettings.set("aiModel", replacementModel);
+    }
+  }
+
+  updateModelPickerButton();
+  renderModelPopup();
+}
+
+(function runDecommissionedPurgeOnStartup() {
+  try {
+    // Force purge hardcoded legacy decommissioned models
+    purgeDecommissionedModel("llama-3.3-70b-versatile");
+    purgeDecommissionedModel("groq/llama-3.3-70b-versatile");
+    purgeDecommissionedModel("mixtral-8x7b-32768");
+    purgeDecommissionedModel("groq/mixtral-8x7b-32768");
+  } catch (_) {}
+})();
+
 // Per-Model Status Tracking: 'available' (🟢), 'rate_limited' (🟠), 'quota_exceeded' (🔴), 'key_missing' (🔴)
 const modelStatuses = {};
 
 function getModelStatus(modelId) {
+  if (decommissionedBlacklist.has(modelId)) return "decommissioned";
   return modelStatuses[modelId] || "available";
+}
+
+// =========================================================
+// AI MODEL DYNAMIC DISCOVERY & LIFECYCLE MANAGEMENT
+// =========================================================
+
+/**
+ * Dynamically refreshes AI models for Gemini (Top 5 Rule) and Groq.
+ * CRITICAL REQUIREMENT 4: Does NOT perform discovery for OpenRouter.
+ */
+async function refreshAIModels(providerKey = null, forceRefresh = false) {
+  const CACHE_TTL_MS = 3600 * 1000; // 1 Hour Cache
+  const now = Date.now();
+
+  const discoverProvider = async (prov) => {
+    // SECTION 4: OpenRouter model discovery MUST NOT be performed automatically
+    if (prov === "openrouter") return;
+
+    const cacheKey = `cached_${prov}_models`;
+    const timeKey = `cached_${prov}_timestamp`;
+
+    if (!forceRefresh) {
+      const cachedData = localStorage.getItem(cacheKey);
+      const cachedTime = parseInt(localStorage.getItem(timeKey) || "0", 10);
+
+      if (cachedData && (now - cachedTime < CACHE_TTL_MS)) {
+        try {
+          const parsed = JSON.parse(cachedData);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            updateProviderModels(prov, parsed);
+            return;
+          }
+        } catch (_) {}
+      }
+    }
+
+    // Attempt 1: Serverless Endpoint Discovery (/api/models) - Only if Vercel/Node backend is active
+    const isStaticDevServer = (window.location.hostname === "127.0.0.1" || window.location.hostname === "localhost") && window.location.port === "5502";
+
+    // Build key param once (used by both Attempt 1 and 1B)
+    const storedGeminiKey = localStorage.getItem("user_api_key") || localStorage.getItem("gemini_api_key") || "";
+    const keyParam = storedGeminiKey ? `&key=${encodeURIComponent(storedGeminiKey)}` : "";
+
+    if (!isStaticDevServer) {
+      try {
+        // Pass user's stored API key so server can use it even if env var not set
+        const response = await fetch(`/api/models?provider=${prov}${keyParam}`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data && Array.isArray(data.models) && data.models.length > 0) {
+            localStorage.setItem(cacheKey, JSON.stringify(data.models));
+            localStorage.setItem(timeKey, String(now));
+            updateProviderModels(prov, data.models);
+            return;
+          }
+        }
+      } catch (_) {}
+    } else {
+      // Attempt 1B: On local dev server, query production Vercel backend directly
+      // This ensures live model discovery works even without a local server or user API key
+      try {
+        const prodUrl = `https://astro-exp-seven.vercel.app/api/models?provider=${prov}${keyParam}`;
+        const response = await fetch(prodUrl);
+        if (response.ok) {
+          const data = await response.json();
+          if (data && Array.isArray(data.models) && data.models.length > 0) {
+            localStorage.setItem(cacheKey, JSON.stringify(data.models));
+            localStorage.setItem(timeKey, String(now));
+            updateProviderModels(prov, data.models);
+            return;
+          }
+        }
+      } catch (_) {}
+    }
+
+
+    // Attempt 2: Direct Client-Side Auto-Discovery (Runs automatically if /api/models backend is unavailable)
+    if (prov === "gemini" || prov === "google_ai_studio") {
+
+      try {
+        const userApiKey = localStorage.getItem("user_api_key") || localStorage.getItem("gemini_api_key") || "";
+        if (userApiKey) {
+          const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${userApiKey}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data && Array.isArray(data.models)) {
+              const eligible = data.models.filter(m => {
+                const rawName = String(m.name || "").toLowerCase();
+                const methods = Array.isArray(m.supportedGenerationMethods) ? m.supportedGenerationMethods : [];
+                return rawName.includes("gemini") &&
+                       methods.includes("generateContent") &&
+                       !rawName.includes("embedding") &&
+                       !rawName.includes("imagen") &&
+                       !rawName.includes("audio-only") &&
+                       !rawName.includes("robotics") &&
+                       !rawName.includes("aqa");
+              });
+
+              if (eligible.length > 0) {
+                // Dynamically rank Gemini models by version number & capabilities (highest version first)
+                eligible.sort((a, b) => {
+                  const getScore = (obj) => {
+                    const id = String(obj.name || "").toLowerCase();
+                    let score = 0;
+                    const match = id.match(/gemini-(\d+\.\d+)/i);
+                    if (match) score += Math.round(parseFloat(match[1]) * 100);
+                    if (id.includes("flash")) score += 15;
+                    if (id.includes("pro")) score += 10;
+                    if (id.includes("preview") || id.includes("exp")) score -= 5;
+                    return score;
+                  };
+                  return getScore(b) - getScore(a);
+                });
+
+
+                const top5 = eligible.slice(0, 5).map((m, idx) => {
+                  const cleanId = m.name.replace(/^models\//, "");
+                  const fullId = cleanId.startsWith("google/") ? cleanId : `google/${cleanId}`;
+                  return {
+                    id: fullId,
+                    name: m.displayName || cleanId,
+                    badge: idx === 0 ? "New" : (cleanId.includes("flash") ? "Fast" : "Pro")
+                  };
+                });
+
+                localStorage.setItem(cacheKey, JSON.stringify(top5));
+                localStorage.setItem(timeKey, String(now));
+                updateProviderModels(prov, top5);
+                return;
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("[ClientDiscovery] Direct Gemini client discovery notice:", err.message);
+      }
+    }
+  };
+
+
+  if (!providerKey || providerKey === "all") {
+    await Promise.all([
+      discoverProvider("gemini"),
+      discoverProvider("groq")
+    ]);
+  } else {
+    await discoverProvider(providerKey);
+  }
+
+  updateModelPickerButton();
+  renderModelPopup();
+}
+
+/**
+ * Updates provider models registry & handles decommissioned model replacement
+ */
+function updateProviderModels(provKey, newModelList) {
+  const targetKey = (provKey === "gemini" || provKey === "google_ai_studio") ? "google_ai_studio" : provKey;
+  if (!AI_PROVIDERS[targetKey]) return;
+
+  // SECTION 1: TOP 5 RULE FOR GEMINI
+  let activeModels = newModelList;
+  if (targetKey === "google_ai_studio" && activeModels.length > 5) {
+    activeModels = activeModels.slice(0, 5);
+  }
+
+  AI_PROVIDERS[targetKey].models = activeModels;
+
+  // SECTION 7: DEFAULT MODEL BEHAVIOR & DECOMMISSION FALLBACK
+  const currentProvider = getSelectedAIProvider();
+  if (currentProvider === targetKey) {
+    const selectedModel = (typeof AstroSettings !== "undefined" ? AstroSettings.get("aiModel") : null) || localStorage.getItem("aiModel");
+    const validIds = activeModels.map(m => m.id);
+
+    // If configured model was decommissioned / removed from API model list, select valid replacement
+    if (selectedModel && !validIds.includes(selectedModel)) {
+      const fallbackModel = activeModels[0] ? activeModels[0].id : AI_PROVIDERS[targetKey].defaultModel;
+      console.warn(`[ModelLifecycle] Configured model ${selectedModel} is decommissioned/unavailable. Selecting replacement: ${fallbackModel}`);
+      if (typeof AstroSettings !== "undefined") AstroSettings.set("aiModel", fallbackModel);
+      localStorage.setItem("aiModel", fallbackModel);
+      if (typeof showToast === "function") {
+        showToast(`🤖 Model updated to ${getModelDisplayName(fallbackModel)}`);
+      }
+    }
+  }
 }
 
 function getSelectedAIProvider() {
@@ -12822,8 +13332,12 @@ function getModelDisplayName(modelId) {
       return found.name;
     }
   }
+  if (modelId.includes("llama-3.2-90b")) return "Llama 3.2 90B Vision Preview";
+  if (modelId.includes("llama-3.2-11b")) return "Llama 3.2 11B Vision Preview";
+  if (modelId.includes("gemini-3.7")) return "Gemini 3.7 Flash";
   if (modelId.includes("gemini-3.6")) return "Gemini 3.6 Flash";
   if (modelId.includes("gemini-3.5")) return "Gemini 3.5 Flash";
+
   if (modelId.includes("llama-3.3")) return "Llama 3.3 70B";
   if (modelId.includes("llama-3.1")) return "Llama 3.1 8B Instant";
   if (modelId.includes("gpt-oss")) return "GPT OSS 120B";
@@ -12906,7 +13420,28 @@ function renderModelPopup() {
     `;
   }
 
+  // Refresh Models button footer in Popup (Section 8)
+  html += `
+    <div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.08); text-align: center;">
+      <button type="button" id="manual-refresh-models-btn" style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); color: #88c0ff; border-radius: 6px; padding: 5px 12px; font-size: 0.8rem; cursor: pointer; transition: all 0.2s;">
+        🔄 Refresh Models
+      </button>
+    </div>
+  `;
+
   popupContent.innerHTML = html;
+
+  // Bind refresh models button
+  const refreshBtn = document.getElementById("manual-refresh-models-btn");
+  if (refreshBtn) {
+    refreshBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      refreshBtn.textContent = "🔄 Refreshing...";
+      refreshAIModels(null, true).then(() => {
+        if (typeof showToast === "function") showToast("🔄 AI Models refreshed");
+      });
+    });
+  }
 
   // Bind model selection clicks
   const modelButtons = popupContent.querySelectorAll(".model-item");
@@ -12975,37 +13510,87 @@ function initModelPickerEvents() {
   });
 
   updateModelPickerButton();
+
+  // Trigger initial dynamic model discovery (Section 1 & 3)
+  refreshAIModels(null, false);
+}
+
+function extractCleanErrorMessage(errorObj) {
+  if (!errorObj) return "";
+  let raw = typeof errorObj === "string" ? errorObj : (errorObj.message || errorObj.error?.message || JSON.stringify(errorObj));
+  if (typeof raw === "string" && (raw.startsWith("{") || raw.includes('"message"'))) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed?.error?.message) return parsed.error.message;
+      if (parsed?.message) return parsed.message;
+    } catch (_) {}
+  }
+  return raw;
 }
 
 function formatApiErrorResponse(statusCode, errorObj, providerId) {
-  const message = typeof errorObj === "string"
-    ? errorObj
-    : (errorObj?.message || errorObj?.error?.message || JSON.stringify(errorObj));
+  const cleanMessage = extractCleanErrorMessage(errorObj);
+  const message = cleanMessage || (typeof errorObj === "string" ? errorObj : JSON.stringify(errorObj));
 
   const code = statusCode || errorObj?.code || errorObj?.status;
 
-  const currentProvider = providerId || (typeof getSelectedAIProvider === "function" ? getSelectedAIProvider() : "openrouter");
+  const currentProvider = providerId || (typeof getSelectedAIProvider === "function" ? getSelectedAIProvider() : "google_ai_studio");
   const providerName = (typeof AI_PROVIDERS !== "undefined" && AI_PROVIDERS[currentProvider])
     ? AI_PROVIDERS[currentProvider].name
     : (currentProvider === "google_ai_studio" ? "Google AI Studio" : currentProvider === "groq" ? "Groq" : "AI Service");
+
+  const lowerMsg = String(message || "").toLowerCase();
+
+  // 503 / HIGH DEMAND ERROR HANDLING
+  if (code === 503 || lowerMsg.includes("high demand") || lowerMsg.includes("spikes in demand")) {
+    return `🔥 ${providerName} is currently experiencing high demand. Spikes in demand are temporary, please try again in a few moments.`;
+  }
+
+  // STRICT RULE: ONLY OPENROUTER REQUESTS API KEY MODAL
+  if (currentProvider === "openrouter") {
+    const isKeyIssue = (
+      code === 401 || code === 402 || code === 403 || code === 429 ||
+      lowerMsg.includes("unauthorized") ||
+      lowerMsg.includes("quota") ||
+      lowerMsg.includes("credit") ||
+      lowerMsg.includes("billing") ||
+      lowerMsg.includes("invalid key") ||
+      lowerMsg.includes("user_key") ||
+      lowerMsg.includes("insufficient_funds")
+    );
+
+    if (isKeyIssue) {
+      setTimeout(() => {
+        if (typeof showAPIKeyModal === "function") {
+          showAPIKeyModal();
+        }
+      }, 400);
+
+      return "Your OpenRouter API key has reached its usage limit or is no longer valid. Please add your own OpenRouter API key to continue using OpenRouter.";
+    }
+  }
+
+  // GOOGLE AI STUDIO & GROQ USE FREE AUTOMATIC RESET QUOTAS (NO API KEY PROMPTING)
+  if (currentProvider === "google_ai_studio" || currentProvider === "groq") {
+    if (code === 429 || code === 401 || code === 402 || lowerMsg.includes("quota")) {
+      return `Rate limit / free quota reached for ${providerName}. Free quota resets automatically. Answered using Gemini 3.6 Flash.`;
+    }
+  }
 
   if (code === 400) {
     return `Invalid request/model: ${message}`;
   }
   if (code === 401) {
-    return `Invalid API key: ${message}`;
+    return `${providerName} service error: ${message}`;
   }
-  if (code === 402) {
-    return `Insufficient credits / quota: ${message}`;
+  if (code === 402 || code === 429) {
+    return `Rate limit reached for ${providerName}. Free quota resets automatically.`;
   }
   if (code === 403) {
     return `Forbidden: ${message}`;
   }
   if (code === 404) {
     return `Resource not found: ${message}`;
-  }
-  if (code === 429) {
-    return `Quota exceeded / Rate limit: ${message}`;
   }
   if (typeof code === "number" && code >= 500) {
     return `${providerName} server error (${code}): ${message}`;
@@ -13014,42 +13599,84 @@ function formatApiErrorResponse(statusCode, errorObj, providerId) {
   return message ? `API Error (${code || "Unknown"}): ${message}` : "An unknown API error occurred.";
 }
 
+
 function handleModelQuotaExceeded(failedModelId, errorMessage) {
-  const msg = String(errorMessage || "").toLowerCase();
-
-  // Strict key missing check: Only when key is explicitly missing/empty or unconfigured
-  const isKeyMissing = (
-    msg.includes("key is missing") ||
-    msg.includes("key is not configured") ||
-    msg.includes("no api key") ||
-    msg.includes("api key required")
-  ) && !msg.includes("rate") && !msg.includes("quota") && !msg.includes("limit") && !msg.includes("unavailable") && !msg.includes("invalid");
-
-  const isRateLimit = (
-    msg.includes("rate") ||
-    msg.includes("429") ||
-    msg.includes("too many requests")
-  );
-
-  if (isKeyMissing) {
-    modelStatuses[failedModelId] = "key_missing";
-  } else if (isRateLimit) {
-    modelStatuses[failedModelId] = "rate_limited";
-  } else {
-    modelStatuses[failedModelId] = "quota_exceeded";
-  }
-
+  const cleanMsg = extractCleanErrorMessage(errorMessage);
+  const msg = String(cleanMsg || errorMessage || "").toLowerCase();
   const failedName = getModelDisplayName(failedModelId);
 
-  // Update popup if open so status badge appears for failed model
-  renderModelPopup();
+  // 503 HIGH DEMAND ERROR HANDLING
+  const isHighDemand = (
+    msg.includes("high demand") ||
+    msg.includes("spikes in demand") ||
+    msg.includes("503")
+  );
 
-  if (msg.includes("unavailable") || msg.includes("invalid model") || msg.includes("not a valid model id")) {
-    return `The model ${failedName} is currently unavailable or invalid. Please select any other model.`;
+  if (isHighDemand) {
+    modelStatuses[failedModelId] = "rate_limited";
+    renderModelPopup();
+    return `🔥 ${failedName} is currently experiencing high demand on Google servers. Spikes in demand are temporary, please try again in a few moments.`;
   }
 
-  return `${failedName} quota is exceeded, please select any other model.`;
+  // AUTOMATIC DECOMMISSION & INVALID MODEL REMOVAL
+  const isDecommissioned = (
+    msg.includes("does not exist") ||
+    msg.includes("resource not found") ||
+    msg.includes("decommissioned") ||
+    msg.includes("deprecated") ||
+    msg.includes("invalid model") ||
+    msg.includes("not a valid model id") ||
+    msg.includes("access to it")
+  );
+
+
+  if (isDecommissioned) {
+    purgeDecommissionedModel(failedModelId);
+
+    const replacementProvider = "google_ai_studio";
+    const replacementModel = "google/gemini-3.6-flash";
+
+    if (typeof AstroSettings !== "undefined") {
+      AstroSettings.set("aiProvider", replacementProvider);
+      AstroSettings.set("aiModel", replacementModel);
+    }
+    localStorage.setItem("aiProvider", replacementProvider);
+    localStorage.setItem("aiModel", replacementModel);
+
+    updateModelPickerButton();
+    renderModelPopup();
+
+    if (typeof showToast === "function") {
+      showToast(`⚠️ ${failedName} decommissioned & removed. Switched to Gemini 3.6 Flash`);
+    }
+
+    return `The model ${failedName} has been decommissioned and completely removed. Automatically switched to Gemini 3.6 Flash.`;
+  }
+
+  modelStatuses[failedModelId] = "quota_exceeded";
+
+  // Auto-fallback user to Gemini 3.6 Flash if current provider model is rate-limited or quota reached
+  const currentProvider = getSelectedAIProvider();
+  if (currentProvider !== "google_ai_studio") {
+    console.warn(`[ModelFallback] Provider ${currentProvider} model ${failedModelId} rate limited. Auto-falling back to Gemini 3.6 Flash.`);
+    if (typeof AstroSettings !== "undefined") {
+      AstroSettings.set("aiProvider", "google_ai_studio");
+      AstroSettings.set("aiModel", "google/gemini-3.6-flash");
+    }
+    localStorage.setItem("aiProvider", "google_ai_studio");
+    localStorage.setItem("aiModel", "google/gemini-3.6-flash");
+
+    updateModelPickerButton();
+    renderModelPopup();
+
+    if (typeof showToast === "function") {
+      showToast(`🤖 Switched to Gemini 3.6 Flash (${failedName} rate limit reached)`);
+    }
+  }
+
+  return `Rate limit / free quota reached for ${failedName}. Free quota resets automatically. Switched to Gemini 3.6 Flash.`;
 }
+
 
 function applyAISettings() {
   const responseLength = AstroSettings.get("responseLength");
@@ -14449,10 +15076,11 @@ var skySettings = window.skySettings = {
   enableTwinkling: true,
   twinklingSpeed: 0.5,
   twinklingIntensity: 0.5,
-  starColorSaturation: 1.0,
+  starColorSaturation: 1.4,
   enableDeepSkyGlow: true,
   deepSkyGlowIntensity: 0.5,
   mwBrightness: 1.0,
+  mwOpacity: 1.0,
 
   ...AstroSettings.get("skySettings")
 
@@ -14477,6 +15105,42 @@ function updateSkySettingValue(key, val, options = {}) {
   console.log("KEY:", key, "VALUE:", val);
 
   skySettings[key] = val;
+  // Apply atmospheric controls to active V2 renderer
+  try {
+    const v2 =
+      (typeof window !== "undefined" && window.skyRendererV2)
+        ? window.skyRendererV2
+        : (typeof skyRendererV2Instance !== "undefined"
+          ? skyRendererV2Instance
+          : null);
+
+    if (v2) {
+
+      if (
+        key === "lightPollution" &&
+        typeof v2.setBortleScale === "function"
+      ) {
+        v2.setBortleScale(Number(val));
+
+      } else if (
+        key === "airTransparency" &&
+        typeof v2.setAirTransparency === "function"
+      ) {
+        v2.setAirTransparency(Number(val));
+
+      } else if (
+        key === "moonlightBrightness" &&
+        typeof v2.setMoonlightBrightness === "function"
+      ) {
+        v2.setMoonlightBrightness(Number(val));
+      }
+    }
+  } catch (e) {
+    console.warn(
+      "[SkySettings] Atmosphere slider update failed:",
+      e
+    );
+  }
   console.log("AFTER SAVE:", key, "=", skySettings[key]);
   if (key === "showCelestialObjects" || key === "showDSOs") {
 
@@ -14489,6 +15153,161 @@ function updateSkySettingValue(key, val, options = {}) {
   if (key === "lightPollution") {
     window.lightPollution = val;
   }
+
+  const v2Instance = window.skyRendererV2 || (typeof skyRendererV2Instance !== 'undefined' ? skyRendererV2Instance : null);
+  if (v2Instance) {
+    if (key === "showStars" || key === "showStarNames" || key === "showStarLabels" || key === "toggle-stars") {
+      v2Instance.setStarsVisible(val);
+    }
+    if (
+    key === "starMagnitude" ||
+    key === "starMagnitudeLimit" ||
+    key === "star-magnitude"
+) {
+    const magnitude = Number(val);
+
+    v2Instance.setStarMagnitudeLimit(
+        Number.isFinite(magnitude)
+            ? magnitude
+            : 4.0
+    );
+}
+    if (key === "showConstellations" || key === "showConstellationLines" || key === "toggle-constellations") {
+      v2Instance.setConstellationsVisible(val);
+    }
+    if (key === "showConstellationNames" || key === "showConstellationLabels") {
+      v2Instance.setConstellationNamesVisible(val);
+    }
+    if (key === "showAsterisms" || key === "showAsterismNames" || key === "toggle-asterisms") {
+      v2Instance.setAsterismsVisible(val);
+    }
+    if (key === "showDSOs" || key === "showDeepSky" || key === "toggle-dsos") {
+      v2Instance.setDSOsVisible(val);
+    }
+    if (key === "showCelestialObjects" || key === "showPlanets" || key === "showSun" || key === "showMoon" || key === "toggle-planets" || key === "toggle-celestial-objects") {
+      v2Instance.setPlanetsVisible(val);
+    }
+    if (key === "showSatellites" || key === "toggle-satellites") {
+      v2Instance.setSatellitesVisible(val);
+    }
+    if (key === "showSpacecraft" || key === "toggle-spacecraft") {
+      v2Instance.setSpacecraftVisible(val);
+    }
+    if (key === "showAsteroids" || key === "toggle-asteroids") {
+      v2Instance.setAsteroidsVisible(val);
+    }
+    if (key === "showComets" || key === "toggle-comets") {
+      v2Instance.setCometsVisible(val);
+    }
+    if (key === "showEquatorialGrid" || key === "showEqGrid" || key === "showGrid") {
+      v2Instance.setEquatorialGridVisible(!!val);
+    }
+    if (key === "showCelestialEquator") {
+      v2Instance.setCelestialEquatorVisible(!!val);
+    }
+    if (key === "showEcliptic") {
+      v2Instance.setEclipticVisible(!!val);
+    }
+    if (key === "showGalacticPlane") {
+      v2Instance.setGalacticPlaneVisible(!!val);
+    }
+    if (key === "showHorizonLine" || key === "showAltAzGrid" || key === "showAzGrid") {
+      v2Instance.setHorizonLineVisible(!!val);
+    }
+    if (key === "showAtmosphere" || key === "enableAtmosphere" || key === "atmosphere") {
+      v2Instance.setAtmosphereVisible(val);
+    }
+    if (key === "showHorizon" || key === "showGround" || key === "showLandscape" || key === "landscape" || key === "ground") {
+      if (typeof v2Instance.setLandscapeVisible === "function") {
+        v2Instance.setLandscapeVisible(!!val);
+      }
+    }
+    if (key === "showMilkyWay" || key === "toggle-milky-way") {
+      v2Instance.setMilkyWayVisible(val);
+    }
+    if (key === "mwBrightness" || key === "mw-brightness-slider") {
+      v2Instance.setMilkyWayBrightness(val);
+    }
+    if (key === "mwOpacity" || key === "mw-opacity") {
+    if (typeof v2Instance.setMilkyWayOpacity === "function") {
+        v2Instance.setMilkyWayOpacity(parseFloat(val));
+    }
+}
+    // ── Atmosphere sliders ──
+    if (key === "lightPollution" || key === "bortleScale") {
+      v2Instance.setBortleScale(parseFloat(val) || 3);
+    }
+    if (key === "skyBrightness") {
+      v2Instance.setSkyBrightness(parseFloat(val) ?? 0.5);
+    }
+    if (key === "airTransparency") {
+      v2Instance.setAirTransparency(parseFloat(val) ?? 0.8);
+    }
+    if (key === "moonlightBrightness" || key === "moonlight-brightness") {
+      v2Instance.setMoonlightBrightness(parseFloat(val) ?? 0.5);
+    }
+    if (key === "horizonGlow" || key === "showHorizonGlow" || key === "toggle-horizon-glow" || key === "quick-toggle-horizon-glow") {
+      v2Instance.setHorizonGlow(!!val);
+    }
+    // ── DSO Glow ──
+    if (key === "deepSkyGlowIntensity" || key === "dso-glow-intensity") {
+      if (typeof v2Instance.setDeepSkyGlowIntensity === "function") {
+        v2Instance.setDeepSkyGlowIntensity(parseFloat(val) || 0.0);
+      }
+    }
+
+    if (key === "enableDeepSkyGlow" || key === "toggle-dso-glow") {
+      if (typeof v2Instance.setDeepSkyGlowEnabled === "function") {
+        v2Instance.setDeepSkyGlowEnabled(!!val);
+      }
+    }
+    // =====================================================
+// STAR TWINKLING
+// =====================================================
+
+if (
+    key === "enableTwinkling" ||
+    key === "toggle-twinkling"
+) {
+    if (
+        typeof v2Instance.setStarTwinklingEnabled === "function"
+    ) {
+        v2Instance.setStarTwinklingEnabled(!!val);
+    }
+}
+
+if (
+    key === "twinklingSpeed" ||
+    key === "twinkling-speed"
+) {
+    if (
+        typeof v2Instance.setStarTwinklingSpeed === "function"
+    ) {
+        v2Instance.setStarTwinklingSpeed(
+            parseFloat(val) || 0.5
+        );
+    }
+}
+
+if (
+    key === "twinklingIntensity" ||
+    key === "twinkling-intensity"
+) {
+    if (
+        typeof v2Instance.setStarTwinklingIntensity === "function"
+    ) {
+        v2Instance.setStarTwinklingIntensity(
+            parseFloat(val) || 0.0
+        );
+    }
+}
+
+  }
+
+  // Trigger 2D Celestial.js redraw if active
+  if (typeof Celestial !== "undefined" && typeof Celestial.redraw === "function") {
+    try { Celestial.redraw(); } catch (e) { }
+  }
   if (key === "showRendererOverlay" && window.rendererManager) {
     window.rendererManager.setOverlayVisible(val);
   }
@@ -14500,6 +15319,10 @@ function updateSkySettingValue(key, val, options = {}) {
     AstroSettings.set("skySettings.showConstellations", val);
     AstroSettings.set("skySettings.showConstellationLines", val);
     AstroSettings.set("skySettings.showConstellationNames", val);
+
+    document.querySelectorAll(`input[data-sky-setting="showConstellations"], input[data-sky-setting="showConstellationLines"], #toggle-constellations`).forEach(input => {
+      if (input.type === "checkbox") input.checked = !!val;
+    });
   }
 
   if (key === "showAsterisms" || key === "showAsterismNames") {
@@ -14552,8 +15375,11 @@ function updateSkySettingValue(key, val, options = {}) {
     showDSOs: "toggle-dsos",
     showDSOLabels: "toggle-dso-labels",
     dsoMagnitude: "dso-magnitude",
+    enableDeepSkyGlow: "toggle-dso-glow",
+    deepSkyGlowIntensity: "dso-glow-intensity",
     showMilkyWay: "toggle-milky-way",
     mwBrightness: "mw-brightness-slider",
+    mwOpacity: "mw-opacity-slider",
     showPlanets: "toggle-planets",
     showSun: "toggle-sun",
     showMoon: "toggle-moon",
@@ -14572,6 +15398,7 @@ function updateSkySettingValue(key, val, options = {}) {
     showConstellationArt: "toggle-constellation-art",
     showConstellationLines: "toggle-constellations",
     showAsterisms: "toggle-asterisms",
+    showAtmosphere: "toggle-atmosphere",
     enableRefraction: "toggle-refraction",
     horizonGlow: "toggle-horizon-glow",
     skyBrightness: "sky-brightness",
@@ -14605,6 +15432,78 @@ function updateSkySettingValue(key, val, options = {}) {
     try { updatePlanetMarkers(true); } catch (_) { }
     try { updatePlanetLabelPositions(true); } catch (_) { }
   }
+
+  // 5. Sync V2 renderer settings
+try {
+  const v2Instance =
+    window.skyRendererV2 ||
+    window.skyRendererV2Instance ||
+    window.skyRenderer ||
+    window.rendererV2 ||
+    (typeof skyRendererV2Instance !== "undefined"
+        ? skyRendererV2Instance
+        : null);
+
+  if (v2Instance) {
+
+    // DSO labels
+    if (
+      key === "showDSOLabels" ||
+      key === "toggle-dso-labels"
+    ) {
+      if (
+        typeof v2Instance.setDSOLabelsVisible === "function"
+      ) {
+        v2Instance.setDSOLabelsVisible(!!val);
+      }
+    }
+
+    // DSO glow ON/OFF
+    if (
+      key === "enableDeepSkyGlow" ||
+      key === "toggle-dso-glow"
+    ) {
+      if (
+        typeof v2Instance.setDeepSkyGlowEnabled === "function"
+      ) {
+        v2Instance.setDeepSkyGlowEnabled(!!val);
+      }
+    }
+
+    // DSO glow intensity
+    if (
+      key === "deepSkyGlowIntensity" ||
+      key === "dso-glow-intensity"
+    ) {
+      if (
+        typeof v2Instance.setDeepSkyGlowIntensity === "function"
+      ) {
+        v2Instance.setDeepSkyGlowIntensity(
+          parseFloat(val) || 0.0
+        );
+      }
+      // ── Star Color Saturation ──
+
+    }
+    if (key === "starColorSaturation" || key === "star-color-saturation") {
+      if (typeof v2Instance.setStarColorSaturation === "function") {
+        v2Instance.setStarColorSaturation(parseFloat(val));
+      }
+    }
+
+    if (key === "showConstellationArt" || key === "showConstellationArtwork" || key === "toggle-constellation-art") {
+      if (typeof v2Instance.setConstellationArtVisible === "function") {
+        v2Instance.setConstellationArtVisible(!!val);
+      }
+    }
+    
+  }
+} catch (e) {
+  console.warn(
+    "[SkySettings] V2 DSO setting sync failed:",
+    e
+  );
+}
 
   // 5. Trigger live canvas redraw
   if (!options.silent) {
@@ -14640,8 +15539,11 @@ function initSkySettings() {
     "toggle-dsos": "showDSOs",
     "toggle-dso-labels": "showDSOLabels",
     "dso-magnitude": "dsoMagnitude",
+    "toggle-dso-glow": "enableDeepSkyGlow",
+    "dso-glow-intensity": "deepSkyGlowIntensity",
     "toggle-milky-way": "showMilkyWay",
     "mw-brightness-slider": "mwBrightness",
+    "mw-opacity-slider": "mwOpacity",
     "toggle-planets": "showPlanets",
     "toggle-sun": "showSun",
     "toggle-moon": "showMoon",
@@ -14659,6 +15561,7 @@ function initSkySettings() {
     "toggle-constellations": "showConstellations",
     "toggle-constellation-art": "showConstellationArt",
     "toggle-asterisms": "showAsterisms",
+    "toggle-atmosphere": "showAtmosphere",
     "toggle-refraction": "enableRefraction",
     "toggle-horizon-glow": "horizonGlow",
     "sky-brightness": "skyBrightness",
@@ -14740,16 +15643,35 @@ function initSkySettings() {
   }
 
   // Bind all data-sky-setting inputs across both interfaces
-  document.querySelectorAll("input[data-sky-setting]").forEach(input => {
-    const key = input.getAttribute("data-sky-setting");
-    const handler = function () {
-      const val = input.type === "checkbox" ? input.checked : Number(input.value);
-      updateSkySettingValue(key, val);
-    };
+  // Bind all sky settings using delegated events.
+// This also catches dynamically created Quick Sky Controls inputs.
+document.addEventListener("input", function (e) {
+    const input = e.target.closest("input[data-sky-setting]");
+    if (!input) return;
 
-    input.oninput = handler;
-    input.onchange = handler;
-  });
+    const key = input.getAttribute("data-sky-setting");
+
+    const val =
+        input.type === "checkbox"
+            ? input.checked
+            : Number(input.value);
+
+    updateSkySettingValue(key, val);
+});
+
+document.addEventListener("change", function (e) {
+    const input = e.target.closest("input[data-sky-setting]");
+    if (!input) return;
+
+    const key = input.getAttribute("data-sky-setting");
+
+    const val =
+        input.type === "checkbox"
+            ? input.checked
+            : Number(input.value);
+
+    updateSkySettingValue(key, val);
+});
 
   // Reset Sky Settings Button Logic
   const resetBtn = document.getElementById("reset-sky-settings-btn");
@@ -14837,11 +15759,16 @@ ${label}
 }
 
 function updateCompassHUD() {
+  if (!compassScale) {
+    compassScale = document.getElementById("compassScale");
+  }
+  if (!compassScale) return;
 
-  if (!compassScale)
-    return;
+  if (!compassScale.innerHTML || compassScale.innerHTML.trim() === "") {
+    buildCompass();
+  }
 
-  const target = window.skyHeading || 0;
+  const target = (typeof window !== "undefined" && window.skyHeading !== undefined) ? window.skyHeading : 0;
 
   let diff = target - compassHeading;
 
@@ -14849,18 +15776,21 @@ function updateCompassHUD() {
   if (diff > 180) diff -= 360;
   if (diff < -180) diff += 360;
 
-  // Smooth movement
-  let speed = 0.20;
-
-  if (Math.abs(diff) > 20) speed = 0.30;
-  if (Math.abs(diff) > 60) speed = 0.40;
+  // Smooth responsive movement
+  let speed = 0.25;
+  if (Math.abs(diff) > 20) speed = 0.35;
+  if (Math.abs(diff) > 60) speed = 0.50;
 
   compassHeading += diff * speed;
 
   const offset = -compassHeading * 8;
 
-  compassScale.style.transform =
-    `translateX(${offset}px)`;
+  compassScale.style.transform = `translateX(${offset}px)`;
+}
+
+if (typeof window !== "undefined") {
+  window.updateCompassHUD = updateCompassHUD;
+  window.buildCompass = buildCompass;
 }
 
 // ======================================
@@ -15792,24 +16722,24 @@ function drawAdvancedLayers() {
         // Exact Celestial.js native symbol table lookup
         const celSymbols = {
           gg: { shape: "circle", fill: "#ff0000" },
-          g:  { shape: "ellipse", fill: "#ff0000" },
+          g: { shape: "ellipse", fill: "#ff0000" },
           gx: { shape: "ellipse", fill: "#ff0000" },
-          s:  { shape: "ellipse", fill: "#ff0000" },
+          s: { shape: "ellipse", fill: "#ff0000" },
           s0: { shape: "ellipse", fill: "#ff0000" },
           sd: { shape: "ellipse", fill: "#ff0000" },
-          e:  { shape: "ellipse", fill: "#ff0000" },
-          i:  { shape: "ellipse", fill: "#ff0000" },
+          e: { shape: "ellipse", fill: "#ff0000" },
+          i: { shape: "ellipse", fill: "#ff0000" },
           oc: { shape: "circle", fill: "#ff9900", stroke: "#ff9900", width: 1.5 },
           gc: { shape: "circle", fill: "#ff9900" },
           en: { shape: "square", fill: "#ff00cc" },
           bn: { shape: "square", fill: "#ff00cc" },
-          neb:{ shape: "square", fill: "#ff00cc" },
-          sfr:{ shape: "square", fill: "#cc00ff" },
+          neb: { shape: "square", fill: "#ff00cc" },
+          sfr: { shape: "square", fill: "#cc00ff" },
           rn: { shape: "square", fill: "#0000ff" },
           pn: { shape: "diamond", fill: "#00cccc" },
-          snr:{ shape: "diamond", fill: "#ff00cc" },
+          snr: { shape: "diamond", fill: "#ff00cc" },
           dn: { shape: "square", fill: "#999999", stroke: "#999999", width: 1.5 },
-          pos:{ shape: "marker", fill: "#cccccc" }
+          pos: { shape: "marker", fill: "#cccccc" }
         };
 
         let sym = celSymbols[rawType];
