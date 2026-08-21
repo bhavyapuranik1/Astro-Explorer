@@ -3008,10 +3008,17 @@ function buildSkyConfig() {
     height: height,
     projection: "equirectangular",
     follow: "center",
-    datapath: "data/",
     zoomlevel: s.defaultZoom || 1,
 
+    background: {
+      fill: "#0e182e",
+      opacity: 1.0,
+      stroke: "#1b2c4f",
+      width: 1.5
+    },
+
     stars: {
+
       show: s.showStars !== undefined ? s.showStars : true,
       limit: s.starMagnitude || 6,
       colors: true,
