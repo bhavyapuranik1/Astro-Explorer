@@ -1780,13 +1780,31 @@ const NASAApiService = {
     const cached = NASACache.get(cacheKey);
     if (cached) return cached;
 
-    const url = `https://api.nasa.gov/planetary/apod?api_key=${NASA_API_KEY}${dateStr ? `&date=${dateStr}` : ''}`;
-    const res = await (typeof fetchWithRetry === 'function' ? fetchWithRetry(url) : fetch(url));
-    if (!res.ok) throw new Error(`APOD API error: ${res.status}`);
-    const data = await res.json();
-    NASACache.set(cacheKey, data);
-    return data;
+    const fallbackAPOD = {
+      title: "Webb's Deep Field (SMACS 0723)",
+      date: dateStr || new Date().toISOString().split("T")[0],
+      url: "https://images-assets.nasa.gov/image/PIA25421/PIA25421~medium.jpg",
+      hdurl: "https://images-assets.nasa.gov/image/PIA25421/PIA25421~large.jpg",
+      media_type: "image",
+      explanation: "NASA's James Webb Space Telescope has produced the deepest and sharpest infrared image of the distant universe to date. Known as Webb’s First Deep Field, this image of galaxy cluster SMACS 0723 is overflowing with detail."
+    };
+
+    try {
+      const url = `https://api.nasa.gov/planetary/apod?api_key=${NASA_API_KEY}${dateStr ? `&date=${dateStr}` : ''}`;
+      const res = await (typeof fetchWithRetry === 'function' ? fetchWithRetry(url) : fetch(url));
+      if (!res.ok) throw new Error(`APOD API error: ${res.status}`);
+      const data = await res.json();
+      if (data && (data.url || data.hdurl)) {
+        NASACache.set(cacheKey, data);
+        return data;
+      }
+      return fallbackAPOD;
+    } catch (err) {
+      console.warn("APOD fetch fallback used:", err.message);
+      return fallbackAPOD;
+    }
   },
+
 
   async getAPODRandom() {
     const url = `https://api.nasa.gov/planetary/apod?api_key=${NASA_API_KEY}&count=1`;
@@ -2019,8 +2037,62 @@ function toggleNASAFavorite(item, btnElement) {
   }
 }
 
-/* SHARED IMAGE LIGHTBOX VIEWER */
+/* SHARED IMAGE LIGHTBOX VIEWER & ACTIONS */
 let currentModalItem = null;
+
+function handleViewOnSkyMap(targetQuery) {
+  closeNASAImageViewer();
+  if (typeof closeNASADetailModal === "function") closeNASADetailModal();
+
+  const item = currentModalItem || {};
+  let searchKeyword = targetQuery || item.target || item.title || item.name || "Mars";
+
+  if (searchKeyword.toLowerCase().includes("mars") || searchKeyword.toLowerCase().includes("perseverance") || searchKeyword.toLowerCase().includes("ingenuity")) searchKeyword = "Mars";
+  else if (searchKeyword.toLowerCase().includes("jwst") || searchKeyword.toLowerCase().includes("webb")) searchKeyword = "JWST";
+  else if (searchKeyword.toLowerCase().includes("hubble")) searchKeyword = "Hubble";
+  else if (searchKeyword.toLowerCase().includes("europa") || searchKeyword.toLowerCase().includes("clipper")) searchKeyword = "Jupiter";
+  else if (searchKeyword.toLowerCase().includes("sun") || searchKeyword.toLowerCase().includes("parker")) searchKeyword = "Sun";
+  else if (searchKeyword.toLowerCase().includes("moon") || searchKeyword.toLowerCase().includes("artemis")) searchKeyword = "Moon";
+  else if (searchKeyword.toLowerCase().includes("voyager")) searchKeyword = "Voyager 1";
+
+  if (typeof showTab === "function") {
+    const skyTabBtn = document.querySelector("#tabs button[onclick*='sky']");
+    if (skyTabBtn) showTab('sky', skyTabBtn);
+    else showTab('sky');
+  }
+
+  setTimeout(() => {
+    const searchInput = document.getElementById("search-input");
+    const searchBtn = document.getElementById("search-btn");
+    if (searchInput) {
+      searchInput.value = searchKeyword;
+      if (searchBtn) searchBtn.click();
+      else searchInput.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+    }
+    if (typeof showToast === "function") showToast(`Navigated Sky Map to: ${searchKeyword}`);
+  }, 300);
+}
+
+function handleAskAstroAI(customPrompt) {
+  closeNASAImageViewer();
+  if (typeof closeNASADetailModal === "function") closeNASADetailModal();
+
+  const item = currentModalItem || {};
+  const title = item.title || item.name || "NASA Space Discovery";
+  const desc = item.explanation || item.desc || "";
+  const promptText = customPrompt || `Tell me more about ${title}. Context: ${desc.substring(0, 250)}`;
+
+  const chatContainer = document.getElementById("chat-container") || document.getElementById("astro-ai-panel");
+  if (chatContainer) chatContainer.style.display = "flex";
+
+  const chatInput = document.getElementById("chat-input");
+  const sendBtn = document.getElementById("send-btn");
+
+  if (chatInput) {
+    chatInput.value = promptText;
+    if (sendBtn) sendBtn.click();
+  }
+}
 
 function openNASAImageViewer(mediaItem) {
   currentModalItem = mediaItem;
@@ -2034,8 +2106,30 @@ function openNASAImageViewer(mediaItem) {
 
   img.src = mediaItem.url || mediaItem.hdurl || mediaItem.src || "";
   if (title) title.innerText = mediaItem.title || mediaItem.name || "NASA Media View";
-  if (subtitle) subtitle.innerText = mediaItem.date || mediaItem.sol ? `Sol ${mediaItem.sol}` : "";
+  
+  if (subtitle) {
+    if (mediaItem.date && !String(mediaItem.date).includes("undefined")) {
+      subtitle.innerText = mediaItem.date;
+    } else if (mediaItem.sol !== undefined && mediaItem.sol !== null && !String(mediaItem.sol).includes("undefined")) {
+      subtitle.innerText = `Sol ${mediaItem.sol}`;
+    } else {
+      subtitle.innerText = "";
+    }
+  }
+
   if (desc) desc.innerText = mediaItem.explanation || mediaItem.desc || mediaItem.caption || "";
+
+  // Bind modal Sky Map button
+  const skyBtn = document.getElementById("nasa-modal-sky-btn");
+  if (skyBtn) {
+    skyBtn.onclick = () => handleViewOnSkyMap();
+  }
+
+  // Bind modal Ask Astro AI button
+  const askAiBtn = document.getElementById("nasa-modal-ask-ai-btn");
+  if (askAiBtn) {
+    askAiBtn.onclick = () => handleAskAstroAI();
+  }
 
   modal.style.display = "flex";
 }
@@ -2044,6 +2138,7 @@ function closeNASAImageViewer() {
   const modal = document.getElementById("nasa-image-viewer-modal");
   if (modal) modal.style.display = "none";
 }
+
 
 /* MAIN NASA EXPLORER HUB CONTROLLER */
 let currentNASAView = "home";
@@ -8433,6 +8528,41 @@ document.addEventListener("DOMContentLoaded", async () => {
       link.click();
     });
   }
+
+  const apodSkyBtn = document.getElementById("apod-sky-btn");
+  if (apodSkyBtn) {
+    apodSkyBtn.onclick = () => {
+      const apodTitle = document.getElementById("apod-title")?.innerText || "";
+      handleViewOnSkyMap(apodTitle);
+    };
+  }
+
+  const apodAskAiBtn = document.getElementById("apod-ask-ai-btn");
+  if (apodAskAiBtn) {
+    apodAskAiBtn.onclick = () => {
+      const apodTitle = document.getElementById("apod-title")?.innerText || "Astronomy Picture of the Day";
+      const apodDesc = document.getElementById("apod-desc")?.innerText || "";
+      handleAskAstroAI(`Explain the APOD discovery: ${apodTitle}. Details: ${apodDesc.substring(0, 250)}`);
+    };
+  }
+
+  const detailSkyBtn = document.getElementById("nasa-detail-sky-btn");
+  if (detailSkyBtn) {
+    detailSkyBtn.onclick = () => {
+      const detailTitle = document.getElementById("nasa-detail-title")?.innerText || "";
+      handleViewOnSkyMap(detailTitle);
+    };
+  }
+
+  const detailAskAiBtn = document.getElementById("nasa-detail-ask-ai-btn");
+  if (detailAskAiBtn) {
+    detailAskAiBtn.onclick = () => {
+      const detailTitle = document.getElementById("nasa-detail-title")?.innerText || "NASA Science Detail";
+      const detailDesc = document.getElementById("nasa-detail-desc")?.innerText || "";
+      handleAskAstroAI(`Explain this NASA discovery: ${detailTitle}. ${detailDesc.substring(0, 250)}`);
+    };
+  }
+
 
   document.addEventListener("keydown", (e) => {
     if (!dateInput) return;
