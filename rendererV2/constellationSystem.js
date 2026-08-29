@@ -883,7 +883,7 @@ export class ConstellationSystem {
       lineSegmentsGenerated: segmentsCount
     };
 
-    console.log(`[ConstellationSystem] Stellarium index.json Loaded (Minimalist Top 15 Constellations & Top 5 Asterisms & 3D Artwork):`, this.stats);
+    // console.log(`[ConstellationSystem] Stellarium index.json Loaded (Minimalist Top 15 Constellations & Top 5 Asterisms & 3D Artwork):`, this.stats);
   }
 
   /**

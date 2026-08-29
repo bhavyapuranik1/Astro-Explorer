@@ -394,7 +394,7 @@ this.points = new THREE.Points(geometry, this.material);
     this.points.renderOrder = 2;
     this.group.add(this.points);
 
-    console.log(`[DSORenderingSystem] Loaded 10 Deep Sky Object category shaders across ${count} objects.`);
+    // console.log(`[DSORenderingSystem] Loaded 10 Deep Sky Object category shaders across ${count} objects.`);
   }
 
   /**

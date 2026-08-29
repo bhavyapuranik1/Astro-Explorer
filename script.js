@@ -10,7 +10,7 @@ const apiKey = localStorage.getItem("OPENROUTER_API_KEY");
 
 const useCloud = !apiKey;
 
-console.log("Mode:", useCloud ? "☁️ Cloud" : "🔑 API Key");
+// console.log("Mode:", useCloud ? "☁️ Cloud" : "🔑 API Key");
 var currentHDImage = "";
 
 // =========================================================
@@ -518,7 +518,7 @@ let observer = new Astronomy.Observer(_initLat, _initLon, _initElev);
   }
 
   A.__astroExplorerObserverCompat = true;
-  console.log("[AstronomyCompat] Observer compatibility layer installed.");
+  // console.log("[AstronomyCompat] Observer compatibility layer installed.");
 })();
 
 
@@ -4161,7 +4161,7 @@ skyRendererV2Instance.setMilkyWayOpacity(
         console.error("[RendererSwitch] Failed to initialize SkyRendererV2:", e);
       }
     }
-    console.log("[RendererSwitch] Activated Sky Renderer V2 (Experimental).");
+    // console.log("[RendererSwitch] Activated Sky Renderer V2 (Experimental).");
   }
 }
 window.setRendererMode = setRendererMode;
@@ -4827,8 +4827,7 @@ async function loadObjects() {
   }).filter(Boolean);
 
   const cleanMessier = m.features.map(o => {
-
-    console.log(o.properties);
+    // console.log(o.properties);
 
     return {
 
@@ -4988,7 +4987,7 @@ async function loadObjects() {
     ...cleanBright,
   ];
 
-  console.log("Messier loaded:", m.features.length);
+  // console.log("Messier loaded:", m.features.length);
 
   // 🔥 SEARCH BASE
   searchObjects = [...allObjects];
@@ -5001,10 +5000,10 @@ async function loadObjects() {
       .toLowerCase();
   });
 
-  console.log(
-    "IC Objects:",
-    searchObjects.filter(o => o.name.startsWith("ic"))
-  );
+  // console.log(
+  //   "IC Objects:",
+  //   searchObjects.filter(o => o.name.startsWith("ic"))
+  // );
 
   // ⭐ CONSTELLATIONS AUTO ADD
 
@@ -5031,10 +5030,10 @@ async function loadObjects() {
     });
   searchObjects.push(...cleanPlanets);
 
-  console.log("Planets added:", cleanPlanets.length);
+  // console.log("Planets added:", cleanPlanets.length);
 
   const constData = await fetch("data/constellations.json").then(r => r.json());
-  console.log("CONST RAW:", constData);
+  // console.log("CONST RAW:", constData);
   const constEntries = constData.features;
   CONSTELLATION_FEATURES = constEntries;
 
@@ -5054,7 +5053,7 @@ async function loadObjects() {
     };
   }));
 
-  console.log("Constellations added:", constEntries.length);
+  // console.log("Constellations added:", constEntries.length);
 
   try {
     const starData = await fetch("data/stars.6.json").then(r => r.json());
@@ -5092,7 +5091,7 @@ async function loadObjects() {
     });
 
     searchObjects.push(...cleanStars);
-    console.log(`[Script] Added ${cleanStars.length} star search entries to searchObjects.`);
+    // console.log(`[Script] Added ${cleanStars.length} star search entries to searchObjects.`);
   } catch (e) {
     console.warn("[Script] Failed to load star search index:", e);
   }
@@ -5109,7 +5108,7 @@ async function loadObjects() {
     SATELLITES_DATA = [...FALLBACK_SATELLITES];
   }
 
-  console.log("Total satellites loaded:", SATELLITES_DATA.length);
+  // console.log("Total satellites loaded:", SATELLITES_DATA.length);
 
   // 🛰️ Add prominent Satellites to searchObjects index
   const cleanSatellites = SATELLITES_DATA
@@ -5126,7 +5125,7 @@ async function loadObjects() {
     }));
 
   searchObjects.push(...cleanSatellites);
-  console.log("Satellites added to search:", cleanSatellites.length);
+  // console.log("Satellites added to search:", cleanSatellites.length);
 
   // 🚀 Load Spacecraft Database (215 items)
   try {
@@ -5153,7 +5152,7 @@ async function loadObjects() {
         };
       });
       searchObjects.push(...cleanSpacecraft);
-      console.log("Spacecraft loaded:", cleanSpacecraft.length);
+      // console.log("Spacecraft loaded:", cleanSpacecraft.length);
     }
   } catch (e) {
     console.warn("Could not load data/spacecraft.json:", e);
@@ -5186,7 +5185,7 @@ async function loadObjects() {
   }));
 
   searchObjects.push(...cleanComets);
-  console.log("Comets added:", cleanComets.length);
+  // console.log("Comets added:", cleanComets.length);
 
   // 🪨 Load Asteroids
   try {
@@ -5217,12 +5216,12 @@ async function loadObjects() {
   }));
 
   searchObjects.push(...cleanAsteroids);
-  console.log("Asteroids added:", cleanAsteroids.length);
-  console.log(
-    "[Astro Explorer] Minor-body orbital helpers:",
-    "comet=", typeof window?.getCometPosition,
-    "asteroid=", typeof window?.getAsteroidPosition
-  );
+  // console.log("Asteroids added:", cleanAsteroids.length);
+  // console.log(
+  //   "[Astro Explorer] Minor-body orbital helpers:",
+  //   "comet=", typeof window?.getCometPosition,
+  //   "asteroid=", typeof window?.getAsteroidPosition
+  // );
 
   // 🌌 Add Asterisms to searchObjects index
   let ASTERISMS_DATA = [];
@@ -5289,14 +5288,14 @@ async function loadObjects() {
   });
 
   searchObjects.push(...cleanAsterisms);
-  console.log("Asterisms added to search index:", cleanAsterisms.length);
+  // console.log("Asterisms added to search index:", cleanAsterisms.length);
 
   window.searchObjects = searchObjects;
 
-  console.log(
-    "Stars added to search:",
-    searchObjects.filter(o => o.type === "star").length
-  );
+  // console.log(
+  //   "Stars added to search:",
+  //   searchObjects.filter(o => o.type === "star").length
+  // );
 }
 function detectLocation() {
 
@@ -5319,11 +5318,11 @@ function detectLocation() {
       const lon =
         pos.coords.longitude;
 
-      console.log(
-        "Location:",
-        lat,
-        lon
-      );
+      // console.log(
+      //   "Location:",
+      //   lat,
+      //   lon
+      // );
 
       // 🔥 UPDATE OBSERVER
       observer =
@@ -5422,7 +5421,8 @@ function updateAtmosphereState() {
     window.nadirPosition = [(lstDeg + 180) % 360, -observer.latitude];
 
     // 4. Set light pollution from settings
-    window.lightPollution = skySettings.lightPollution !== undefined ? skySettings.lightPollution : 9;
+    const currentSettings = (typeof skySettings !== "undefined" && skySettings) ? skySettings : {};
+    window.lightPollution = currentSettings.lightPollution !== undefined ? currentSettings.lightPollution : 0;
   } catch (e) {
     console.error("Failed to update atmosphere state:", e);
   }
@@ -6889,7 +6889,10 @@ function toggleAstroExplorerTimePopover() {
 
 if (typeof window !== "undefined") {
   window.resetSkyTimeNow = resetSkyTimeNow;
-  window.toggleStellariumTimePopover = toggleStellariumTimePopover;
+  window.toggleAstroExplorerTimePopover = toggleAstroExplorerTimePopover;
+  window.toggleStellariumTimePopover = toggleAstroExplorerTimePopover;
+  window.toggleAstroExplorerTimePanel = typeof toggleAstroExplorerTimePanel !== "undefined" ? toggleAstroExplorerTimePanel : null;
+  window.toggleStellariumTimePanel = typeof toggleAstroExplorerTimePanel !== "undefined" ? toggleAstroExplorerTimePanel : null;
   window.applySkyTime = applySkyTime;
 }
 function createStarSearchLabel(name, x, y) {
@@ -16087,7 +16090,7 @@ function saveSkySettingsToLocalStorage() {
 
 function updateSkySettingValue(key, val, options = {}) {
 
-  console.log("KEY:", key, "VALUE:", val);
+  // console.log("KEY:", key, "VALUE:", val);
 
   skySettings[key] = val;
   saveSkySettingsToLocalStorage();
@@ -16128,7 +16131,7 @@ function updateSkySettingValue(key, val, options = {}) {
       e
     );
   }
-  console.log("AFTER SAVE:", key, "=", skySettings[key]);
+  // console.log("AFTER SAVE:", key, "=", skySettings[key]);
   if (key === "showCelestialObjects" || key === "showDSOs") {
 
     updateSearchStateForCelestialToggle();

@@ -612,16 +612,16 @@ export class MinorBodiesSystem {
 
 
 
-    console.log(
-      `[MinorBodiesSystem] Loaded Satellites (${satCount}), Spacecraft (${spCount}), ` +
-      `Asteroids (${this.asteroidsList.length}), Comets (${this.cometsList.length}) ` +
-      `with Per-Frame Hardware Clipping.`
-    );
-    console.log(
-      '[MinorBodiesSystem] Orbital helpers:',
-      'asteroid=', typeof globalThis.getAsteroidPosition,
-      'comet=', typeof globalThis.getCometPosition
-    );
+    // console.log(
+    //   `[MinorBodiesSystem] Loaded Satellites (${satCount}), Spacecraft (${spCount}), ` +
+    //   `Asteroids (${this.asteroidsList.length}), Comets (${this.cometsList.length}) ` +
+    //   `with Per-Frame Hardware Clipping.`
+    // );
+    // console.log(
+    //   '[MinorBodiesSystem] Orbital helpers:',
+    //   'asteroid=', typeof globalThis.getAsteroidPosition,
+    //   'comet=', typeof globalThis.getCometPosition
+    // );
   }
 
   /**

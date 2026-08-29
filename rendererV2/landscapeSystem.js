@@ -294,7 +294,7 @@ export class LandscapeSystem {
           this.texture = texture;
           this.material.uniforms.uLandscapeTexture.value = texture;
           this.material.uniforms.uHasTexture.value = 1.0;
-          console.log('[LandscapeSystem] EXR landscape panorama loaded successfully:', url);
+          // console.log('[LandscapeSystem] EXR landscape panorama loaded successfully:', url);
         },
         undefined,
         (err) => {

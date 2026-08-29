@@ -169,7 +169,7 @@ export class StarRenderingSystem {
           };
           primaryStars.push(starObj);
         });
-        console.log(`[StarRenderingSystem] Loaded ${primaryStars.length} primary named stars from stars.6.json.`);
+        // console.log(`[StarRenderingSystem] Loaded ${primaryStars.length} primary named stars from stars.6.json.`);
       }
     } catch (e) {
       console.warn('[StarRenderingSystem] Could not fetch data/stars.6.json:', e);
@@ -238,7 +238,7 @@ export class StarRenderingSystem {
       active: level0Stars.length
     };
 
-    console.log(`[StarRenderingSystem] Successfully initialized star catalog with ${this.starsList.length} total deduplicated stars (${primaryStars.length} primary named stars).`);
+    // console.log(`[StarRenderingSystem] Successfully initialized star catalog with ${this.starsList.length} total deduplicated stars (${primaryStars.length} primary named stars).`);
   }
 
   /**
@@ -589,7 +589,7 @@ uTime: {
     this.currentLOD = -1;
     this.rebuildActiveStarBuffer(0);
 
-    console.log(`[StarRenderingSystem] Initialized Stellarium Star Shader with wide-FOV LOD 0 active.`);
+    // console.log(`[StarRenderingSystem] Initialized Stellarium Star Shader with wide-FOV LOD 0 active.`);
   }
 
   /**

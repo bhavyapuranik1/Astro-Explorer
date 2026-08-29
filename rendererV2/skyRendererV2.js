@@ -138,7 +138,7 @@ this.milkyWaySystem.setOpacity(this.milkyWayOpacity);
       if (this.milkyWaySystem && this.milkyWaySystem.group && this.starSphereGroup) {
         this.starSphereGroup.add(this.milkyWaySystem.group);
       }
-      console.log('[SkyRendererV2] Successfully initialized Stellarium-Quality MilkyWaySystem.');
+      // console.log('[SkyRendererV2] Successfully initialized Stellarium-Quality MilkyWaySystem.');
     } catch (e) {
       console.warn('[SkyRendererV2] Could not initialize MilkyWaySystem:', e);
     }
@@ -2474,7 +2474,7 @@ await this.minorBodiesSystem.init();
     window.addEventListener('resize', this._onWindowResizeBound, false);
 
     this.isInitialized = true;
-    console.log(`[SkyRendererV2] Successfully initialized complete celestial object engine.`);
+    // console.log(`[SkyRendererV2] Successfully initialized complete celestial object engine.`);
 
     if (this._pendingStart) {
       this._pendingStart = false;

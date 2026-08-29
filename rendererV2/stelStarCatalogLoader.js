@@ -105,7 +105,7 @@ export class StelStarCatalogLoader {
             }
           }
         }
-        console.log(`[StarCatalog] Loaded ${fabName} names mapping.`);
+        // console.log(`[StarCatalog] Loaded ${fabName} names mapping.`);
       } catch (e) {
         console.warn(`[StarCatalog] Could not load ${fabName}:`, e);
       }
@@ -113,7 +113,7 @@ export class StelStarCatalogLoader {
   }
 
   async loadAll(basePath = './data/stars/hip_gaia3/') {
-    console.log('[StarCatalog] Loading Stellarium catalog & .fab name files...');
+    // console.log('[StarCatalog] Loading Stellarium catalog & .fab name files...');
     await this.loadFabFiles(basePath);
 
     let successCount = 0;
@@ -133,7 +133,7 @@ export class StelStarCatalogLoader {
           this.counts[`level${f.level}`] = parsed.count;
           this.totalCount += parsed.count;
           successCount++;
-          console.log(`[StarCatalog] ${f.name} loaded: ${parsed.count}`);
+          // console.log(`[StarCatalog] ${f.name} loaded: ${parsed.count}`);
         }
       } catch (err) {
         console.warn(`[StarCatalog] Error parsing ${f.name}:`, err.message || err);
@@ -142,7 +142,7 @@ export class StelStarCatalogLoader {
 
     if (successCount > 0) {
       this.isLoaded = true;
-      console.log(`[StarCatalog] Total catalog stars: ${this.totalCount}`);
+      // console.log(`[StarCatalog] Total catalog stars: ${this.totalCount}`);
     } else {
       console.warn('[StarCatalog] Catalog loading failed, falling back to primary star system.');
     }
@@ -276,9 +276,6 @@ export class StelStarCatalogLoader {
         }
       }
     }
-
-    console.log(`[StelStarCatalogLoader] Level ${level} parsed: ${stars.length} stars, ${validHipCount} HIP IDs, mag range [${minMag.toFixed(2)} to ${maxMag.toFixed(2)}], B-V range [${minBv.toFixed(2)} to ${maxBv.toFixed(2)}]`);
-    console.log(`[StelStarCatalogLoader] Sample stars Level ${level}:`, sampleDiagStars);
 
     return { level, stars, count: stars.length };
   }
