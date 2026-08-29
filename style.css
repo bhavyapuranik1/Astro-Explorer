@@ -3482,8 +3482,8 @@ code {
  box-shadow: none !important;
 }
 
-.stellarium-search-bar-wrap,
-.stellarium-search-box {
+.astroExplorer-search-bar-wrap,
+.astroExplorer-search-box {
   background: transparent !important;
   border: none !important;
   border-radius: 0 !important;
@@ -3491,7 +3491,7 @@ code {
   backdrop-filter: none !important;
 }
 
-.stellarium-search-bar-wrap {
+.astroExplorer-search-bar-wrap {
   position: relative;
   display: flex;
   flex-direction: column;
@@ -3499,7 +3499,7 @@ code {
   z-index: 100;
 }
 
-.stellarium-search-box {
+.astroExplorer-search-box {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -3507,7 +3507,7 @@ code {
   padding-bottom: 2px;
 }
 
-.stellarium-search-icon {
+.astroExplorer-search-icon {
   color: #ffffff;
   opacity: 0.95;
   flex-shrink: 0;
@@ -3515,7 +3515,7 @@ code {
   transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
-.stellarium-search-icon:hover {
+.astroExplorer-search-icon:hover {
   opacity: 1.0;
   transform: scale(1.10);
 }
@@ -5410,8 +5410,8 @@ body.night-vision-active #toggle-night-btn {
  }
 }
 
-/* STELLARIUM TIME CONTROLLER WIDGET STYLING */
-#stellarium-time-panel {
+/* ASTRO EXPLORER TIME CONTROLLER WIDGET STYLING */
+#astroExplorer-time-panel {
  display: none;
  position: fixed;
  bottom: 85px;
@@ -5431,9 +5431,9 @@ body.night-vision-active #toggle-night-btn {
  box-sizing: border-box !important;
 }
 
-#stellarium-time-badge,
-#stellarium-time-widget,
-.stellarium-time-badge {
+#astroExplorer-time-badge,
+#astroExplorer-time-widget,
+.astroExplorer-time-badge {
   position: fixed !important;
   bottom: 25px !important;
   left: 25px !important;
@@ -5455,16 +5455,16 @@ body.night-vision-active #toggle-night-btn {
   transition: all 0.2s ease !important;
 }
 
-#stellarium-time-badge:hover,
-#stellarium-time-widget:hover,
-.stellarium-time-badge:hover {
+#astroExplorer-time-badge:hover,
+#astroExplorer-time-widget:hover,
+.astroExplorer-time-badge:hover {
   background: #383838 !important;
   transform: translateY(-2px) !important;
 }
 
-#stellarium-time-badge #badge-time,
-#stellarium-time-widget #badge-time,
-.stellarium-time-badge .stellarium-time-text {
+#astroExplorer-time-badge #badge-time,
+#astroExplorer-time-widget #badge-time,
+.astroExplorer-time-badge .astroExplorer-time-text {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
   font-size: 16px !important;
   font-weight: 700 !important;
@@ -5473,9 +5473,9 @@ body.night-vision-active #toggle-night-btn {
   text-shadow: none !important;
 }
 
-#stellarium-time-badge #badge-date,
-#stellarium-time-widget #badge-date,
-.stellarium-time-badge .stellarium-date-text {
+#astroExplorer-time-badge #badge-date,
+#astroExplorer-time-widget #badge-date,
+.astroExplorer-time-badge .astroExplorer-date-text {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
   font-size: 13px !important;
   color: #dddddd !important;
@@ -5524,7 +5524,7 @@ body.night-vision-active #toggle-night-btn {
  transform: scale(0.95) !important;
 }
 
-#stellarium-speed-slider {
+#astroExplorer-speed-slider {
  /*-webkit-appearance: none;*/
  width: 100%;
  height: 4px;
@@ -5533,7 +5533,7 @@ body.night-vision-active #toggle-night-btn {
  outline: none;
 }
 
-#stellarium-speed-slider::-webkit-slider-thumb {
+#astroExplorer-speed-slider::-webkit-slider-thumb {
  -webkit-appearance: none;
  appearance: none;
  width: 12px;
@@ -5545,7 +5545,7 @@ body.night-vision-active #toggle-night-btn {
  transition: transform 0.1s ease;
 }
 
-#stellarium-speed-slider::-webkit-slider-thumb:hover {
+#astroExplorer-speed-slider::-webkit-slider-thumb:hover {
  transform: scale(1.2);
 }
 
@@ -10680,9 +10680,9 @@ body.night-vision-active #toggle-night-btn {
 }
 
 /* ==========================================
-   STELLARIUM TIME BADGE & POPOVER STYLES
+   ASTRO EXPLORER TIME BADGE & POPOVER STYLES
    ========================================== */
-.stellarium-time-badge {
+.astroExplorer-time-badge {
   position: fixed;
   bottom: 24px;
   left: 24px;
@@ -10702,14 +10702,14 @@ body.night-vision-active #toggle-night-btn {
   transition: all 0.2s ease;
 }
 
-.stellarium-time-badge:hover {
+.astroExplorer-time-badge:hover {
   background: rgba(45, 45, 50, 0.95);
   border-color: rgba(0, 210, 255, 0.5);
   transform: translateY(-2px);
   box-shadow: 0 6px 24px rgba(0, 210, 255, 0.25);
 }
 
-.stellarium-time-text {
+.astroExplorer-time-text {
   font-size: 16px;
   font-weight: 700;
   letter-spacing: 0.8px;
@@ -10717,14 +10717,14 @@ body.night-vision-active #toggle-night-btn {
   color: #ffffff;
 }
 
-.stellarium-date-text {
+.astroExplorer-date-text {
   font-size: 13px;
   font-weight: 500;
   color: rgba(255, 255, 255, 0.85);
   margin-top: 2px;
 }
 
-.stellarium-time-popover {
+.astroExplorer-time-popover {
   position: fixed !important;
   bottom: 85px !important;
   left: 25px !important;
@@ -10740,11 +10740,11 @@ body.night-vision-active #toggle-night-btn {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
 }
 
-.stellarium-time-popover.hidden {
+.astroExplorer-time-popover.hidden {
   display: none !important;
 }
 
-.stellarium-popover-header {
+.astroExplorer-popover-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -10756,7 +10756,7 @@ body.night-vision-active #toggle-night-btn {
   color: #00f0ff;
 }
 
-.stellarium-popover-close {
+.astroExplorer-popover-close {
   background: none;
   border: none;
   color: #aaaaaa;
@@ -10766,23 +10766,23 @@ body.night-vision-active #toggle-night-btn {
   border-radius: 4px;
 }
 
-.stellarium-popover-close:hover {
+.astroExplorer-popover-close:hover {
   color: #ffffff;
   background: rgba(255, 255, 255, 0.1);
 }
 
-.stellarium-input-group {
+.astroExplorer-input-group {
   margin-bottom: 12px;
 }
 
-.stellarium-input-group label {
+.astroExplorer-input-group label {
   display: block;
   font-size: 12px;
   color: rgba(255, 255, 255, 0.7);
   margin-bottom: 6px;
 }
 
-.stellarium-datetime-input {
+.astroExplorer-datetime-input {
   width: 100%;
   padding: 8px 10px;
   background: rgba(0, 0, 0, 0.4);
@@ -10794,16 +10794,16 @@ body.night-vision-active #toggle-night-btn {
   box-sizing: border-box;
 }
 
-.stellarium-datetime-input:focus {
+.astroExplorer-datetime-input:focus {
   border-color: #00f0ff;
 }
 
-.stellarium-popover-actions {
+.astroExplorer-popover-actions {
   display: flex;
   gap: 8px;
 }
 
-.stellarium-btn {
+.astroExplorer-btn {
   flex: 1;
   padding: 8px;
   font-size: 12px;
@@ -10814,21 +10814,21 @@ body.night-vision-active #toggle-night-btn {
   transition: all 0.2s ease;
 }
 
-.stellarium-btn.primary {
+.astroExplorer-btn.primary {
   background: #00f0ff;
   color: #050a14;
 }
 
-.stellarium-btn.primary:hover {
+.astroExplorer-btn.primary:hover {
   background: #33f3ff;
 }
 
-.stellarium-btn.secondary {
+.astroExplorer-btn.secondary {
   background: rgba(255, 255, 255, 0.12);
   color: #ffffff;
 }
 
-.stellarium-btn.secondary:hover {
+.astroExplorer-btn.secondary:hover {
   background: rgba(255, 255, 255, 0.22);
 }
 

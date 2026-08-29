@@ -1727,8 +1727,8 @@ function showTab(tabId, el) {
   // 🤖 Astro AI & Stellarium Time Badge only on Sky tab
   const aiPanel = document.getElementById("ai-panel");
   const openAIBtn = document.getElementById("open-ai");
-  const stellariumBadge = document.getElementById("stellarium-time-badge") || document.getElementById("stellarium-time-widget");
-  const stellariumPopover = document.getElementById("stellarium-time-popover");
+  const stellariumBadge = document.getElementById("astroExplorer-time-badge") || document.getElementById("astroExplorer-time-widget");
+  const stellariumPopover = document.getElementById("astroExplorer-time-popover");
 
   if (tabId === "sky") {
     if (stellariumBadge) stellariumBadge.style.display = "block";
@@ -5508,8 +5508,8 @@ function skyAIObserveTips() {
 
 // ================= ⏱️ TIME SIMULATION CONTROLS =================
 
-function toggleStellariumTimePanel() {
-  const panel = document.getElementById("stellarium-time-panel");
+function toggleAstroExplorerTimePanel() {
+  const panel = document.getElementById("astroExplorer-time-panel");
   if (panel) {
     const isHidden = panel.style.display === "none" || !panel.style.display;
     panel.style.display = isHidden ? "block" : "none";
@@ -5547,7 +5547,7 @@ function _updateSimTimeUI() {
   if (quickSimDisplay) {
     quickSimDisplay.innerText = skyTime.toLocaleString();
   }
-  const allSkyDtInputs = document.querySelectorAll("input[type='datetime-local'], #sky-datetime, .stellarium-datetime-input");
+  const allSkyDtInputs = document.querySelectorAll("input[type='datetime-local'], #sky-datetime, .astroExplorer-datetime-input");
   allSkyDtInputs.forEach(skyDtEl => {
     if (skyDtEl && document.activeElement !== skyDtEl) {
       const tzOffset = skyTime.getTimezoneOffset() * 60000;
@@ -5603,12 +5603,12 @@ function onSpeedSliderChange(val) {
   }
 
   simSpeed = multiplier;
-  const labelEl = document.getElementById("stellarium-speed-label");
+  const labelEl = document.getElementById("astroExplorer-speed-label");
   if (labelEl) labelEl.textContent = "Speed: " + label;
 }
 
 function adjustSimSpeedMultiplier(factor) {
-  const slider = document.getElementById("stellarium-speed-slider");
+  const slider = document.getElementById("astroExplorer-speed-slider");
   if (slider) {
     let currentVal = parseInt(slider.value);
     if (factor > 1 && currentVal < 6) currentVal++;
@@ -5620,7 +5620,7 @@ function adjustSimSpeedMultiplier(factor) {
 
 function toggleSimPlay() {
   simPaused = !simPaused;
-  const btn = document.getElementById("stellarium-play-btn");
+  const btn = document.getElementById("astroExplorer-play-btn");
   if (btn) {
     btn.innerHTML = simPaused ? "▶ Play" : "⏸ Pause";
     btn.style.color = simPaused ? "cyan" : "#00ff64";
@@ -5634,7 +5634,7 @@ function simResetNow() {
   skyTime = new Date();
   simPaused = false;
 
-  const btn = document.getElementById("stellarium-play-btn");
+  const btn = document.getElementById("astroExplorer-play-btn");
   if (btn) {
     btn.innerHTML = "⏸ Pause";
     btn.style.color = "#00ff64";
@@ -6816,10 +6816,10 @@ function applySkyTime(targetInput = null) {
 
   if (targetInput && targetInput.value) {
     valueToUse = targetInput.value;
-  } else if (document.activeElement && (document.activeElement.type === 'datetime-local' || document.activeElement.classList.contains('stellarium-datetime-input')) && document.activeElement.value) {
+  } else if (document.activeElement && (document.activeElement.type === 'datetime-local' || document.activeElement.classList.contains('astroExplorer-datetime-input')) && document.activeElement.value) {
     valueToUse = document.activeElement.value;
   } else {
-    const allInputs = document.querySelectorAll("input[type='datetime-local'], #sky-datetime, .stellarium-datetime-input");
+    const allInputs = document.querySelectorAll("input[type='datetime-local'], #sky-datetime, .astroExplorer-datetime-input");
     for (let i = 0; i < allInputs.length; i++) {
       if (allInputs[i].value) {
         valueToUse = allInputs[i].value;
@@ -6880,8 +6880,8 @@ function resetSkyTimeNow() {
   applySkyTime();
 }
 
-function toggleStellariumTimePopover() {
-  const pop = document.getElementById("stellarium-time-popover");
+function toggleAstroExplorerTimePopover() {
+  const pop = document.getElementById("astroExplorer-time-popover");
   if (pop) {
     pop.classList.toggle("hidden");
   }

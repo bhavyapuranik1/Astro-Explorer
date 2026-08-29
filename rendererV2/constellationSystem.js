@@ -728,10 +728,10 @@ export class ConstellationSystem {
     const textureLoader = new THREE.TextureLoader();
 
     const availableArtworkFiles = new Set([
-      'andromeda.png', 'aquila.png', 'bootes.png', 'canis-major.png', 'canis_major.png',
+      'andromeda.png', 'aquila.png', 'bootes.png', 'canis-major.png',
       'cassiopeia.png', 'cygnus.png', 'gemini.png', 'hercules.png', 'leo.png',
       'orion.png', 'pegasus.png', 'sagittarius.png', 'scorpius.png', 'taurus.png',
-      'ursa-major.png', 'ursa_major.png', 'ursa-minor.png', 'ursa_minor.png'
+      'ursa-major.png', 'ursa-minor.png'
     ]);
 
     constellations.forEach(c => {
