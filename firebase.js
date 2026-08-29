@@ -64,7 +64,7 @@ const app =
     firebaseConfig
   );
 
-  console.log("🔥 APP CREATED");
+  // console.log("🔥 APP CREATED");
 
   
 

@@ -4792,7 +4792,7 @@ async function loadObjects() {
   starNames = await fetch("data/starnames.json")
     .then(r => r.json());
 
-  console.log("Star names loaded:", Object.keys(starNames).length);
+  // console.log("Star names loaded:", Object.keys(starNames).length);
 
   const m = await fetch("data/messier.json").then(r => r.json());
   const lg = await fetch("data/lg.json").then(r => r.json());
@@ -5866,12 +5866,12 @@ function isCelestialSearchEnabled() {
 }
 
 function updateSearchStateForCelestialToggle(isEnabled) {
-  console.log(
-    "TOGGLE STATE:",
-    skySettings.showCelestialObjects,
-    "DSOs:",
-    skySettings.showDSOs
-  );
+  // console.log(
+  //   "TOGGLE STATE:",
+  //   skySettings.showCelestialObjects,
+  //   "DSOs:",
+  //   skySettings.showDSOs
+  // );
   if (isEnabled === undefined) {
     isEnabled = isCelestialSearchEnabled();
   }
@@ -11655,8 +11655,8 @@ document
 
   });
 
-console.log("Window Auth:", typeof window.onAuthStateChanged);
-console.log("Window auth:", typeof window.auth);
+// console.log("Window Auth:", typeof window.onAuthStateChanged);
+// console.log("Window auth:", typeof window.auth);
 
 window.onAuthStateChanged(window.auth, async user => {
 
@@ -11985,10 +11985,10 @@ function renderCurrentConversation() {
 
 
 
-console.log("BEFORE renderConversationList");
+// console.log("BEFORE renderConversationList");
 function renderConversationList() {
 
-  console.log("INSIDE renderConversationList");
+  // console.log("INSIDE renderConversationList");
 
   const list =
     document.getElementById("history-list");
@@ -12921,23 +12921,23 @@ const settingsOverlay = document.getElementById("settings-overlay");
 const openSettingsBtn = document.getElementById("open-settings");
 
 const closeSettingsBtn = document.getElementById("close-settings");
-console.log("Settings:", {
-  overlay: settingsOverlay,
-  open: openSettingsBtn,
-  close: closeSettingsBtn
-});
+// console.log("Settings:", {
+//   overlay: settingsOverlay,
+//   open: openSettingsBtn,
+//   close: closeSettingsBtn
+// });
 const settingsTabs = document.querySelectorAll(".settings-tab");
 const settingsPages = document.querySelectorAll(".settings-page");
 
-console.log("SETTINGS INIT");
+// console.log("SETTINGS INIT");
 
 if (settingsOverlay && openSettingsBtn && closeSettingsBtn) {
 
-  console.log("ATTACHING SETTINGS EVENTS");
+  // console.log("ATTACHING SETTINGS EVENTS");
 
   openSettingsBtn.onclick = () => {
 
-    console.log("SETTINGS CLICKED");
+    // console.log("SETTINGS CLICKED");
 
     settingsOverlay.style.display = "flex";
 
@@ -14772,8 +14772,8 @@ function renderPinSVG(isPinned, size = 18) {
 
 function renderMemoryList() {
 
-  console.log("Memories:", astroMemory);
-  console.table(getAllMemoryItems());
+  // console.log("Memories:", astroMemory);
+  // console.table(getAllMemoryItems());
 
   const list = document.getElementById("memory-list");
 

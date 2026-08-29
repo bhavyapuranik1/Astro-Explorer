@@ -3876,8 +3876,12 @@
   <script type="module" src="model-capabilities.js"></script>
   <script defer src="script.js"></script>
 
-  <script defer src="/_vercel/insights/script.js"></script>
-  <script defer src="/_vercel/speed-insights/script.js"></script>
+  <script>
+    if (window.location.hostname !== '127.0.0.1' && window.location.hostname !== 'localhost') {
+      const s1 = document.createElement('script'); s1.defer = true; s1.src = '/_vercel/insights/script.js'; document.head.appendChild(s1);
+      const s2 = document.createElement('script'); s2.defer = true; s2.src = '/_vercel/speed-insights/script.js'; document.head.appendChild(s2);
+    }
+  </script>
 </body>
 
 </html>
