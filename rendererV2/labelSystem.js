@@ -14,13 +14,10 @@ export function getLabelPolicy(object, context = {}) {
   const nameLower = (object.name || object.id || '').toLowerCase().trim();
   const searchLower = context.activeSearchTarget ? context.activeSearchTarget.toLowerCase().trim() : '';
 
-  const isSelected = object.isSelected ||
-    (context.selectedObject && (
-      (context.selectedObject.name && context.selectedObject.name.toLowerCase() === nameLower) ||
-      (context.selectedObject.id && context.selectedObject.id.toLowerCase() === nameLower)
-    ));
+  const selName = context.selectedObject ? (context.selectedObject.name || context.selectedObject.displayName || context.selectedObject.id || '').toLowerCase().trim() : '';
 
-  const isSearchTarget = searchLower && nameLower && (nameLower.includes(searchLower) || searchLower.includes(nameLower));
+  const isSelected = object.isSelected || !!(selName && nameLower && (nameLower === selName || nameLower.includes(selName) || selName.includes(nameLower)));
+  const isSearchTarget = !!(searchLower && nameLower && (nameLower === searchLower || nameLower.includes(searchLower) || searchLower.includes(nameLower)));
 
   // PRIORITY 0: Selected / Search Target / Picked object -> ALWAYS show label, symbol, and reticle
   if (isSelected || isSearchTarget) {
@@ -47,6 +44,11 @@ export function getLabelPolicy(object, context = {}) {
   // COMETS (Night or atmosphere off): Label & symbol ON
   if (type === 'comet') {
     return { showLabel: true, showSymbol: true, priority: 1, markerType: 'custom' };
+  }
+
+  // METEOR SHOWERS: Label & symbol ON
+  if (type === 'meteor_shower') {
+    return { showLabel: true, showSymbol: true, priority: 1, markerType: 'circle' };
   }
 
   // SATELLITES & SPACECRAFT: Label & symbol ON
@@ -104,6 +106,13 @@ export class LabelSystem {
     this.selectedObject = null;
     this.isDaytime = false;
 
+    this.showDSOs = true;
+    this.showStars = true;
+    this.projectionMode = 'stereographic';
+    this.showPlanets = true;
+    this.showSatellites = true;
+    this.showMeteors = false;
+
     this.init();
   }
 
@@ -154,6 +163,10 @@ export class LabelSystem {
     this.isDaytime = !!isDay;
   }
 
+  setProjectionMode(mode) {
+    this.projectionMode = (mode === 'stereographic' || mode === 'fisheye' || mode === 'planetarium') ? 'stereographic' : 'perspective';
+  }
+
   /**
    * Renders labels overlay frame.
    * @param {THREE.Camera} camera
@@ -178,16 +191,28 @@ export class LabelSystem {
       if (!item || !item.position || !item.name) continue;
 
       const nameLower = (item.name || '').toLowerCase().trim();
-      const searchLower = this.activeSearchTarget ? this.activeSearchTarget.toLowerCase().trim() : '';
-      const isTarget = !!(searchLower && nameLower && (nameLower === searchLower || (searchLower.length >= 2 && nameLower.includes(searchLower))));
+      const searchLower = this.activeSearchTarget ? this.activeSearchTarget.toLowerCase().replace(/[^a-z0-9]/g, '') : '';
+      const selKeys = this.selectedObject ? [
+        this.selectedObject.displayName,
+        this.selectedObject.fullName,
+        this.selectedObject.name,
+        this.selectedObject.id,
+        this.selectedObject.englishName
+      ].filter(Boolean).map(s => String(s).toLowerCase().replace(/[^a-z0-9]/g, '')) : [];
 
-      const isSelectedObj = !!(item.isSelected ||
-        (this.selectedObject && (
-          (this.selectedObject.name && this.selectedObject.name.toLowerCase().trim() === nameLower) ||
-          (this.selectedObject.id && this.selectedObject.id.toLowerCase().trim() === nameLower)
-        )));
+      const cleanItemName = nameLower.replace(/[^a-z0-9]/g, '');
+
+      const isTarget = !!(searchLower && cleanItemName && (cleanItemName === searchLower || cleanItemName.includes(searchLower) || searchLower.includes(cleanItemName)));
+      const isSelectedObj = !!(item.isSelected || (selKeys.length > 0 && cleanItemName && selKeys.some(k => k === cleanItemName || cleanItemName.includes(k) || k.includes(cleanItemName))));
 
       const isSelectedOrTarget = isTarget || isSelectedObj;
+
+      // Category toggle culling (e.g. DSO toggle OFF hides all DSO labels)
+      if (item.type === 'dso' && !this.showDSOs && !isSelectedOrTarget) continue;
+      if (item.type === 'star' && !this.showStars && !isSelectedOrTarget) continue;
+      if (item.type === 'planet' && !this.showPlanets && !isSelectedOrTarget) continue;
+      if (item.type === 'satellite' && !this.showSatellites && !isSelectedOrTarget) continue;
+      if (item.type === 'meteor_shower' && !this.showMeteors && !isSelectedOrTarget) continue;
 
       const policy = getLabelPolicy(item, {
         fov,
@@ -203,7 +228,7 @@ export class LabelSystem {
       if (!showSymbol && !showLabel && !isSelectedOrTarget) continue;
 
       projVector.copy(item.position);
-      if (groupMatrix) {
+      if (groupMatrix && !item.isWorldPosition) {
         projVector.applyMatrix4(groupMatrix);
       }
 
@@ -225,11 +250,11 @@ export class LabelSystem {
       // Highlighted Cyan Reticle Halo ONLY for Searched / Selected Target
       if (isSelectedOrTarget) {
         this.ctx.strokeStyle = '#00ffff';
-        this.ctx.lineWidth = 2.5 * dpr;
+        this.ctx.lineWidth = 2.0 * dpr;
         this.ctx.beginPath();
-        this.ctx.arc(screenX, screenY, 16 * dpr, 0, Math.PI * 2);
-        const r = 16 * dpr;
-        const len = 6 * dpr;
+        const r = 12 * dpr;
+        const len = 4 * dpr;
+        this.ctx.arc(screenX, screenY, r, 0, Math.PI * 2);
         this.ctx.moveTo(screenX - r - len, screenY); this.ctx.lineTo(screenX - r + 2 * dpr, screenY);
         this.ctx.moveTo(screenX + r - 2 * dpr, screenY); this.ctx.lineTo(screenX + r + len, screenY);
         this.ctx.moveTo(screenX, screenY - r - len); this.ctx.lineTo(screenX, screenY - r + 2 * dpr);
@@ -280,15 +305,26 @@ export class LabelSystem {
         this.ctx.font = `${Math.round(11 * dpr)}px sans-serif`;
       }
 
-      this.ctx.textAlign = 'left';
-      this.ctx.textBaseline = 'middle';
+      const isSunLabel = item.name === 'Sun' || item.type === 'sun' || item.isSun;
+
+      if (isSunLabel) {
+        this.ctx.textAlign = 'left';
+        this.ctx.textBaseline = 'middle';
+        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+        this.ctx.font = `bold ${Math.round(15 * dpr)}px sans-serif`;
+      } else {
+        this.ctx.textAlign = 'left';
+        this.ctx.textBaseline = 'middle';
+      }
 
       // Collision avoidance check for text labels
       const textWidth = this.ctx.measureText(item.name).width;
-      const labelMinX = screenX + 10 * dpr;
+      const offsetX = isSunLabel ? -22 : (isSelectedOrTarget ? 15 : 7);
+      const offsetY = isSunLabel ? -22 : 0;
+      const labelMinX = screenX + offsetX * dpr;
       const labelMaxX = labelMinX + textWidth;
-      const labelMinY = screenY - 8 * dpr;
-      const labelMaxY = screenY + 8 * dpr;
+      const labelMinY = screenY + (offsetY - 8) * dpr;
+      const labelMaxY = screenY + (offsetY + 8) * dpr;
 
       let collides = false;
       if (!isTarget && !item.isSelected && item.priority > 0) {
@@ -307,11 +343,30 @@ export class LabelSystem {
       }
 
       if (!collides) {
+        // Stellarium Leader Line for Selected/Targeted items
+        if (isSelectedOrTarget) {
+          this.ctx.beginPath();
+          this.ctx.moveTo(screenX + 8 * dpr, screenY);
+          this.ctx.lineTo(screenX + 12 * dpr, screenY);
+          this.ctx.strokeStyle = '#00ffff';
+          this.ctx.lineWidth = 1.5 * dpr;
+          this.ctx.stroke();
+        } else if (showSymbol && markerType === 'circle') {
+          this.ctx.beginPath();
+          this.ctx.moveTo(screenX + 3 * dpr, screenY);
+          this.ctx.lineTo(screenX + 5 * dpr, screenY);
+          this.ctx.strokeStyle = item.color || 'rgba(255, 255, 255, 0.4)';
+          this.ctx.lineWidth = 1.0 * dpr;
+          this.ctx.stroke();
+        }
+
         // Outline stroke for contrast
-        this.ctx.strokeStyle = 'rgba(0, 0, 0, 0.9)';
-        this.ctx.lineWidth = 2.5 * dpr;
-        this.ctx.strokeText(item.name, screenX + 10 * dpr, screenY);
-        this.ctx.fillText(item.name, screenX + 10 * dpr, screenY);
+        this.ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)';
+        this.ctx.lineWidth = 3.0 * dpr;
+        const drawX = labelMinX;
+        const drawY = screenY + offsetY * dpr;
+        this.ctx.strokeText(item.name, drawX, drawY);
+        this.ctx.fillText(item.name, drawX, drawY);
 
         occupiedLabelBoxes.push({
           minX: labelMinX,
@@ -338,6 +393,75 @@ export class LabelSystem {
 
       this.ctx.restore();
     }
+
+    this.renderCardinalPoints(camera, w, h, dpr);
+  }
+
+  renderCardinalPoints(camera, w, h, dpr) {
+    if (!camera) return;
+
+    const cardinals = [
+      { name: 'N', az: 0 },
+      { name: 'E', az: 90 },
+      { name: 'S', az: 180 },
+      { name: 'W', az: 270 }
+    ];
+
+    // Planetarium Dome Compass Ring (North=Top, South=Bottom, East=Right, West=Left)
+    const camDir = new THREE.Vector3();
+    camera.getWorldDirection(camDir);
+    const camAz = Math.atan2(camDir.x, -camDir.z);
+
+    const cx = w * 0.5;
+    const cy = h * 0.5;
+    const margin = 52 * dpr;
+    const radiusX = Math.max(80 * dpr, (w * 0.5) - margin);
+    const radiusY = Math.max(80 * dpr, (h * 0.5) - margin);
+
+    for (let i = 0; i < cardinals.length; i++) {
+      const c = cardinals[i];
+      const azRad = THREE.MathUtils.degToRad(c.az);
+      const relAngle = azRad - camAz;
+
+      const screenX = cx + Math.sin(relAngle) * radiusX;
+      const screenY = cy - Math.cos(relAngle) * radiusY;
+
+      this.drawRedCardinalBadge(c.name, screenX, screenY, dpr);
+    }
+  }
+
+  drawRedCardinalBadge(name, screenX, screenY, dpr) {
+    this.ctx.save();
+    const boxSize = 22 * dpr;
+    const boxR = 4 * dpr;
+    const boxX = screenX - boxSize * 0.5;
+    const boxY = screenY - boxSize * 0.5;
+
+    this.ctx.fillStyle = 'rgba(215, 38, 38, 0.92)';
+    this.ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
+    this.ctx.lineWidth = 1.5 * dpr;
+    this.ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+    this.ctx.shadowBlur = 6 * dpr;
+
+    this.ctx.beginPath();
+    if (typeof this.ctx.roundRect === 'function') {
+      this.ctx.roundRect(boxX, boxY, boxSize, boxSize, boxR);
+    } else {
+      this.ctx.rect(boxX, boxY, boxSize, boxSize);
+    }
+    this.ctx.fill();
+    this.ctx.stroke();
+
+    this.ctx.shadowColor = 'transparent';
+    this.ctx.shadowBlur = 0;
+
+    this.ctx.font = `bold ${Math.round(14 * dpr)}px sans-serif`;
+    this.ctx.fillStyle = '#FFFFFF';
+    this.ctx.textAlign = 'center';
+    this.ctx.textBaseline = 'middle';
+    this.ctx.fillText(name, screenX, screenY + 0.5 * dpr);
+
+    this.ctx.restore();
   }
 
   dispose() {

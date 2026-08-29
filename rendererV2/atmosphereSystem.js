@@ -80,8 +80,8 @@ export const AtmosphereFragmentShader = `
     float zenithWeight = smoothstep(0.01, 0.65, h);
     float horizonFactor = exp(-4.5 * h); // Exponential horizon scattering & natural extinction
 
-    // Exposure non-linear scaling (preserves gradient at max, structure at min)
-    float skyExposure = mix(0.40, 1.40, clamp(uSkyBrightness, 0.0, 2.0) * 0.5);
+    // Exposure & Brightness scaling across full sky dome (Zenith overhead to Horizon)
+    float skyExposure = clamp(uSkyBrightness * 2.0, 0.0, 3.0);
 
     // 2. SUN-ALTITUDE TWILIGHT GRADIENT STAGES
     // Smoothstep weights across twilight regimes (C1 continuous)
@@ -91,25 +91,25 @@ export const AtmosphereFragmentShader = `
     float wCivil = smoothstep(-6.0, 0.0, sunAlt)   * (1.0 - smoothstep(0.0, 20.0, sunAlt));
     float wDay   = smoothstep(0.0, 20.0, sunAlt);
 
-    // Night (< -18°): Deep Stellarium Astronomical Sky (#02040A Zenith -> #0E1826 Horizon)
-    vec3 zenithNight  = vec3(0.006, 0.012, 0.032); // Deepest navy-black overhead (#02040A)
-    vec3 horizonNight = vec3(0.035, 0.065, 0.110); // Subtle dark blue-grey horizon haze (#0A1320)
+    // Night (< -18°): Stellarium Navy Night Sky Dome (covers 100% of full sphere from Zenith to Horizon)
+    vec3 zenithNight  = vec3(0.020, 0.040, 0.090) * skyExposure;
+    vec3 horizonNight = vec3(0.045, 0.075, 0.140) * skyExposure;
 
     // Astronomical Twilight (-18° to -12°): Deep navy twilight sky
-    vec3 zenithAstro  = vec3(0.008, 0.018, 0.045);
-    vec3 horizonAstro = vec3(0.055, 0.095, 0.150);
+    vec3 zenithAstro  = vec3(0.025, 0.050, 0.110) * skyExposure;
+    vec3 horizonAstro = vec3(0.065, 0.105, 0.170) * skyExposure;
 
     // Nautical Twilight (-12° to -6°): Deep blue overhead, dusk horizon
-    vec3 zenithNaut   = vec3(0.015, 0.032, 0.085);
-    vec3 horizonNaut  = vec3(0.095, 0.125, 0.200);
+    vec3 zenithNaut   = vec3(0.035, 0.070, 0.150) * skyExposure;
+    vec3 horizonNaut  = vec3(0.105, 0.140, 0.220) * skyExposure;
 
     // Civil Twilight (-6° to 0°): Soft purple zenith, warm pink/orange dusk horizon
-    vec3 zenithCivil  = vec3(0.040, 0.080, 0.200);
-    vec3 horizonCivil = vec3(0.350, 0.180, 0.100);
+    vec3 zenithCivil  = vec3(0.060, 0.100, 0.220) * skyExposure;
+    vec3 horizonCivil = vec3(0.350, 0.180, 0.100) * skyExposure;
 
-    // Full Daylight (sunAlt >= 0°): Bright vivid natural blue daytime sky (matching Stellarium Web)
-    vec3 zenithDay    = vec3(0.350, 0.650, 0.960); // Bright natural sky blue (#59a6f5)
-    vec3 horizonDay   = vec3(0.620, 0.820, 0.980); // Light pale blue scattering (#9ed1fa)
+    // Full Daylight (sunAlt >= 0°): Bright vivid natural blue daytime sky (calibrated at slider max)
+    vec3 zenithDay    = vec3(0.350, 0.650, 0.960) * clamp(skyExposure * 0.5, 0.15, 1.0);
+    vec3 horizonDay   = vec3(0.620, 0.820, 0.980) * clamp(skyExposure * 0.5, 0.15, 1.0);
 
     // Blend base colors continuously across sun altitude
     vec3 baseZenith  = zenithNight * wNight + zenithAstro * wAstro + zenithNaut * wNaut + zenithCivil * wCivil + zenithDay * wDay;
@@ -118,12 +118,11 @@ export const AtmosphereFragmentShader = `
     // Composite main atmospheric vertical gradient
     vec3 skyColor = mix(baseHorizon, baseZenith, zenithWeight);
 
-    // 3. SUNRISE / SUNSET & MIE SOLAR CORONA
-    // Soft warm scattering near horizon and Sun during twilight and day
+    // 3. SUNRISE / SUNSET HORIZON SCATTERING
+    // Soft warm scattering near horizon during twilight
     if (sunAlt > -8.0) {
-      float mieHalo = henyeyGreenstein(cosSunAngle, 0.82) * clamp((sunAlt + 8.0) / 12.0, 0.0, 1.0) * 0.22;
       vec3 warmSunsetColor = vec3(0.75, 0.35, 0.18) * horizonFactor * (1.0 - wDay) * 0.4;
-      skyColor += vec3(0.65, 0.45, 0.28) * mieHalo + warmSunsetColor;
+      skyColor += warmSunsetColor;
     }
 
     // 4. BORTLE LIGHT POLLUTION HORIZON DOME (Concentrated near horizon, zenith stays dark)
@@ -160,7 +159,7 @@ export const AtmosphereFragmentShader = `
     skyColor += airglowColor * airglowShape * 0.35;
 
     // 8. EXPOSURE TONE MAPPING (Natural non-linear contrast)
-    vec3 finalColor = vec3(1.0) - exp(-skyColor * skyExposure);
+    vec3 finalColor = vec3(1.0) - exp(-skyColor);
 
     // Alpha blending
     float finalAlpha = clamp(uOpacity, 0.0, 1.0);
@@ -253,7 +252,7 @@ export class AtmosphereSystem {
    * @param {Date} date - Simulation date/time.
    * @param {Object} observer - Observer location ({ latitude, longitude }).
    */
-  updateSunPosition(date = new Date(), observer = { latitude: 0, longitude: 0 }) {
+  updateSunPosition(date = new Date(), observer = { latitude: 0, longitude: 0 }, sunWorldVec = null) {
     let sunAlt = -25.0;
     let sunAz = 180.0;
     let moonAlt = -30.0;
@@ -328,14 +327,17 @@ export class AtmosphereSystem {
       this.material.uniforms.uMoonIllumination.value = moonPhase;
       this.material.uniforms.uMoonBrightness.value = this.moonBrightness !== undefined ? this.moonBrightness : 0.5;
 
-      // Update 3D Direction Vectors for Mie scattering
-      const sunAzRad = THREE.MathUtils.degToRad(sunAz);
-      const sunAltRad = THREE.MathUtils.degToRad(sunAlt);
-      this.material.uniforms.uSunPosition.value.set(
-        Math.cos(sunAltRad) * Math.sin(sunAzRad),
-        Math.sin(sunAltRad),
-        Math.cos(sunAltRad) * Math.cos(sunAzRad)
-      );
+      if (sunWorldVec && typeof sunWorldVec.x === 'number') {
+        this.material.uniforms.uSunPosition.value.copy(sunWorldVec);
+      } else {
+        const sunAzRad = THREE.MathUtils.degToRad(sunAz);
+        const sunAltRad = THREE.MathUtils.degToRad(sunAlt);
+        this.material.uniforms.uSunPosition.value.set(
+          Math.cos(sunAltRad) * Math.sin(sunAzRad),
+          Math.sin(sunAltRad),
+          Math.cos(sunAltRad) * Math.cos(sunAzRad)
+        );
+      }
     }
 
     // Star visibility factor calculation

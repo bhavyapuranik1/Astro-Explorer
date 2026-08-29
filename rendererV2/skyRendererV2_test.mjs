@@ -587,36 +587,19 @@ if (this.minorBodiesSystem) {
 
     // 5. Constellations & Asterisms
     if ((obj.type === 'constellation' || obj.type === 'asterism') && this.constellationSystem) {
-      const keysToTry = [
-        String(obj.displayName || '').toLowerCase().replace(/[^a-z0-9]/g, ''),
-        String(obj.fullName || '').toLowerCase().replace(/[^a-z0-9]/g, ''),
-        String(obj.name || '').toLowerCase().replace(/[^a-z0-9]/g, ''),
-        String(obj.id || '').toLowerCase().replace(/[^a-z0-9]/g, '')
-      ].filter(Boolean);
-
-      let match = null;
-      if (this.constellationSystem.allConstellationLabelsMap) {
-        for (const k of keysToTry) {
-          if (this.constellationSystem.allConstellationLabelsMap.has(k)) {
-            match = this.constellationSystem.allConstellationLabelsMap.get(k);
-            break;
-          }
+      const cKey = String(obj.displayName || obj.name || obj.id || '').toLowerCase().replace(/\s+/g, '');
+      const list = obj.type === 'constellation' ? this.constellationSystem.constellationLabels : this.constellationSystem.asterismLabels;
+      if (Array.isArray(list)) {
+        const match = list.find(c => {
+          const k1 = String(c.name || '').toLowerCase().replace(/\s+/g, '');
+          const k2 = String(c.id || '').toLowerCase().replace(/\s+/g, '');
+          return k1 === cKey || k2 === cKey;
+        });
+        if (match && match.position) {
+          const wPos = match.position.clone();
+          if (this.starSphereGroup) wPos.applyMatrix4(this.starSphereGroup.matrixWorld);
+          return wPos;
         }
-      }
-      if (!match) {
-        const list = obj.type === 'constellation' ? this.constellationSystem.constellationLabels : this.constellationSystem.asterismLabels;
-        if (Array.isArray(list)) {
-          match = list.find(c => {
-            const k1 = String(c.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-            const k2 = String(c.id || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-            return keysToTry.includes(k1) || keysToTry.includes(k2);
-          });
-        }
-      }
-      if (match && match.position) {
-        const wPos = match.position.clone();
-        if (this.starSphereGroup) wPos.applyMatrix4(this.starSphereGroup.matrixWorld);
-        return wPos;
       }
     }
 
@@ -672,39 +655,26 @@ if (this.minorBodiesSystem) {
 
   setSelectedObject(obj) {
     this.selectedTargetObject = obj || null;
-
-    const isConst = !!(obj && (
-      obj.type === 'constellation' ||
-      obj.type === 'asterism' ||
-      obj.type === 'constellation_line' ||
-      obj.category === 'constellation' ||
-      (obj.id && typeof obj.id === 'string' && (obj.id.startsWith('const_') || obj.id.startsWith('ast_') || obj.id.toLowerCase().includes('con modern'))) ||
-      (obj.constellation && typeof obj.constellation === 'string')
-    ));
-
-    const name = obj
-      ? (obj.displayName || obj.name || obj.id || null)
-      : null;
-
-    if (typeof window !== 'undefined') {
-      window.searchHighlightId = name;
-      window.v2SelectedObject = obj || null;
-    }
-
     if (this.labelSystem) {
       this.labelSystem.setSelectedObject(this.selectedTargetObject);
-      if (typeof this.labelSystem.setSearchTarget === 'function') {
-        this.labelSystem.setSearchTarget(name);
-      }
     }
+  }
 
-    if (this.constellationSystem && typeof this.constellationSystem.setSelectedConstellation === 'function') {
-      this.constellationSystem.setSelectedConstellation(isConst ? this.selectedTargetObject : null);
-    }
+  focusOnObject(obj, duration = 1.0) {
+    this.setSelectedObject(obj);
+    if (!obj) return;
 
-    if (obj && typeof window !== 'undefined' &&
-      typeof window.ensureV2SelectionMarker === 'function') {
-      window.ensureV2SelectionMarker();
+    const pos = this.getObjectPosition(obj);
+    if (!pos) return;
+
+    if (this.controls && this.camera) {
+      const targetDir = pos.clone().normalize();
+      const distance = this.camera.position.length();
+      const newCamPos = targetDir.clone().multiplyScalar(-distance);
+      this.camera.position.copy(newCamPos);
+      this.camera.lookAt(0, 0, 0);
+      this.controls.target.set(0, 0, 0);
+      this.controls.update();
     }
   }
 
@@ -723,13 +693,8 @@ if (this.minorBodiesSystem) {
     }
 
     const startCamPos = this.camera.position.clone();
-    const startCamDir = startCamPos.clone().normalize();
     const camRadius = 0.1;
     const startTime = performance.now();
-
-    if (this.controls) {
-      this.controls.enableDamping = false;
-    }
 
     const animateCamera = (now) => {
       const elapsed = now - startTime;
@@ -741,19 +706,15 @@ if (this.minorBodiesSystem) {
       const currentWPos = this.getObjectWorldPosition(obj);
       if (currentWPos && currentWPos.lengthSq() > 0.001) {
         const targetDir = currentWPos.clone().normalize();
-        const targetCamDir = targetDir.clone().negate();
+        const targetCamPos = targetDir.clone().negate().multiplyScalar(camRadius);
 
-        // Normalized lerpVectors keeps constant radius 0.1 on celestial sphere surface
-        const currentCamDir = new THREE.Vector3().lerpVectors(startCamDir, targetCamDir, ease).normalize();
-        this.camera.position.copy(currentCamDir.multiplyScalar(camRadius));
+        this.camera.position.lerpVectors(startCamPos, targetCamPos, ease);
 
         if (Math.abs(targetDir.y) > 0.95) {
           this.camera.up.set(0, 0, 1);
         } else {
           this.camera.up.set(0, 1, 0);
         }
-
-        this.camera.lookAt(0, 0, 0);
 
         if (this.controls) {
           this.controls.target.set(0, 0, 0);
@@ -766,7 +727,6 @@ if (this.minorBodiesSystem) {
       } else {
         this.focusAnimId = null;
         if (this.controls) {
-          this.controls.enableDamping = true;
           this.controls.target.set(0, 0, 0);
           this.controls.update();
         }
@@ -843,7 +803,37 @@ if (this.minorBodiesSystem) {
     }
   }
 
+  /**
 
+  /**
+   * Sets active selected object and updates 2D/3D label highlighting.
+   * @param {Object|null} obj
+   */
+  setSelectedObject(obj) {
+    this.selectedTargetObject = obj || null;
+
+    const name = obj
+      ? (obj.displayName || obj.name || obj.id || null)
+      : null;
+
+    if (typeof window !== 'undefined') {
+      window.searchHighlightId = name;
+
+      // Tell the V2 marker system directly that this exact object
+      // is the selected target.
+      window.v2SelectedObject = obj || null;
+    }
+
+    if (this.labelSystem) {
+      this.labelSystem.setSearchTarget(name);
+    }
+
+    // Immediately request marker creation/refresh.
+    if (obj && typeof window !== 'undefined' &&
+      typeof window.ensureV2SelectionMarker === 'function') {
+      window.ensureV2SelectionMarker();
+    }
+  }
 
   /**
    * Projects a celestial object to container-relative screen coordinates.
@@ -1049,21 +1039,6 @@ if (this.minorBodiesSystem) {
             dec: c.dec || 0,
             rawObj: c
           });
-        });
-      }
-
-      if (this.constellationSystem.currentSearchedLabel) {
-        const c = this.constellationSystem.currentSearchedLabel;
-        targets.push({
-          name: c.name,
-          position: c.position,
-          type: c.type || 'constellation',
-          color: c.color || (c.type === 'asterism' ? '#ffcc00' : '#00ffff'),
-          priority: 1,
-          ra: c.ra || 0,
-          dec: c.dec || 0,
-          rawObj: c,
-          isSelected: true
         });
       }
 
@@ -1336,7 +1311,6 @@ if (this.minorBodiesSystem) {
             targets.push({
               name: targetName,
               position: wPos,
-              isWorldPosition: true,
               type: this.selectedTargetObject.type,
               color: '#00ffff',
               priority: 0
@@ -1524,10 +1498,6 @@ if (this.minorBodiesSystem) {
           this.constellationSystem.constellationLines.visible =
             this.showConstellations &&
             !exrDayPresentation;
-        }
-
-        if (this.constellationSystem.currentSearchedMesh) {
-          this.constellationSystem.currentSearchedMesh.visible = !exrDayPresentation;
         }
 
         if (this.constellationSystem.asterismLines) {
@@ -2119,9 +2089,8 @@ setStarTwinklingIntensity(intensity) {
         this.constellationSystem &&
         this.constellationSystem.group
       ) {
-        const isTargetConst = !!(this.selectedTargetObject && (this.selectedTargetObject.type === 'constellation' || this.selectedTargetObject.type === 'asterism')) || !!this.constellationSystem.currentSearchedMesh;
         this.constellationSystem.group.visible =
-          this.showConstellations || isTargetConst;
+          this.showConstellations;
       }
 
       if (this.milkyWaySystem) {
@@ -2174,17 +2143,13 @@ setStarTwinklingIntensity(intensity) {
    * @param {number} brightness 0.0–1.0
    */
   setSkyBrightness(brightness) {
-    const rawVal = Math.max(0.0, Math.min(1.0, parseFloat(brightness) ?? 0.5));
-    this._skyBrightness = rawVal;
-
-    // Minimum sky brightness floor at 0.65 when slider is 0.0 (matches media_1788013897535.png), scaling up to 1.0
-    const effectiveSkyBrightness = 0.65 + (rawVal * 0.35);
-
+    const val = Math.max(0.0, Math.min(1.0, parseFloat(brightness) ?? 0.5));
+    this._skyBrightness = val;
     if (this.atmosphere && typeof this.atmosphere.setSkyBrightness === 'function') {
-      this.atmosphere.setSkyBrightness(effectiveSkyBrightness);
+      this.atmosphere.setSkyBrightness(val);
     }
     if (this.landscapeSystem && typeof this.landscapeSystem.setSkyBrightness === 'function') {
-      this.landscapeSystem.setSkyBrightness(effectiveSkyBrightness);
+      this.landscapeSystem.setSkyBrightness(val);
     }
   }
 
@@ -2648,53 +2613,26 @@ await this.minorBodiesSystem.init();
     if (this.constellationSystem) {
 
       if (this.constellationSystem.group) {
-        const hasSearchedMesh = !!this.constellationSystem.currentSearchedMesh;
-
         this.constellationSystem.group.visible =
-          !exrDayPresentation && (this.showConstellations || this.showAsterisms || hasSearchedMesh);
-
-        if (this.constellationSystem.constellationLines) {
-          this.constellationSystem.constellationLines.visible =
-            !exrDayPresentation && this.showConstellations;
-        }
-
-        if (this.constellationSystem.asterismLines) {
-          this.constellationSystem.asterismLines.visible =
-            !exrDayPresentation && this.showAsterisms;
-        }
+          !exrDayPresentation;
       }
 
-      if (this.constellationSystem.currentSearchedMesh) {
-        this.constellationSystem.currentSearchedMesh.visible = !exrDayPresentation;
-        if (typeof this.constellationSystem.currentSearchedMesh.traverse === 'function') {
-          this.constellationSystem.currentSearchedMesh.traverse(child => {
-            if (child) child.visible = !exrDayPresentation;
-          });
-        }
+      if (this.constellationSystem.constellationLines) {
+        this.constellationSystem.constellationLines.visible =
+          this.showConstellations &&
+          !exrDayPresentation;
       }
 
-      if (this.constellationSystem.currentSearchedArtMesh) {
-        this.constellationSystem.currentSearchedArtMesh.visible = !exrDayPresentation;
+      if (this.constellationSystem.asterismLines) {
+        this.constellationSystem.asterismLines.visible =
+          this.showAsterisms &&
+          !exrDayPresentation;
       }
 
       if (this.constellationSystem.artGroup) {
-        const hasSearchedArt = !!this.constellationSystem.currentSearchedArtMesh;
-        const artGroupVisible = !exrDayPresentation && (this.showConstellationArt || hasSearchedArt);
-        this.constellationSystem.artGroup.visible = artGroupVisible;
-
-        if (this.constellationSystem.artGroup.children) {
-          this.constellationSystem.artGroup.children.forEach(mesh => {
-            if (!mesh) return;
-            const isSearched = (mesh === this.constellationSystem.currentSearchedArtMesh);
-            if (isSearched) {
-              mesh.visible = !exrDayPresentation;
-            } else if (this.showConstellationArt && mesh.isDefaultArt) {
-              mesh.visible = !exrDayPresentation;
-            } else {
-              mesh.visible = false;
-            }
-          });
-        }
+        this.constellationSystem.artGroup.visible =
+          this.showConstellationArt &&
+          !exrDayPresentation;
       }
     }
 

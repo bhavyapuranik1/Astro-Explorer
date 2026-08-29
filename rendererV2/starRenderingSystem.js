@@ -38,7 +38,7 @@ export class StarRenderingSystem {
 
     this.twinklingEnabled = true;
     this.twinklingSpeed = 0.5;
-    this.twinklingIntensity = 0.5;
+    this.twinklingIntensity = 0.27;
     this.starMagnitudeLimit = 4.0;
     this.twinklingTime = 0.0;
 

@@ -64,6 +64,46 @@ export class SolarSystem {
     return new THREE.Vector3(x, y, z);
   }
 
+  createSunTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 512;
+    const ctx = canvas.getContext('2d');
+
+    const cx = 256;
+    const cy = 256;
+
+    // 1. Soft outer atmospheric radial glare (Stellarium daytime sky flooding)
+    const outerGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, 256);
+    outerGrad.addColorStop(0.0, 'rgba(255, 255, 255, 1.0)');
+    outerGrad.addColorStop(0.14, 'rgba(255, 255, 250, 0.96)');
+    outerGrad.addColorStop(0.32, 'rgba(255, 245, 215, 0.72)');
+    outerGrad.addColorStop(0.55, 'rgba(220, 240, 255, 0.35)');
+    outerGrad.addColorStop(0.80, 'rgba(180, 220, 255, 0.12)');
+    outerGrad.addColorStop(1.0, 'rgba(180, 220, 255, 0.0)');
+
+    ctx.fillStyle = outerGrad;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 256, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 2. Pure intense white solar core disk (Stellarium Sun central disk)
+    const coreGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, 72);
+    coreGrad.addColorStop(0.0, 'rgba(255, 255, 255, 1.0)');
+    coreGrad.addColorStop(0.70, 'rgba(255, 255, 255, 1.0)');
+    coreGrad.addColorStop(0.90, 'rgba(255, 250, 230, 0.90)');
+    coreGrad.addColorStop(1.0, 'rgba(255, 240, 200, 0.0)');
+
+    ctx.fillStyle = coreGrad;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 72, 0, Math.PI * 2);
+    ctx.fill();
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.needsUpdate = true;
+    return texture;
+  }
+
   /**
    * Initializes Solar System 3D meshes & GPU Shader Materials.
    */
@@ -72,48 +112,20 @@ export class SolarSystem {
     this.group.name = 'solarSystemGroup';
     this.group.renderOrder = 5;
 
-    // 1. Sun Solar Corona Lens Flare Mesh
-    const sunGeo = new THREE.PlaneGeometry(120, 120);
-    this.sunFlareMaterial = new THREE.ShaderMaterial({
-      vertexShader: `
-        varying vec2 vUv;
-        void main() {
-          vUv = uv;
-          vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-          gl_Position = projectionMatrix * mvPosition;
-        }
-      `,
-      fragmentShader: `
-        varying vec2 vUv;
-        void main() {
-          vec2 coord = vUv - vec2(0.5);
-          float dist = length(coord) * 2.0;
-          if (dist > 1.0) discard;
-
-          // Intense solar core
-          float core = exp(-15.0 * dist * dist);
-          // Soft solar corona aura
-          float corona = exp(-2.2 * dist) * 0.55;
-          // Solar diffraction cross spikes
-          float spikeX = exp(-40.0 * abs(coord.y)) * exp(-2.0 * abs(coord.x));
-          float spikeY = exp(-40.0 * abs(coord.x)) * exp(-2.0 * abs(coord.y));
-          float flare = (spikeX + spikeY) * 0.35;
-
-          float intensity = core + corona + flare;
-          vec3 sunColor = mix(vec3(1.0, 0.95, 0.75), vec3(1.0, 0.65, 0.25), dist);
-
-          float alpha = smoothstep(1.0, 0.75, dist);
-          gl_FragColor = vec4(sunColor * intensity * 1.4, alpha * clamp(intensity, 0.0, 1.0));
-        }
-      `,
+    // 1. Sun Solar Corona Lens Flare Sprite (Stellarium-Quality Perfect Round Circle)
+    this.sunTexture = this.createSunTexture();
+    this.sunFlareMaterial = new THREE.SpriteMaterial({
+      map: this.sunTexture,
       transparent: true,
       depthWrite: false,
       blending: THREE.AdditiveBlending
     });
 
-    this.sunMesh = new THREE.Mesh(sunGeo, this.sunFlareMaterial);
-    this.sunMesh.renderOrder = 6;
-    this.group.add(this.sunMesh);
+    this.sunSprite = new THREE.Sprite(this.sunFlareMaterial);
+    this.sunSprite.scale.set(360, 360, 1.0);
+    this.sunSprite.renderOrder = 6;
+    this.sunMesh = this.sunSprite; // Backward-compatibility alias for getWorldPosition
+    this.group.add(this.sunSprite);
 
     // 2. Planets & Moon BufferGeometry Particle Field
     const count = this.planetCatalog.length;
@@ -131,7 +143,7 @@ export class SolarSystem {
       colors[i * 3 + 2] = col.b;
 
       if (p.isSun) {
-        sizes[i] = 0.0; // Handled by sunMesh
+        sizes[i] = 0.0; // Suppressed: Big 3D sunMesh renders the Sun disk
         opacities[i] = 0.0;
       } else if (p.isMoon) {
         sizes[i] = 48.0;
@@ -155,10 +167,12 @@ export class SolarSystem {
 
         varying vec3 vColor;
         varying float vOpacity;
+        varying float vSize;
 
         void main() {
           vColor = color;
           vOpacity = opacity;
+          vSize = size;
 
           vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
           gl_Position = projectionMatrix * mvPosition;
@@ -168,6 +182,7 @@ export class SolarSystem {
       fragmentShader: `
         varying vec3 vColor;
         varying float vOpacity;
+        varying float vSize;
 
         void main() {
           if (vOpacity < 0.01) discard;
@@ -176,13 +191,25 @@ export class SolarSystem {
           float dist = length(coord) * 2.0;
           if (dist > 1.0) discard;
 
-          // Glowing planetary disk
-          float core = exp(-10.0 * dist * dist);
-          float halo = exp(-2.5 * dist) * 0.35;
-          float alpha = smoothstep(1.0, 0.70, dist);
+          if (vSize >= 50.0) {
+            // Pure brilliant white solar disk (Stellarium Sun icon disk)
+            float disk = smoothstep(0.42, 0.25, dist);
+            // Soft radial glow aura
+            float halo = exp(-3.0 * dist) * 0.85;
 
-          float intensity = core + halo;
-          gl_FragColor = vec4(vColor * intensity * 1.2, alpha * vOpacity * clamp(intensity, 0.0, 1.0));
+            float intensity = disk * 3.0 + halo;
+            vec3 sunColor = mix(vec3(1.0, 1.0, 0.98), vec3(1.0, 0.90, 0.60), dist);
+            float alpha = clamp(disk + halo * 0.7, 0.0, 1.0);
+            gl_FragColor = vec4(sunColor * intensity, alpha * vOpacity);
+          } else {
+            // Glowing planetary disk (Jupiter, Venus, Mars, Mercury, etc.)
+            float core = exp(-10.0 * dist * dist);
+            float halo = exp(-2.5 * dist) * 0.35;
+            float alpha = smoothstep(1.0, 0.70, dist);
+
+            float intensity = core + halo;
+            gl_FragColor = vec4(vColor * intensity * 1.2, alpha * vOpacity * clamp(intensity, 0.0, 1.0));
+          }
         }
       `,
       transparent: true,
@@ -203,7 +230,7 @@ export class SolarSystem {
    * @param {Date} date
    * @param {Object} observer
    */
-  updatePositions(date = new Date(), observer = { latitude: 0, longitude: 0 }) {
+  updatePositions(date = new Date(), observer = { latitude: 0, longitude: 0 }, isDaytimeAtmosphereOn = false) {
     if (!this.planetPoints || !this.planetPoints.geometry) return;
 
     const d = (date instanceof Date && !isNaN(date)) ? date : new Date(date || Date.now());
@@ -248,10 +275,12 @@ export class SolarSystem {
             p.dec = decDeg;
             positionsAttr.setXYZ(i, vec.x, vec.y, vec.z);
 
-            // Update Sun Billboard placement & orientation
-            if (p.isSun && this.sunMesh) {
-              this.sunMesh.position.copy(vec);
-              this.sunMesh.lookAt(0, 0, 0);
+            if (p.isSun) {
+              sizesAttr.setX(i, 0.0);
+              if (this.sunSprite) {
+                this.sunSprite.position.copy(vec);
+                this.sunSprite.visible = true;
+              }
             }
           }
         }
@@ -265,10 +294,12 @@ export class SolarSystem {
 
   dispose() {
     if (this.group) {
-      if (this.sunMesh) {
-        if (this.sunMesh.geometry) this.sunMesh.geometry.dispose();
+      if (this.sunSprite) {
+        if (this.sunTexture) this.sunTexture.dispose();
         if (this.sunFlareMaterial) this.sunFlareMaterial.dispose();
-        this.group.remove(this.sunMesh);
+        this.group.remove(this.sunSprite);
+        this.sunSprite = null;
+        this.sunMesh = null;
       }
       if (this.planetPoints) {
         if (this.planetPoints.geometry) this.planetPoints.geometry.dispose();

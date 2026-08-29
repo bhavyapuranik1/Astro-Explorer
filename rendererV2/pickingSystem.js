@@ -36,11 +36,18 @@ export class PickingSystem {
     const targetName = this.skyRenderer.selectedTargetObject ? String(this.skyRenderer.selectedTargetObject.displayName || this.skyRenderer.selectedTargetObject.name || this.skyRenderer.selectedTargetObject.id || '').toLowerCase() : null;
     const objName = String(obj.displayName || obj.name || obj.id || '').toLowerCase();
     const isSearchTarget = targetName && (targetName === objName || (objName && objName.includes(targetName)) || (targetName && targetName.includes(objName)));
-    
 
-    const fov = this.skyRenderer.camera ? (this.skyRenderer.camera.fov || 60) : 60;
+    if (isSearchTarget) return true;
 
-    // 2. Horizon Culling disabled - all visible celestial objects across full sky & landscape are 100% clickable
+    // Daytime + Atmosphere ON: ONLY Planets, Sun, Moon are selectable!
+    const sunAlt = (this.skyRenderer.atmosphere && this.skyRenderer.atmosphere.sunAltitude !== undefined)
+      ? this.skyRenderer.atmosphere.sunAltitude
+      : -30;
+    const isDaytimeAtmosphereOn = !!(this.skyRenderer.showAtmosphere !== false && sunAlt > 0);
+
+    if (isDaytimeAtmosphereOn && typeLower !== 'planet' && typeLower !== 'sun' && typeLower !== 'moon') {
+      return false;
+    }
 
     // 3. Planets, Sun, Moon
     if (typeLower === 'planet' || typeLower === 'sun' || typeLower === 'moon') {
