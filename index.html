@@ -104,14 +104,13 @@
 
     <div id="sky-ui">
 
-      <div id="sky-search" style="flex-direction: column; align-items: flex-start;">
-
-        <div style="display: flex; gap: 8px; width: 100%; align-items: center;">
-          <input type="text" id="searchBox" placeholder="Search object (JWST, Hubble, Mars, M31...)">
-
-          <button id="searchBtn" onclick="searchObject()">
-            Search
-          </button>
+      <div id="sky-search" class="stellarium-search-bar-wrap">
+        <div class="stellarium-search-box">
+          <svg id="stellariumSearchIcon" class="stellarium-search-icon" onclick="searchObject()" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" title="Search Celestial Objects">
+            <circle cx="11" cy="11" r="7"></circle>
+            <line x1="21" y1="21" x2="15.8" y2="15.8"></line>
+          </svg>
+          <input type="text" id="searchBox" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search...">
         </div>
         <div id="search-suggestions" class="search-suggestions hidden"></div>
         <div id="search-error" class="search-error hidden"></div>
@@ -123,6 +122,70 @@
     <button id="quick-sky-controls-toggle" title="Quick Sky Controls">
       <span> Sky Controls</span>
     </button>
+
+    <!-- Stellarium Web Style Bottom-Right Time & Date Widget -->
+    <div id="stellarium-time-badge" class="stellarium-time-badge" onclick="toggleStellariumTimePopover()" title="Click to set simulation time">
+      <div id="badge-time" class="stellarium-time-text">00:00:00</div>
+      <div id="badge-date" class="stellarium-date-text">2026-08-12</div>
+    </div>
+
+    <!-- Stellarium Spinners Popover -->
+    <div id="stellarium-time-popover" class="stellarium-time-popover hidden">
+      <div class="stellarium-popover-header">
+        <span>Stellarium Spinners</span>
+        <button class="stellarium-popover-close" onclick="toggleStellariumTimePopover()">✕</button>
+      </div>
+      <div class="stellarium-popover-body">
+        <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.5); border: 1px solid rgba(0,255,255,0.2); border-radius: 12px; padding: 12px 14px;">
+          <!-- Date Spinner -->
+          <div style="display: flex; align-items: center; gap: 4px;">
+            <div style="display: flex; flex-direction: column; align-items: center;">
+              <button class="time-spinner-btn" onclick="adjustSimTime('year', 1)">▲</button>
+              <span class="spin-year" style="font-family: monospace; font-size: 13px; font-weight: 700; color: #fff;">2026</span>
+              <button class="time-spinner-btn" onclick="adjustSimTime('year', -1)">▼</button>
+            </div>
+            <span style="color: rgba(255,255,255,0.4); font-size: 11px;">-</span>
+            <div style="display: flex; flex-direction: column; align-items: center;">
+              <button class="time-spinner-btn" onclick="adjustSimTime('month', 1)">▲</button>
+              <span class="spin-month" style="font-family: monospace; font-size: 13px; font-weight: 700; color: #fff;">08</span>
+              <button class="time-spinner-btn" onclick="adjustSimTime('month', -1)">▼</button>
+            </div>
+            <span style="color: rgba(255,255,255,0.4); font-size: 11px;">-</span>
+            <div style="display: flex; flex-direction: column; align-items: center;">
+              <button class="time-spinner-btn" onclick="adjustSimTime('day', 1)">▲</button>
+              <span class="spin-day" style="font-family: monospace; font-size: 13px; font-weight: 700; color: #fff;">12</span>
+              <button class="time-spinner-btn" onclick="adjustSimTime('day', -1)">▼</button>
+            </div>
+          </div>
+
+          <!-- Center Reset -->
+          <div style="color: rgba(0,255,255,0.7); font-size: 18px; margin: 0 6px; cursor: pointer; transition: transform 0.2s;" onclick="simResetNow()" title="Reset to Realtime">
+            ↺
+          </div>
+
+          <!-- Time Spinner -->
+          <div style="display: flex; align-items: center; gap: 4px;">
+            <div style="display: flex; flex-direction: column; align-items: center;">
+              <button class="time-spinner-btn" onclick="adjustSimTime('hour', 1)">▲</button>
+              <span class="spin-hour" style="font-family: monospace; font-size: 13px; font-weight: 700; color: #fff;">18</span>
+              <button class="time-spinner-btn" onclick="adjustSimTime('hour', -1)">▼</button>
+            </div>
+            <span style="color: rgba(255,255,255,0.4); font-size: 11px;">:</span>
+            <div style="display: flex; flex-direction: column; align-items: center;">
+              <button class="time-spinner-btn" onclick="adjustSimTime('minute', 1)">▲</button>
+              <span class="spin-minute" style="font-family: monospace; font-size: 13px; font-weight: 700; color: #fff;">07</span>
+              <button class="time-spinner-btn" onclick="adjustSimTime('minute', -1)">▼</button>
+            </div>
+            <span style="color: rgba(255,255,255,0.4); font-size: 11px;">:</span>
+            <div style="display: flex; flex-direction: column; align-items: center;">
+              <button class="time-spinner-btn" onclick="adjustSimTime('second', 1)">▲</button>
+              <span class="spin-second" style="font-family: monospace; font-size: 13px; font-weight: 700; color: #fff;">18</span>
+              <button class="time-spinner-btn" onclick="adjustSimTime('second', -1)">▼</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <div id="quick-sky-controls-panel" class="quick-panel-hidden">
       <div class="quick-panel-header">
@@ -157,7 +220,7 @@
                 <span>Star Magnitude</span>
                 <span class="quick-val" data-val-for="starMagnitude">4</span>
               </div>
-              <input type="range" data-sky-setting="starMagnitude" min="0" max="11" step="0.5" value="6.5">
+              <input type="range" data-sky-setting="starMagnitude" min="0" max="11" step="0.5" value="4">
             </div>
             <div class="quick-setting-row range-row">
               <div class="quick-label-wrap">
@@ -291,9 +354,9 @@
             <div class="quick-setting-row range-row">
               <div class="quick-label-wrap">
                 <span>Light Pollution (Bortle)</span>
-                <span class="quick-val" data-val-for="lightPollution">9</span>
+                <span class="quick-val" data-val-for="lightPollution">0</span>
               </div>
-              <input type="range" data-sky-setting="lightPollution" min="1" max="9" step="1" value="9">
+              <input type="range" data-sky-setting="lightPollution" min="0" max="9" step="1" value="0">
             </div>
             <div class="quick-setting-row range-row">
               <div class="quick-label-wrap">
@@ -381,7 +444,7 @@
             </div>
             <div class="quick-setting-row">
               <label class="switch">
-                <input type="checkbox" id="toggle-constellation-art-quick" data-sky-setting="showConstellationArt" checked>
+                <input type="checkbox" id="toggle-constellation-art-quick" data-sky-setting="showConstellationArt">
                 <span class="slider"></span>
               </label>
               <span>Constellation Artwork</span>
@@ -447,6 +510,7 @@
     <!-- Telescope Eyepiece Overlay -->
     <div id="telescope-overlay" class="hidden">
       <div class="eyepiece-mask" id="eyepiece-mask"></div>
+      <div class="fov-ring-outer" id="fov-ring-outer"></div>
       <div class="eyepiece-crosshair" id="eyepiece-crosshair">
         <div class="ch-line ch-h"></div>
         <div class="ch-line ch-v"></div>
@@ -657,161 +721,263 @@
         <div class="nasa-services-grid">
 
           <!-- Service 1: APOD -->
-          <div class="nasa-service-card" data-view-target="apod">
-            <div class="nasa-service-img-wrapper">
-              <img
-                src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 500' width='800' height='500'><rect width='800' height='500' fill='%230b0f19'/><circle cx='400' cy='220' r='50' fill='%234895ef' opacity='0.8'/><text x='400' y='350' fill='%23e2e8f0' font-family='sans-serif' font-size='20' font-weight='600' text-anchor='middle'>Astronomy Picture of the Day</text></svg>"
-                alt="APOD Preview" class="nasa-service-img" id="home-card-apod-img"
-                onerror="this.onerror=null; this.src=NASA_PLACEHOLDERS?NASA_PLACEHOLDERS.apod:'';" />
-              <span class="nasa-service-badge">Daily Feature</span>
-            </div>
-            <div class="nasa-service-body">
-              <h4 class="nasa-service-title">Astronomy Picture of the Day</h4>
-              <p class="nasa-service-desc">Each day a different image or photograph of our fascinating universe is
-                featured, along with a brief explanation.</p>
-              <div class="nasa-service-footer">
-                <span class="nasa-service-time">Updated Daily</span>
-                <button type="button" class="nasa-btn-primary">Explore APOD →</button>
+          <div class="nasa-service-card" data-view-target="apod" style="border: 1px solid rgba(255,255,255,0.08); border-left: 4px solid #38bdf8; background: rgba(15, 23, 42, 0.65); backdrop-filter: blur(12px); border-radius: 12px; padding: 20px; display: flex; flex-direction: column; justify-content: space-between; cursor: pointer;">
+            <div>
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 14px;">
+                <span style="background: rgba(56, 189, 248, 0.12); color: #38bdf8; border: 1px solid #0284c7; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; padding: 4px 10px; border-radius: 6px;">
+                  DAILY FEATURE
+                </span>
+                <span style="font-size: 0.68rem; color: #94a3b8; font-family: monospace;">
+                  UPDATED DAILY
+                </span>
               </div>
+              <h4 style="font-size: 1.15rem; font-weight: 600; color: #f8fafc; margin: 0 0 10px 0;">Astronomy Picture of the Day</h4>
+              <p style="font-size: 0.84rem; color: #94a3b8; margin: 0 0 16px 0; line-height: 1.5;">Each day a different image or photograph of our fascinating universe is featured, along with a brief expert explanation.</p>
+            </div>
+            <div>
+              <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 10px 12px; margin-bottom: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-family: monospace; font-size: 0.76rem;">
+                <div>
+                  <span style="color: #64748b; text-transform: uppercase; font-size: 0.65rem; display: block; margin-bottom: 2px;">Source</span>
+                  <span style="color: #38bdf8; font-weight: 600;">NASA APOD API</span>
+                </div>
+                <div style="text-align: right;">
+                  <span style="color: #64748b; text-transform: uppercase; font-size: 0.65rem; display: block; margin-bottom: 2px;">Cadence</span>
+                  <span style="color: #e2e8f0; font-weight: 500;">24 Hours</span>
+                </div>
+              </div>
+              <button type="button" class="nasa-btn-primary" style="width: 100%; text-align: center; justify-content: center;">Explore APOD →</button>
             </div>
           </div>
 
           <!-- Service 2: Mars Rover Photos -->
-          <div class="nasa-service-card" data-view-target="mars">
-            <div class="nasa-service-img-wrapper">
-              <img
-                src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 500' width='800' height='500'><rect width='800' height='500' fill='%232b0d0d'/><path d='M0 300 Q400 270 800 280 L800 500 L0 500 Z' fill='%239a3412'/><text x='400' y='440' fill='%23fdba74' font-family='sans-serif' font-size='20' font-weight='600' text-anchor='middle'>Mars Rover Photos</text></svg>"
-                alt="Mars Rover Preview" class="nasa-service-img" id="home-card-mars-img"
-                onerror="this.onerror=null; this.src=NASA_PLACEHOLDERS?NASA_PLACEHOLDERS.mars:'';" />
-              <span class="nasa-service-badge">Red Planet</span>
-            </div>
-            <div class="nasa-service-body">
-              <h4 class="nasa-service-title">Mars Rover Photos</h4>
-              <p class="nasa-service-desc">Browse raw photos taken by NASA's Mars rovers Curiosity, Perseverance,
-                Opportunity, and Spirit on the surface of Mars.</p>
-              <div class="nasa-service-footer">
-                <span class="nasa-service-time">Curiosity & Perseverance</span>
-                <button type="button" class="nasa-btn-primary">Browse Rovers →</button>
+          <div class="nasa-service-card" data-view-target="mars" style="border: 1px solid rgba(255,255,255,0.08); border-left: 4px solid #f97316; background: rgba(15, 23, 42, 0.65); backdrop-filter: blur(12px); border-radius: 12px; padding: 20px; display: flex; flex-direction: column; justify-content: space-between; cursor: pointer;">
+            <div>
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 14px;">
+                <span style="background: rgba(249, 115, 22, 0.12); color: #f97316; border: 1px solid #c2410c; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; padding: 4px 10px; border-radius: 6px;">
+                  RED PLANET
+                </span>
+                <span style="font-size: 0.68rem; color: #94a3b8; font-family: monospace;">
+                  SURFACE EXPLORER
+                </span>
               </div>
+              <h4 style="font-size: 1.15rem; font-weight: 600; color: #f8fafc; margin: 0 0 10px 0;">Mars Rover Telemetry</h4>
+              <p style="font-size: 0.84rem; color: #94a3b8; margin: 0 0 16px 0; line-height: 1.5;">Browse raw telemetry and surface photos taken by NASA's Mars rovers Curiosity, Perseverance, Opportunity, and Spirit.</p>
+            </div>
+            <div>
+              <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 10px 12px; margin-bottom: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-family: monospace; font-size: 0.76rem;">
+                <div>
+                  <span style="color: #64748b; text-transform: uppercase; font-size: 0.65rem; display: block; margin-bottom: 2px;">Rovers Active</span>
+                  <span style="color: #f97316; font-weight: 600;">Curiosity & Perseverance</span>
+                </div>
+                <div style="text-align: right;">
+                  <span style="color: #64748b; text-transform: uppercase; font-size: 0.65rem; display: block; margin-bottom: 2px;">Target Orbit</span>
+                  <span style="color: #e2e8f0; font-weight: 500;">Mars Surface</span>
+                </div>
+              </div>
+              <button type="button" class="nasa-btn-primary" style="width: 100%; text-align: center; justify-content: center;">Browse Rovers →</button>
             </div>
           </div>
 
           <!-- Service 3: Near Earth Objects -->
-          <div class="nasa-service-card" data-view-target="neo">
-            <div class="nasa-service-img-wrapper">
-              <div class="nasa-service-placeholder-icon"></div>
-              <span class="nasa-service-badge">Asteroids</span>
-            </div>
-            <div class="nasa-service-body">
-              <h4 class="nasa-service-title">Near Earth Objects (NeoWs)</h4>
-              <p class="nasa-service-desc">Track asteroids and comets making close approaches to Earth today with size,
-                velocity, and hazard status data.</p>
-              <div class="nasa-service-footer">
-                <span class="nasa-service-time">Real-time Feed</span>
-                <button type="button" class="nasa-btn-primary">Track Asteroids →</button>
+          <div class="nasa-service-card" data-view-target="neo" style="border: 1px solid rgba(255,255,255,0.08); border-left: 4px solid #10b981; background: rgba(15, 23, 42, 0.65); backdrop-filter: blur(12px); border-radius: 12px; padding: 20px; display: flex; flex-direction: column; justify-content: space-between; cursor: pointer;">
+            <div>
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 14px;">
+                <span style="background: rgba(16, 185, 129, 0.12); color: #10b981; border: 1px solid #047857; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; padding: 4px 10px; border-radius: 6px;">
+                  ASTEROIDS & COMETS
+                </span>
+                <span style="font-size: 0.68rem; color: #94a3b8; font-family: monospace;">
+                  LIVE NEOWS FEED
+                </span>
               </div>
+              <h4 style="font-size: 1.15rem; font-weight: 600; color: #f8fafc; margin: 0 0 10px 0;">Near Earth Objects (NeoWs)</h4>
+              <p style="font-size: 0.84rem; color: #94a3b8; margin: 0 0 16px 0; line-height: 1.5;">Track asteroids and comets making close approaches to Earth today with size, velocity, and hazard status data.</p>
+            </div>
+            <div>
+              <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 10px 12px; margin-bottom: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-family: monospace; font-size: 0.76rem;">
+                <div>
+                  <span style="color: #64748b; text-transform: uppercase; font-size: 0.65rem; display: block; margin-bottom: 2px;">Tracking</span>
+                  <span style="color: #10b981; font-weight: 600;">Real-Time Orbits</span>
+                </div>
+                <div style="text-align: right;">
+                  <span style="color: #64748b; text-transform: uppercase; font-size: 0.65rem; display: block; margin-bottom: 2px;">Hazard Monitor</span>
+                  <span style="color: #e2e8f0; font-weight: 500;">Automated NeoWs</span>
+                </div>
+              </div>
+              <button type="button" class="nasa-btn-primary" style="width: 100%; text-align: center; justify-content: center;">Track Asteroids →</button>
             </div>
           </div>
 
           <!-- Service 4: NASA Image Library -->
-          <div class="nasa-service-card" data-view-target="library">
-            <div class="nasa-service-img-wrapper">
-              <div class="nasa-service-placeholder-icon"></div>
-              <span class="nasa-service-badge">Media Archive</span>
-            </div>
-            <div class="nasa-service-body">
-              <h4 class="nasa-service-title">NASA Image & Video Library</h4>
-              <p class="nasa-service-desc">Search thousands of high-resolution astronomy images, mission videos, and
-                historical space flight audio recordings.</p>
-              <div class="nasa-service-footer">
-                <span class="nasa-service-time">Millions of Media</span>
-                <button type="button" class="nasa-btn-primary">Search Archive →</button>
+          <div class="nasa-service-card" data-view-target="library" style="border: 1px solid rgba(255,255,255,0.08); border-left: 4px solid #a855f7; background: rgba(15, 23, 42, 0.65); backdrop-filter: blur(12px); border-radius: 12px; padding: 20px; display: flex; flex-direction: column; justify-content: space-between; cursor: pointer;">
+            <div>
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 14px;">
+                <span style="background: rgba(168, 85, 247, 0.12); color: #a855f7; border: 1px solid #7e22ce; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; padding: 4px 10px; border-radius: 6px;">
+                  MEDIA ARCHIVE
+                </span>
+                <span style="font-size: 0.68rem; color: #94a3b8; font-family: monospace;">
+                  MILLIONS OF MEDIA
+                </span>
               </div>
+              <h4 style="font-size: 1.15rem; font-weight: 600; color: #f8fafc; margin: 0 0 10px 0;">NASA Image & Video Library</h4>
+              <p style="font-size: 0.84rem; color: #94a3b8; margin: 0 0 16px 0; line-height: 1.5;">Search thousands of high-resolution astronomy images, mission videos, and historical space flight audio recordings.</p>
+            </div>
+            <div>
+              <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 10px 12px; margin-bottom: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-family: monospace; font-size: 0.76rem;">
+                <div>
+                  <span style="color: #64748b; text-transform: uppercase; font-size: 0.65rem; display: block; margin-bottom: 2px;">Catalog</span>
+                  <span style="color: #a855f7; font-weight: 600;">NASA GSFC Archive</span>
+                </div>
+                <div style="text-align: right;">
+                  <span style="color: #64748b; text-transform: uppercase; font-size: 0.65rem; display: block; margin-bottom: 2px;">Media Types</span>
+                  <span style="color: #e2e8f0; font-weight: 500;">Image, Video, Audio</span>
+                </div>
+              </div>
+              <button type="button" class="nasa-btn-primary" style="width: 100%; text-align: center; justify-content: center;">Search Archive →</button>
             </div>
           </div>
 
           <!-- Service 5: Earth Observatory -->
-          <div class="nasa-service-card" data-view-target="earth">
-            <div class="nasa-service-img-wrapper">
-              <div class="nasa-service-placeholder-icon"></div>
-              <span class="nasa-service-badge">Earth Science</span>
-            </div>
-            <div class="nasa-service-body">
-              <h4 class="nasa-service-title">Earth Observatory</h4>
-              <p class="nasa-service-desc">Explore climate stories, natural hazard monitoring, satellite images of
-                wildfires, volcanic eruptions, and glacial changes.</p>
-              <div class="nasa-service-footer">
-                <span class="nasa-service-time">EONET & Climate Data</span>
-                <button type="button" class="nasa-btn-primary">Open Earth Hub →</button>
+          <div class="nasa-service-card" data-view-target="earth" style="border: 1px solid rgba(255,255,255,0.08); border-left: 4px solid #0284c7; background: rgba(15, 23, 42, 0.65); backdrop-filter: blur(12px); border-radius: 12px; padding: 20px; display: flex; flex-direction: column; justify-content: space-between; cursor: pointer;">
+            <div>
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 14px;">
+                <span style="background: rgba(2, 132, 199, 0.12); color: #38bdf8; border: 1px solid #0284c7; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; padding: 4px 10px; border-radius: 6px;">
+                  EARTH SCIENCE
+                </span>
+                <span style="font-size: 0.68rem; color: #94a3b8; font-family: monospace;">
+                  EONET SATELLITE
+                </span>
               </div>
+              <h4 style="font-size: 1.15rem; font-weight: 600; color: #f8fafc; margin: 0 0 10px 0;">Earth Observatory</h4>
+              <p style="font-size: 0.84rem; color: #94a3b8; margin: 0 0 16px 0; line-height: 1.5;">Explore climate stories, natural hazard monitoring, satellite images of wildfires, volcanic eruptions, and glacial changes.</p>
+            </div>
+            <div>
+              <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 10px 12px; margin-bottom: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-family: monospace; font-size: 0.76rem;">
+                <div>
+                  <span style="color: #64748b; text-transform: uppercase; font-size: 0.65rem; display: block; margin-bottom: 2px;">Sensors</span>
+                  <span style="color: #38bdf8; font-weight: 600;">Terra, Aqua, GOES</span>
+                </div>
+                <div style="text-align: right;">
+                  <span style="color: #64748b; text-transform: uppercase; font-size: 0.65rem; display: block; margin-bottom: 2px;">Scope</span>
+                  <span style="color: #e2e8f0; font-weight: 500;">Natural Hazards</span>
+                </div>
+              </div>
+              <button type="button" class="nasa-btn-primary" style="width: 100%; text-align: center; justify-content: center;">Open Earth Hub →</button>
             </div>
           </div>
 
           <!-- Service 6: Space Weather (DONKI) -->
-          <div class="nasa-service-card" data-view-target="spaceweather">
-            <div class="nasa-service-img-wrapper">
-              <div class="nasa-service-placeholder-icon"></div>
-              <span class="nasa-service-badge">Solar Monitor</span>
-            </div>
-            <div class="nasa-service-body">
-              <h4 class="nasa-service-title">Space Weather (DONKI)</h4>
-              <p class="nasa-service-desc">Live solar flares, coronal mass ejections, geomagnetic storms, solar
-                energetic particles, and satellite impact alerts.</p>
-              <div class="nasa-service-footer">
-                <span class="nasa-service-time">DONKI Live Feed</span>
-                <button type="button" class="nasa-btn-primary">Monitor Weather →</button>
+          <div class="nasa-service-card" data-view-target="spaceweather" style="border: 1px solid rgba(255,255,255,0.08); border-left: 4px solid #ef4444; background: rgba(15, 23, 42, 0.65); backdrop-filter: blur(12px); border-radius: 12px; padding: 20px; display: flex; flex-direction: column; justify-content: space-between; cursor: pointer;">
+            <div>
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 14px;">
+                <span style="background: rgba(239, 68, 68, 0.12); color: #ef4444; border: 1px solid #b91c1c; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; padding: 4px 10px; border-radius: 6px;">
+                  SOLAR MONITOR
+                </span>
+                <span style="font-size: 0.68rem; color: #94a3b8; font-family: monospace;">
+                  NOAA SWPC FEED
+                </span>
               </div>
+              <h4 style="font-size: 1.15rem; font-weight: 600; color: #f8fafc; margin: 0 0 10px 0;">Space Weather Telemetry</h4>
+              <p style="font-size: 0.84rem; color: #94a3b8; margin: 0 0 16px 0; line-height: 1.5;">Live solar flares, coronal mass ejections, geomagnetic storms, solar energetic particles, and satellite impact alerts.</p>
+            </div>
+            <div>
+              <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 10px 12px; margin-bottom: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-family: monospace; font-size: 0.76rem;">
+                <div>
+                  <span style="color: #64748b; text-transform: uppercase; font-size: 0.65rem; display: block; margin-bottom: 2px;">Stream</span>
+                  <span style="color: #ef4444; font-weight: 600;">NOAA SWPC Feed</span>
+                </div>
+                <div style="text-align: right;">
+                  <span style="color: #64748b; text-transform: uppercase; font-size: 0.65rem; display: block; margin-bottom: 2px;">Focus</span>
+                  <span style="color: #e2e8f0; font-weight: 500;">Solar Wind & Aurora</span>
+                </div>
+              </div>
+              <button type="button" class="nasa-btn-primary" style="width: 100%; text-align: center; justify-content: center;">Monitor Weather →</button>
             </div>
           </div>
 
           <!-- Service 7: Exoplanet Explorer -->
-          <div class="nasa-service-card" data-view-target="exoplanets">
-            <div class="nasa-service-img-wrapper">
-              <div class="nasa-service-placeholder-icon"></div>
-              <span class="nasa-service-badge">Alien Worlds</span>
-            </div>
-            <div class="nasa-service-body">
-              <h4 class="nasa-service-title">Exoplanet Explorer</h4>
-              <p class="nasa-service-desc">Discover alien worlds beyond our Solar System with orbital metrics, habitable
-                zone status, host stars, and mass specs.</p>
-              <div class="nasa-service-footer">
-                <span class="nasa-service-time">NASA Exoplanet Archive</span>
-                <button type="button" class="nasa-btn-primary">Explore Worlds →</button>
+          <div class="nasa-service-card" data-view-target="exoplanets" style="border: 1px solid rgba(255,255,255,0.08); border-left: 4px solid #ec4899; background: rgba(15, 23, 42, 0.65); backdrop-filter: blur(12px); border-radius: 12px; padding: 20px; display: flex; flex-direction: column; justify-content: space-between; cursor: pointer;">
+            <div>
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 14px;">
+                <span style="background: rgba(236, 72, 153, 0.12); color: #ec4899; border: 1px solid #be185d; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; padding: 4px 10px; border-radius: 6px;">
+                  ALIEN WORLDS
+                </span>
+                <span style="font-size: 0.68rem; color: #94a3b8; font-family: monospace;">
+                  NEXSCI ARCHIVE
+                </span>
               </div>
+              <h4 style="font-size: 1.15rem; font-weight: 600; color: #f8fafc; margin: 0 0 10px 0;">Exoplanet Explorer</h4>
+              <p style="font-size: 0.84rem; color: #94a3b8; margin: 0 0 16px 0; line-height: 1.5;">Discover alien worlds beyond our Solar System with orbital metrics, habitable zone status, host stars, and mass specs.</p>
+            </div>
+            <div>
+              <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 10px 12px; margin-bottom: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-family: monospace; font-size: 0.76rem;">
+                <div>
+                  <span style="color: #64748b; text-transform: uppercase; font-size: 0.65rem; display: block; margin-bottom: 2px;">Database</span>
+                  <span style="color: #ec4899; font-weight: 600;">NASA Exoplanet Archive</span>
+                </div>
+                <div style="text-align: right;">
+                  <span style="color: #64748b; text-transform: uppercase; font-size: 0.65rem; display: block; margin-bottom: 2px;">Target</span>
+                  <span style="color: #e2e8f0; font-weight: 500;">Habitable Exoplanets</span>
+                </div>
+              </div>
+              <button type="button" class="nasa-btn-primary" style="width: 100%; text-align: center; justify-content: center;">Explore Worlds →</button>
             </div>
           </div>
 
           <!-- Service 8: NASA Missions -->
-          <div class="nasa-service-card" data-view-target="missions">
-            <div class="nasa-service-img-wrapper">
-              <div class="nasa-service-placeholder-icon"></div>
-              <span class="nasa-service-badge">Spaceflight</span>
-            </div>
-            <div class="nasa-service-body">
-              <h4 class="nasa-service-title">NASA Missions Explorer</h4>
-              <p class="nasa-service-desc">Interactive explorer of flagship NASA space missions from JWST and
-                Perseverance to Europa Clipper and Voyager 1.</p>
-              <div class="nasa-service-footer">
-                <span class="nasa-service-time">Active & Upcoming</span>
-                <button type="button" class="nasa-btn-primary">Explore Missions →</button>
+          <div class="nasa-service-card" data-view-target="missions" style="border: 1px solid rgba(255,255,255,0.08); border-left: 4px solid #eab308; background: rgba(15, 23, 42, 0.65); backdrop-filter: blur(12px); border-radius: 12px; padding: 20px; display: flex; flex-direction: column; justify-content: space-between; cursor: pointer;">
+            <div>
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 14px;">
+                <span style="background: rgba(234, 179, 8, 0.12); color: #eab308; border: 1px solid #a16207; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; padding: 4px 10px; border-radius: 6px;">
+                  SPACEFLIGHT
+                </span>
+                <span style="font-size: 0.68rem; color: #94a3b8; font-family: monospace;">
+                  FLAGSHIP MISSIONS
+                </span>
               </div>
+              <h4 style="font-size: 1.15rem; font-weight: 600; color: #f8fafc; margin: 0 0 10px 0;">NASA Missions Explorer</h4>
+              <p style="font-size: 0.84rem; color: #94a3b8; margin: 0 0 16px 0; line-height: 1.5;">Interactive explorer of flagship NASA space missions from JWST and Perseverance to Europa Clipper and Voyager 1.</p>
+            </div>
+            <div>
+              <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 10px 12px; margin-bottom: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-family: monospace; font-size: 0.76rem;">
+                <div>
+                  <span style="color: #64748b; text-transform: uppercase; font-size: 0.65rem; display: block; margin-bottom: 2px;">Fleet</span>
+                  <span style="color: #eab308; font-weight: 600;">JWST, Hubble, Artemis</span>
+                </div>
+                <div style="text-align: right;">
+                  <span style="color: #64748b; text-transform: uppercase; font-size: 0.65rem; display: block; margin-bottom: 2px;">Scope</span>
+                  <span style="color: #e2e8f0; font-weight: 500;">Deep Space</span>
+                </div>
+              </div>
+              <button type="button" class="nasa-btn-primary" style="width: 100%; text-align: center; justify-content: center;">Explore Missions →</button>
             </div>
           </div>
 
           <!-- Service 9: Launch Explorer -->
-          <div class="nasa-service-card" data-view-target="launches">
-            <div class="nasa-service-img-wrapper">
-              <div class="nasa-service-placeholder-icon"></div>
-              <span class="nasa-service-badge">Rocket Launches</span>
-            </div>
-            <div class="nasa-service-body">
-              <h4 class="nasa-service-title">Launch Explorer</h4>
-              <p class="nasa-service-desc">Real-time space launch countdowns, rocket specifications, launch providers,
-                orbital payloads, and historical manifests.</p>
-              <div class="nasa-service-footer">
-                <span class="nasa-service-time">Live Countdown Feed</span>
-                <button type="button" class="nasa-btn-primary">Track Launches →</button>
+          <div class="nasa-service-card" data-view-target="launches" style="border: 1px solid rgba(255,255,255,0.08); border-left: 4px solid #6366f1; background: rgba(15, 23, 42, 0.65); backdrop-filter: blur(12px); border-radius: 12px; padding: 20px; display: flex; flex-direction: column; justify-content: space-between; cursor: pointer;">
+            <div>
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 14px;">
+                <span style="background: rgba(99, 102, 241, 0.12); color: #818cf8; border: 1px solid #4338ca; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; padding: 4px 10px; border-radius: 6px;">
+                  ROCKET LAUNCHES
+                </span>
+                <span style="font-size: 0.68rem; color: #94a3b8; font-family: monospace;">
+                  LIVE MANIFEST
+                </span>
               </div>
+              <h4 style="font-size: 1.15rem; font-weight: 600; color: #f8fafc; margin: 0 0 10px 0;">Launch Explorer</h4>
+              <p style="font-size: 0.84rem; color: #94a3b8; margin: 0 0 16px 0; line-height: 1.5;">Real-time space launch countdowns, rocket specifications, launch providers, orbital payloads, and historical manifests.</p>
+            </div>
+            <div>
+              <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 10px 12px; margin-bottom: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-family: monospace; font-size: 0.76rem;">
+                <div>
+                  <span style="color: #64748b; text-transform: uppercase; font-size: 0.65rem; display: block; margin-bottom: 2px;">Tracking</span>
+                  <span style="color: #818cf8; font-weight: 600;">SLS, Falcon 9, Starship</span>
+                </div>
+                <div style="text-align: right;">
+                  <span style="color: #64748b; text-transform: uppercase; font-size: 0.65rem; display: block; margin-bottom: 2px;">Countdowns</span>
+                  <span style="color: #e2e8f0; font-weight: 500;">Live Orbital Feeds</span>
+                </div>
+              </div>
+              <button type="button" class="nasa-btn-primary" style="width: 100%; text-align: center; justify-content: center;">Track Launches →</button>
             </div>
           </div>
 
@@ -828,22 +994,28 @@
 
       <!-- Legacy Controls & Container preserved for compatibility -->
       <div class="nasa-controls">
-        <button id="prev-btn" type="button"> Prev</button>
+        <button id="prev-btn" type="button">Prev</button>
         <input type="date" id="date-picker">
-        <button id="next-btn" type="button"> Next</button>
+        <button id="next-btn" type="button">Next</button>
         <button id="load-btn" type="button">Load</button>
-        <button id="apod-random-btn" class="nasa-btn-secondary" type="button">Random</button>
-        <button id="apod-sky-btn" class="nasa-btn-secondary" type="button"
-          style="background: linear-gradient(135deg, #3a0ca3, #4361ee); color: #ffffff;">View on Sky Map</button>
-        <button id="download-btn" type="button">Download</button>
-        <button id="apod-fav-btn" class="nasa-btn-secondary" type="button">Fav</button>
-        <button id="apod-share-btn" class="nasa-btn-secondary" type="button">Share</button>
+        <button id="apod-random-btn" class="nasa-btn-secondary" type="button" onclick="handleAPODRandom()">Random</button>
+        <a href="https://apod.nasa.gov/apod/astropix.html" target="_blank" rel="noopener" class="nasa-btn-secondary" style="display: inline-flex; align-items: center; justify-content: center; text-decoration: none;">Official APOD Site</a>
+        <button id="apod-sky-btn" class="nasa-btn-secondary btn-sky-map" type="button">View on Sky Map</button>
+        <button id="apod-ask-ai-btn" class="nasa-btn-secondary btn-ask-astro-ai" type="button">Ask Astro AI</button>
+        <button id="download-btn" type="button" class="nasa-btn-secondary" onclick="window.handleAPODDownload && window.handleAPODDownload()">Download</button>
+        <button id="apod-share-btn" class="nasa-btn-secondary" type="button" onclick="handleAPODShare()">Share</button>
       </div>
 
       <div class="nasa-container">
         <div class="nasa-left">
           <img id="apod-img" alt="APOD Image">
           <div id="video-container"></div>
+          <div id="video-link-bar" style="display:none; margin-top: 10px; margin-bottom: 10px; text-align: center;">
+            <a id="apod-video-direct-link" href="#" target="_blank" rel="noopener" style="display: inline-flex; align-items: center; justify-content: center; padding: 8px 20px; font-size: 0.9rem; background: rgba(56, 189, 248, 0.12); border: 1px solid #38bdf8; color: #38bdf8; border-radius: 20px; text-decoration: none; font-weight: 600; cursor: pointer; transition: all 0.2s ease;">
+              Watch on Original Site ↗
+            </a>
+          </div>
+
           <div class="image-box">
             <p id="apod-title"></p>
           </div>
@@ -1142,8 +1314,8 @@
             <button type="button" id="nasa-modal-download-btn" class="nasa-btn-primary">Download HD</button>
             <button type="button" id="nasa-modal-share-btn" class="nasa-btn-secondary">Copy Link</button>
             <button type="button" id="nasa-modal-fav-btn" class="nasa-btn-secondary">Fav</button>
-            <button type="button" id="nasa-modal-sky-btn" class="nasa-btn-secondary"
-              style="background: linear-gradient(135deg, #3a0ca3, #4361ee); color: #ffffff;">View on Sky Map</button>
+            <button type="button" id="nasa-modal-sky-btn" class="nasa-btn-secondary btn-sky-map">View on Sky Map</button>
+            <button type="button" id="nasa-modal-ask-ai-btn" class="nasa-btn-secondary btn-ask-astro-ai">✨ Ask Astro AI</button>
           </div>
           <div id="nasa-image-viewer-ai-bar" class="nasa-modal-ai-bar-slot"></div>
         </div>
@@ -1165,14 +1337,15 @@
         <div id="nasa-detail-media-container" class="nasa-detail-media"></div>
         <div id="nasa-detail-grid" class="nasa-detail-grid"></div>
         <div id="nasa-detail-desc" class="nasa-detail-text"></div>
-        <div id="nasa-detail-timeline" class="nasa-detail-timeline-box" style="display:none;"></div>
+        <div id="nasa-detail-timeline" class="nasa-detail-timeline-box"></div>
         <div id="nasa-detail-ai-bar" class="nasa-modal-ai-bar-slot"></div>
         <div id="nasa-detail-recommendations" class="nasa-modal-recs-slot"></div>
       </div>
       <div class="nasa-detail-footer">
-        <button type="button" id="nasa-detail-sky-btn" class="nasa-btn-secondary"
-          style="background: linear-gradient(135deg, #3a0ca3, #4361ee); color: #ffffff;">View on Sky Map</button>
+        <button type="button" id="nasa-detail-sky-btn" class="nasa-btn-secondary btn-sky-map">View on Sky Map</button>
+        <button type="button" id="nasa-detail-ask-ai-btn" class="nasa-btn-secondary btn-ask-astro-ai">✨ Ask Astro AI</button>
         <button type="button" id="nasa-detail-fav-btn" class="nasa-btn-primary">Fav</button>
+
         <button type="button" id="nasa-detail-download-btn" class="nasa-btn-secondary">Download Data</button>
         <button type="button" id="nasa-detail-share-btn" class="nasa-btn-secondary">Share</button>
       </div>
@@ -1546,8 +1719,8 @@
             <label for="obs-title">Observation Title</label>
             <input type="text" id="obs-title" placeholder="e.g. Saturn & Deep Sky Targets" class="form-input">
           </div>
-          <div>
-            <label>Session Rating & Favorite</label>
+          <div style="text-align: right;">
+            <label>Session Rating</label>
             <div class="rating-fav-form-row">
               <div class="star-rating-picker" id="obs-rating-picker" data-rating="5">
                 <span class="star-item active" data-value="1">★</span>
@@ -1556,10 +1729,6 @@
                 <span class="star-item active" data-value="4">★</span>
                 <span class="star-item active" data-value="5">★</span>
               </div>
-              <label class="fav-checkbox-label">
-                <input type="checkbox" id="obs-favorite-checkbox">
-                <span class="fav-star-icon" id="obs-fav-label">Fav</span>
-              </label>
             </div>
           </div>
         </div>
@@ -1710,7 +1879,7 @@
                 class="dropzone-browse-btn" id="browse-obs-files">browse files</button></p>
             <span class="dropzone-hint">Max file size: 3MB per file (JPG, PNG, WEBP, PDF)</span>
             <input type="file" id="obs-file-input" multiple
-              accept="image/jpeg,image/jpg,image/png,image/webp,application/pdf" style="display:none;">
+              accept="image/jpeg,image/jpg,image/png,image/webp,video/mp4,video/webm,video/quicktime,application/pdf" style="display:none;">
           </div>
           <div class="obs-file-previews" id="obs-file-previews"></div>
         </div>
@@ -1733,9 +1902,8 @@
       <div class="modal-body" id="view-obs-body"></div>
       <div class="modal-footer">
         <button type="button" class="modal-btn btn-secondary" id="view-obs-close-btn">Close</button>
-        <button type="button" class="modal-btn btn-secondary" id="view-obs-sky-btn"
-          style="background: linear-gradient(135deg, #3a0ca3, #4361ee); color: #ffffff;">View on Sky Map</button>
-        <button type="button" class="modal-btn btn-primary" id="view-obs-edit-btn"> Edit Session</button>
+        <button type="button" class="modal-btn btn-primary" id="view-obs-sky-btn">View on Sky Map</button>
+        <button type="button" class="modal-btn btn-secondary" id="view-obs-edit-btn">Edit Session</button>
       </div>
     </div>
   </div>
@@ -1766,9 +1934,14 @@
 
     <div id="ai-header">
 
-      <h2>Astro AI<span id="ai-research-badge" class="ai-research-badge hidden">Research Mode Active</span></h2>
+      <h2>Astro AI</h2>
 
       <div id="header-actions">
+
+        <button id="open-chat-search-btn" title="Search Chats"
+          style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.4); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 12px; margin-right: 4px; display: inline-flex; align-items: center; gap: 4px;">
+          🔍 Search Chats
+        </button>
 
         <button id="open-context-debug" title="Context Engine Debugger"
           style="background: rgba(34, 211, 238, 0.15); color: #22d3ee; border: 1px solid rgba(34, 211, 238, 0.4); padding: 4px 8px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 12px; margin-right: 4px;">
@@ -1924,9 +2097,7 @@
 
               <!-- FOOTER -->
               <div class="ph-footer">
-                <span class="ph-footer-ver">Astro Explorer v2.0</span>
-                <span class="ph-footer-sep">·</span>
-                <span class="ph-footer-build">Premium Edition</span>
+                <span class="ph-footer-ver">Astro Explorer v1.0</span>
               </div>
 
             </div><!-- end ph-scroll -->
@@ -1977,7 +2148,7 @@
 
       </div>
 
-      <input type="file" id="file-input" hidden>
+      <input type="file" id="file-input" accept=".txt,.js,.html,.css,.json,.md,.py,.java,.cpp,.c,.pdf,image/*,video/mp4,video/webm,video/quicktime" multiple hidden>
 
 
 
@@ -1994,7 +2165,7 @@
         Send
       </button>
 
-      <input type="file" id="astro-image" accept=".txt,.js,.html,.css,.json,.md,.py,.java,.cpp,.c,.pdf,image/*" multiple
+      <input type="file" id="astro-image" accept=".txt,.js,.html,.css,.json,.md,.py,.java,.cpp,.c,.pdf,image/*,video/mp4,video/webm,video/quicktime" multiple
         hidden>
 
     </div>
@@ -2226,26 +2397,6 @@
 
             <div class="setting-card">
 
-              <h3>Accent Color</h3>
-
-              <select id="accent-color-select">
-
-                <option value="#00f5ff">Cyan (Default)</option>
-
-                <option value="#8b5cf6">Purple</option>
-
-                <option value="#22c55e">Green</option>
-
-                <option value="#f97316">Orange</option>
-
-                <option value="#ef4444">Red</option>
-
-              </select>
-
-            </div>
-
-            <div class="setting-card">
-
               <h3>Chat Bubble Style</h3>
 
               <select id="bubble-style">
@@ -2258,20 +2409,6 @@
 
             </div>
 
-            <div class="setting-card">
-
-              <h3>Message Width</h3>
-
-              <select id="message-width">
-
-                <option value="70">Compact</option>
-
-                <option value="85">Normal</option>
-
-                <option value="100">Wide</option>
-
-              </select>
-            </div>
 
 
             <div class="setting-card">
@@ -2414,8 +2551,9 @@
             </div>
             <div class="settings-card">
               <h3>Memory Statistics</h3>
-              <p class="setting-info-row"><b>Total Memories:</b> <span id="memory-total">0</span></p>
-              <p class="setting-info-row"><b>Preferences:</b> <span id="memory-pref-count">0</span></p>
+              <p class="setting-info-row"><b>Total Saved Items:</b> <span id="memory-total">0</span></p>
+              <p class="setting-info-row"><b>General & Preferences:</b> <span id="memory-pref-count">0</span></p>
+              <p class="setting-info-row"><b>All Equipment:</b> <span id="memory-equipment-total-count">0</span></p>
               <p class="setting-info-row"><b>Theories:</b> <span id="memory-theory-count">0</span></p>
               <p class="setting-info-row"><b>Observations:</b> <span id="memory-observation-count">0</span></p>
               <p class="setting-info-row"><b>Telescope Sessions:</b> <span id="memory-telescope-count">0</span></p>
@@ -2432,32 +2570,19 @@
             <div class="settings-card">
               <h3>Category</h3>
               <select id="memory-filter">
-                <option value="all">
-                  All
-                </option>
-                <option value="memory">
-                  Memory
-                </option>
-                <option value="theory">
-                  Theory
-                </option>
-                <option value="observation">
-                  Observation
-                </option>
-
-                <option value="telescope">Telescope</option>
-
-                <option value="file">Files</option>
-
+                <option value="all">All Items</option>
+                <option value="memory">General & Preferences</option>
+                <option value="equipment">Equipment (All Gear)</option>
+                <option value="telescope">Telescopes (Equipment)</option>
+                <option value="camera">Cameras (Equipment)</option>
+                <option value="binoculars">Binoculars (Equipment)</option>
+                <option value="eyepiece">Eyepieces (Equipment)</option>
+                <option value="theory">Theories</option>
+                <option value="observation">Observations</option>
+                <option value="telescope_session">Telescope Sessions</option>
+                <option value="file">Saved Files</option>
                 <option value="favorite">Favorites</option>
-
-                <option value="pinned">
-                  Pinned
-                </option>
-                <option value="telescope_session">Telescope Session</option>
-                <option value="camera">Camera</option>
-                <option value="binoculars">Binoculars</option>
-                <option value="eyepiece"> Eyepiece</option>
+                <option value="pinned">Pinned</option>
               </select>
             </div>
             <div class="settings-card">
@@ -2518,7 +2643,7 @@
               <!-- Constellation Artwork -->
               <div class="setting-row">
                 <label class="switch">
-                  <input type="checkbox" id="toggle-constellation-art" data-sky-setting="showConstellationArt" checked>
+                  <input type="checkbox" id="toggle-constellation-art" data-sky-setting="showConstellationArt">
                   <span class="slider"></span>
                 </label>
 
@@ -2529,7 +2654,7 @@
               <!-- Asterisms -->
               <div class="setting-row">
                 <label class="switch">
-                  <input type="checkbox" id="toggle-asterisms" data-sky-setting="showAsterisms" checked>
+                  <input type="checkbox" id="toggle-asterisms" data-sky-setting="showAsterisms">
                   <span class="slider"></span>
                 </label>
 
@@ -2548,16 +2673,7 @@
 
               </div>
 
-              <!-- Celestial Objects -->
-              <div class="setting-row">
-                <label class="switch">
-                  <input type="checkbox" id="toggle-celestial-objects" data-sky-setting="showCelestialObjects" checked>
-                  <span class="slider"></span>
-                </label>
 
-                <span>Show Celestial Objects</span>
-
-              </div>
 
               <!-- Deep Sky Objects -->
               <div class="setting-row">
@@ -2606,9 +2722,9 @@
 
               <h3>Star Magnitude</h3>
 
-              <input type="range" id="star-magnitude" min="0" max="11" step="0.5" value="6.5">
+              <input type="range" id="star-magnitude" data-sky-setting="starMagnitude" min="0" max="11" step="0.5" value="4">
 
-              <span id="star-magnitude-value">6.5</span>
+              <span id="star-magnitude-value">4</span>
 
             </div>
 
@@ -2616,7 +2732,7 @@
 
               <h3>DSO Magnitude</h3>
 
-              <input type="range" id="dso-magnitude" min="1" max="8" step="0.5">
+              <input type="range" id="dso-magnitude" data-sky-setting="dsoMagnitude" min="1" max="8" step="0.5">
 
               <span id="dso-magnitude-value">4</span>
 
@@ -2734,9 +2850,6 @@
                   <input type="checkbox" id="toggle-horizon-line">
                   <span class="slider"></span>
                 </label>
-                <span>Horizon Line</span>
-              </div>
-
             </div>
 
           </div>
@@ -2769,7 +2882,7 @@
                   <span>Sky Brightness</span>
                   <span id="sky-brightness-value">0.5</span>
                 </div>
-                <input type="range" id="sky-brightness" min="0.0" max="1.0" step="0.05" value="0.5">
+                <input type="range" id="sky-brightness" data-sky-setting="skyBrightness" min="0.0" max="1.0" step="0.05" value="0.5">
               </div>
 
             </div>
@@ -2780,9 +2893,9 @@
               <div class="setting-row" style="flex-direction: column; align-items: stretch; gap: 8px;">
                 <div style="display: flex; justify-content: space-between;">
                   <span>Light Pollution (Bortle Scale)</span>
-                  <span id="light-pollution-value">9</span>
+                  <span id="light-pollution-value">0</span>
                 </div>
-                <input type="range" id="light-pollution" min="1" max="9" step="1" value="9">
+                <input type="range" id="light-pollution" data-sky-setting="lightPollution" min="0" max="9" step="1" value="0">
               </div>
 
               <div class="setting-row" style="flex-direction: column; align-items: stretch; gap: 8px;">
@@ -2790,7 +2903,7 @@
                   <span>Air Transparency</span>
                   <span id="air-transparency-value">0.8</span>
                 </div>
-                <input type="range" id="air-transparency" min="0.0" max="1.0" step="0.05" value="0.8">
+                <input type="range" id="air-transparency" data-sky-setting="airTransparency" min="0.0" max="1.0" step="0.05" value="0.8">
               </div>
 
               <div class="setting-row" style="flex-direction: column; align-items: stretch; gap: 8px;">
@@ -2798,7 +2911,7 @@
                   <span>Moonlight Intensity</span>
                   <span id="moonlight-brightness-value">0.5</span>
                 </div>
-                <input type="range" id="moonlight-brightness" min="0.0" max="1.0" step="0.05" value="0.5">
+                <input type="range" id="moonlight-brightness" data-sky-setting="moonlightBrightness" min="0.0" max="1.0" step="0.05" value="0.5">
               </div>
 
             </div>
@@ -2808,7 +2921,7 @@
 
               <div class="setting-row">
                 <label class="switch">
-                  <input type="checkbox" id="toggle-twinkling" checked>
+                  <input type="checkbox" id="toggle-twinkling" data-sky-setting="enableTwinkling" checked>
                   <span class="slider"></span>
                 </label>
                 <span>Enable Star Twinkling</span>
@@ -2816,7 +2929,7 @@
 
               <div class="setting-row">
                 <label class="switch">
-                  <input type="checkbox" id="toggle-renderer-overlay">
+                  <input type="checkbox" id="toggle-renderer-overlay" data-sky-setting="showRendererOverlay">
                   <span class="slider"></span>
                 </label>
                 <span>Developer Rendering Status Overlay</span>
@@ -2827,15 +2940,15 @@
                   <span>Twinkling Speed</span>
                   <span id="twinkling-speed-value">0.5</span>
                 </div>
-                <input type="range" id="twinkling-speed" min="0.1" max="2.0" step="0.05" value="0.5">
+                <input type="range" id="twinkling-speed" data-sky-setting="twinklingSpeed" min="0.1" max="2.0" step="0.05" value="0.5">
               </div>
 
               <div class="setting-row" style="flex-direction: column; align-items: stretch; gap: 8px;">
                 <div style="display: flex; justify-content: space-between;">
                   <span>Twinkling Intensity</span>
-                  <span id="twinkling-intensity-value">0.5</span>
+                  <span id="twinkling-intensity-value">0.27</span>
                 </div>
-                <input type="range" id="twinkling-intensity" min="0.0" max="1.0" step="0.05" value="0.5">
+                <input type="range" id="twinkling-intensity" data-sky-setting="twinklingIntensity" min="0.0" max="1.0" step="0.05" value="0.27">
               </div>
 
               <div class="setting-row" style="flex-direction: column; align-items: stretch; gap: 8px;">
@@ -2843,12 +2956,12 @@
                   <span>Star Color Saturation</span>
                   <span id="star-color-saturation-value">1.4</span>
                 </div>
-                <input type="range" id="star-color-saturation" min="0.0" max="2.0" step="0.1" value="1.4">
+                <input type="range" id="star-color-saturation" data-sky-setting="starColorSaturation" min="0.0" max="2.0" step="0.1" value="1.4">
               </div>
 
               <div class="setting-row">
                 <label class="switch">
-                  <input type="checkbox" id="toggle-dso-glow" checked>
+                  <input type="checkbox" id="toggle-dso-glow" data-sky-setting="enableDeepSkyGlow" checked>
                   <span class="slider"></span>
                 </label>
                 <span>Deep Sky Object Glow</span>
@@ -2859,7 +2972,7 @@
                   <span>DSO Glow Intensity</span>
                   <span id="dso-glow-intensity-value">0.5</span>
                 </div>
-                <input type="range" id="dso-glow-intensity" min="0.0" max="1.0" step="0.05" value="0.5">
+                <input type="range" id="dso-glow-intensity" data-sky-setting="deepSkyGlowIntensity" min="0.0" max="1.0" step="0.05" value="0.5">
               </div>
 
               <div class="setting-row" style="flex-direction: column; align-items: stretch; gap: 8px;">
@@ -2867,7 +2980,7 @@
                   <span>Milky Way Brightness</span>
                   <span id="mw-brightness-slider-value">1.0</span>
                 </div>
-                <input type="range" id="mw-brightness-slider" min="0.0" max="1.0" step="0.05" value="1.0">
+                <input type="range" id="mw-brightness-slider" data-sky-setting="mwBrightness" min="0.0" max="1.0" step="0.05" value="1.0">
               </div>
               <div class="setting-row range-row">
                 <div class="setting-label">
@@ -3046,45 +3159,6 @@
                   <span class="slider"></span>
                 </label>
                 <span>Enable Night Vision Mode (Crimson Filter)</span>
-              </div>
-            </div>
-
-            <div class="settings-card">
-              <h3>Path &amp; Trajectory Visualizers</h3>
-              <div class="setting-row" style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
-                <label class="switch">
-                  <input type="checkbox" id="settings-trails-toggle" checked>
-                  <span class="slider"></span>
-                </label>
-                <span>Enable Object Trails</span>
-              </div>
-              <div class="setting-row" style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
-                <label class="switch">
-                  <input type="checkbox" id="settings-futurepath-toggle" checked>
-                  <span class="slider"></span>
-                </label>
-                <span>Future Path Prediction (24h)</span>
-              </div>
-              <div class="setting-row" style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
-                <label class="switch">
-                  <input type="checkbox" id="settings-risepath-toggle" checked>
-                  <span class="slider"></span>
-                </label>
-                <span>Show Rise Path</span>
-              </div>
-              <div class="setting-row" style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
-                <label class="switch">
-                  <input type="checkbox" id="settings-setpath-toggle" checked>
-                  <span class="slider"></span>
-                </label>
-                <span>Show Set Path</span>
-              </div>
-              <div class="setting-row" style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
-                <label class="switch">
-                  <input type="checkbox" id="settings-transitpath-toggle" checked>
-                  <span class="slider"></span>
-                </label>
-                <span>Show Transit Path</span>
               </div>
             </div>
 
@@ -3762,232 +3836,41 @@
     </div>
   </div>
 
-  <!-- Stellarium Web Style Bottom-Right Time & Date Widget -->
-  <div id="stellarium-time-widget" class="stellarium-time-badge" onclick="toggleStellariumTimePopover()"
-    title="Click to set simulation time">
-    <div id="badge-time" class="stellarium-time-text">00:00:00</div>
-    <div id="badge-date" class="stellarium-date-text">2026-08-12</div>
-  </div>
+  <!-- Image Format Download Modal -->
+  <div id="download-format-modal" class="download-format-modal-overlay">
+    <div class="download-format-modal-card">
+      <h3 class="download-format-title">
+        Download NASA Image
+      </h3>
+      <p class="download-format-subtitle">Select your preferred file format for high quality save:</p>
+      
+      <div class="download-format-field-group">
+        <label class="download-format-label">File Format:</label>
+        <select id="download-format-select" class="download-format-select">
+          <option value="jpg" selected>JPG (.jpg) - Standard Photo Format</option>
+          <option value="jpeg">JPEG (.jpeg) - High Quality Joint Photographic</option>
+          <option value="png">PNG (.png) - High Definition Lossless Image</option>
+        </select>
+      </div>
 
-  <!-- Stellarium Spinners Popover -->
-  <div id="stellarium-time-popover" class="stellarium-time-popover hidden">
-    <div class="stellarium-popover-header">
-      <span>Stellarium Spinners</span>
-      <button class="stellarium-popover-close" onclick="toggleStellariumTimePopover()">✕</button>
-    </div>
-    <div class="stellarium-popover-body">
-      <div
-        style="display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.5); border: 1px solid rgba(0,255,255,0.2); border-radius: 12px; padding: 12px 14px;">
-        <!-- Date Spinner -->
-        <div style="display: flex; align-items: center; gap: 4px;">
-          <div style="display: flex; flex-direction: column; align-items: center;">
-            <button class="time-spinner-btn" onclick="adjustSimTime('year', 1)">▲</button>
-            <span class="spin-year"
-              style="font-family: monospace; font-size: 13px; font-weight: 700; color: #fff;">2026</span>
-            <button class="time-spinner-btn" onclick="adjustSimTime('year', -1)">▼</button>
-          </div>
-          <span style="color: rgba(255,255,255,0.4); font-size: 11px;">-</span>
-          <div style="display: flex; flex-direction: column; align-items: center;">
-            <button class="time-spinner-btn" onclick="adjustSimTime('month', 1)">▲</button>
-            <span class="spin-month"
-              style="font-family: monospace; font-size: 13px; font-weight: 700; color: #fff;">08</span>
-            <button class="time-spinner-btn" onclick="adjustSimTime('month', -1)">▼</button>
-          </div>
-          <span style="color: rgba(255,255,255,0.4); font-size: 11px;">-</span>
-          <div style="display: flex; flex-direction: column; align-items: center;">
-            <button class="time-spinner-btn" onclick="adjustSimTime('day', 1)">▲</button>
-            <span class="spin-day"
-              style="font-family: monospace; font-size: 13px; font-weight: 700; color: #fff;">12</span>
-            <button class="time-spinner-btn" onclick="adjustSimTime('day', -1)">▼</button>
-          </div>
-        </div>
-
-        <!-- Center Reset -->
-        <div
-          style="color: rgba(0,255,255,0.7); font-size: 18px; margin: 0 6px; cursor: pointer; transition: transform 0.2s;"
-          onclick="simResetNow()" title="Reset to Realtime">
-          ↺
-        </div>
-
-        <!-- Time Spinner -->
-        <div style="display: flex; align-items: center; gap: 4px;">
-          <div style="display: flex; flex-direction: column; align-items: center;">
-            <button class="time-spinner-btn" onclick="adjustSimTime('hour', 1)">▲</button>
-            <span class="spin-hour"
-              style="font-family: monospace; font-size: 13px; font-weight: 700; color: #fff;">18</span>
-            <button class="time-spinner-btn" onclick="adjustSimTime('hour', -1)">▼</button>
-          </div>
-          <span style="color: rgba(255,255,255,0.4); font-size: 11px;">:</span>
-          <div style="display: flex; flex-direction: column; align-items: center;">
-            <button class="time-spinner-btn" onclick="adjustSimTime('minute', 1)">▲</button>
-            <span class="spin-minute"
-              style="font-family: monospace; font-size: 13px; font-weight: 700; color: #fff;">07</span>
-            <button class="time-spinner-btn" onclick="adjustSimTime('minute', -1)">▼</button>
-          </div>
-          <span style="color: rgba(255,255,255,0.4); font-size: 11px;">:</span>
-          <div style="display: flex; flex-direction: column; align-items: center;">
-            <button class="time-spinner-btn" onclick="adjustSimTime('second', 1)">▲</button>
-            <span class="spin-second"
-              style="font-family: monospace; font-size: 13px; font-weight: 700; color: #fff;">18</span>
-            <button class="time-spinner-btn" onclick="adjustSimTime('second', -1)">▼</button>
-          </div>
-        </div>
+      <div class="download-format-actions">
+        <button type="button" class="nasa-btn-secondary" onclick="closeDownloadFormatModal()">Cancel</button>
+        <button type="button" id="confirm-download-btn" class="nasa-btn-primary download-confirm-btn">Download File</button>
       </div>
     </div>
   </div>
 
-  <style>
-    .stellarium-time-badge {
-      position: fixed;
-      bottom: 24px;
-      left: 24px;
-      background: rgba(30, 30, 32, 0.88);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      border-radius: 8px;
-      padding: 8px 18px;
-      color: #ffffff;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      text-align: center;
-      cursor: pointer;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
-      z-index: 9999;
-      user-select: none;
-      transition: all 0.2s ease;
-    }
-
-    .stellarium-time-badge:hover {
-      background: rgba(45, 45, 50, 0.95);
-      border-color: rgba(0, 210, 255, 0.5);
-      transform: translateY(-2px);
-      box-shadow: 0 6px 24px rgba(0, 210, 255, 0.25);
-    }
-
-    .stellarium-time-text {
-      font-size: 16px;
-      font-weight: 700;
-      letter-spacing: 0.8px;
-      line-height: 1.2;
-      color: #ffffff;
-    }
-
-    .stellarium-date-text {
-      font-size: 13px;
-      font-weight: 500;
-      color: rgba(255, 255, 255, 0.85);
-      margin-top: 2px;
-    }
-
-    .stellarium-time-popover {
-      position: fixed;
-      bottom: 84px;
-      left: 24px;
-      width: 320px;
-      background: rgba(20, 22, 28, 0.92);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border: 1px solid rgba(0, 210, 255, 0.3);
-      border-radius: 12px;
-      padding: 14px 16px;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
-      z-index: 10000;
-      color: #ffffff;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    }
-
-    .stellarium-time-popover.hidden {
-      display: none !important;
-    }
-
-    .stellarium-popover-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 14px;
-      font-weight: 600;
-      margin-bottom: 12px;
-      padding-bottom: 8px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-      color: #00f0ff;
-    }
-
-    .stellarium-popover-close {
-      background: none;
-      border: none;
-      color: #aaaaaa;
-      font-size: 14px;
-      cursor: pointer;
-      padding: 2px 6px;
-      border-radius: 4px;
-    }
-
-    .stellarium-popover-close:hover {
-      color: #ffffff;
-      background: rgba(255, 255, 255, 0.1);
-    }
-
-    .stellarium-input-group {
-      margin-bottom: 12px;
-    }
-
-    .stellarium-input-group label {
-      display: block;
-      font-size: 12px;
-      color: rgba(255, 255, 255, 0.7);
-      margin-bottom: 6px;
-    }
-
-    .stellarium-datetime-input {
-      width: 100%;
-      padding: 8px 10px;
-      background: rgba(0, 0, 0, 0.4);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      border-radius: 6px;
-      color: #ffffff;
-      font-size: 13px;
-      outline: none;
-      box-sizing: border-box;
-    }
-
-    .stellarium-datetime-input:focus {
-      border-color: #00f0ff;
-    }
-
-    .stellarium-popover-actions {
-      display: flex;
-      gap: 8px;
-    }
-
-    .stellarium-btn {
-      flex: 1;
-      padding: 8px;
-      font-size: 12px;
-      font-weight: 600;
-      border-radius: 6px;
-      cursor: pointer;
-      border: none;
-      transition: all 0.2s ease;
-    }
-
-    .stellarium-btn.primary {
-      background: #00f0ff;
-      color: #050a14;
-    }
-
-    .stellarium-btn.primary:hover {
-      background: #33f3ff;
-    }
-
-    .stellarium-btn.secondary {
-      background: rgba(255, 255, 255, 0.12);
-      color: #ffffff;
-    }
-
-    .stellarium-btn.secondary:hover {
-      background: rgba(255, 255, 255, 0.22);
-    }
-  </style>
+  <!-- APOD Favorites Gallery Modal -->
+  <div id="apod-favorites-modal" class="download-format-modal-overlay" style="display:none;">
+    <div class="download-format-modal-card" style="max-width: 720px; max-height: 85vh; overflow-y: auto;">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.15); padding-bottom: 12px; margin-bottom: 16px;">
+        <h3 class="download-format-title" style="margin:0;">Saved APOD Favorites</h3>
+        <button type="button" class="nasa-btn-secondary" onclick="closeAPODFavoritesModal()" style="padding: 4px 12px; cursor: pointer;">Close</button>
+      </div>
+      <div id="apod-favorites-list" class="apod-fav-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px;">
+      </div>
+    </div>
+  </div>
 
   <script type="module" src="firebase.js"></script>
   <script type="module" src="model-capabilities.js"></script>

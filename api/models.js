@@ -213,20 +213,37 @@ async function discoverGroqModels(apiKey) {
     const activeGroq = data.data.filter(m => {
       const id = String(m.id || "").toLowerCase();
       if (m.active === false) return false;
-      // Exclude whisper / audio speech-to-text models
-      if (id.includes("whisper") || id.includes("tts")) return false;
+      // Exclude whisper, tts, guardrail, embedding models
+      if (id.includes("whisper") || id.includes("tts") || id.includes("guard") || id.includes("embed") || id.includes("vision-preview")) return false;
       return id.includes("llama") || id.includes("mixtral") || id.includes("gemma") || id.includes("qwen") || id.includes("deepseek") || id.includes("oss");
     });
 
     if (activeGroq.length === 0) return fallbackModels;
 
-    return activeGroq.map(m => {
+    // Rank Groq models (prefer flagship OSS, 3.3 70B, 3.1 8B, DeepSeek)
+    activeGroq.sort((a, b) => {
+      const getScore = (id) => {
+        let score = 0;
+        if (id.includes("gpt-oss-120b")) score += 100;
+        else if (id.includes("gpt-oss-20b")) score += 90;
+        else if (id.includes("llama-3.3-70b")) score += 80;
+        else if (id.includes("llama-3.1-8b")) score += 70;
+        else if (id.includes("deepseek-r1")) score += 60;
+        else if (id.includes("llama-3")) score += 50;
+        return score;
+      };
+      return getScore(String(b.id || "").toLowerCase()) - getScore(String(a.id || "").toLowerCase());
+    });
+
+    // TOP 5 RULE for Groq
+    return activeGroq.slice(0, 5).map(m => {
       return {
         id: m.id,
         name: formatGroqDisplayName(m.id),
         desc: m.owned_by ? `By ${m.owned_by}` : "Groq Fast LLM"
       };
     });
+
   } catch (err) {
     console.warn("[GroqDiscovery] Exception during Groq discovery:", err.message);
     return fallbackModels;

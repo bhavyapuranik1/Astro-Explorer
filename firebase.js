@@ -40,7 +40,9 @@ import {
 
   getDocs,
 
-  deleteDoc
+  deleteDoc,
+
+  writeBatch
 
 } from
 "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
@@ -116,6 +118,7 @@ window.getDocs =
   getDocs;
 
 window.deleteDoc = deleteDoc;
+window.writeBatch = writeBatch;
   window.currentUser = null;
 
   
